@@ -14,13 +14,23 @@ const Home: NextPage = () => {
       </Head>
 
       <main className={styles.main}>
-        <h1 className={styles.title}>Butter Dots Dot Com</h1>
+        <h3 className={styles.title}>Butter Dots Dot Com</h3>
+        <p className={styles.description}>(trying saying it out loud...fun!)</p>
+        <div className={styles.card}>
+          {' '}
+          <Image
+            src="/butterdots.jpg"
+            alt="butter dots in a metal bowl with ice"
+            height={700}
+            width={700}
+          />
+        </div>
+        <div className={styles.description}>
+          Butter Dots are small discs of butter (european style works best)
+          which are formed in ice cold water by rolling bits of butter into a
+          ball and then pressing them flat.
+        </div>
       </main>
-
-      <div>
-        {' '}
-        <Image src="/butterdots.jpg" alt="butter dots" />
-      </div>
 
       <footer className={styles.footer}>
         <a
