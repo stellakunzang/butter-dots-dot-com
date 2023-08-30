@@ -15,7 +15,8 @@ const Home: NextPage = () => {
 
       <main className={styles.main}>
         <h3 className={styles.title}>Butter Dots Dot Com</h3>
-        <p className={styles.description}>(trying saying it out loud...fun!)</p>
+        <p className={styles.description}>(try saying it out loud...fun!)</p>
+        <p className={styles.description}>(yes, Jon, I fixed the typo)</p>
         <div className={styles.card}>
           {' '}
           <Image
