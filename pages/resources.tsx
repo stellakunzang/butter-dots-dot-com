@@ -8,31 +8,40 @@ const Resources: NextPage = () => {
       description="Resources for installing Tibetan fonts and keyboards"
       showBackLink
     >
-      <div className="mb-8 text-center">
-        <h1 className="text-5xl font-serif text-gray-800 mb-2">
-          Tibetan Resources
+      <div className="mb-12 max-w-4xl mx-auto border-b-2 border-gray-200 pb-8">
+        <div className="mb-4">
+          <span className="text-sm uppercase tracking-wider text-gray-500 font-medium">
+            Language Tools & Resources
+          </span>
+        </div>
+        <h1 className="text-5xl md:text-6xl font-serif text-gray-900 mb-4 tracking-tight">
+          Tibetan Language Resources
         </h1>
-        <p className="text-xl text-gray-600">
-          Tools and guides for installing Tibetan fonts and keyboards
+        <p className="text-xl text-gray-600 font-light leading-relaxed">
+          A comprehensive collection of fonts, keyboard layouts, and tools for working with the Tibetan script and language.
         </p>
       </div>
 
       <Section title="Quick Install (macOS)" variant="highlight">
-        <p>Download and run our automated installer script:</p>
-        <Button
-          href="/install-tibetan-fonts.sh"
-          download="install-tibetan-fonts.sh"
-          variant="primary"
-        >
-          📥 Download Installation Script
-        </Button>
-        <div style={{marginTop: '1.5rem'}}>
-          <p><strong>After downloading, open Terminal and run:</strong></p>
-          <CodeBlock language="bash">
-            {`cd ~/Downloads
+        <div className="space-y-6">
+          <p className="text-lg">Download and run our automated installer script:</p>
+          <div className="flex gap-4 items-center">
+            <Button
+              href="/install-tibetan-fonts.sh"
+              download="install-tibetan-fonts.sh"
+              variant="primary"
+            >
+              📥 Download Installation Script
+            </Button>
+          </div>
+          <div className="mt-6 p-6 bg-gray-50 rounded-lg border border-gray-200">
+            <p className="font-medium text-gray-900 mb-3">After downloading, open Terminal and run:</p>
+            <CodeBlock language="bash">
+              {`cd ~/Downloads
 chmod +x install-tibetan-fonts.sh
 ./install-tibetan-fonts.sh`}
-          </CodeBlock>
+            </CodeBlock>
+          </div>
         </div>
       </Section>
 
@@ -41,7 +50,7 @@ chmod +x install-tibetan-fonts.sh
           <ol>
             <li>Download the font files (.ttf or .otf format)</li>
             <li>Double-click the font file to open Font Book</li>
-            <li>Click "Install Font" button</li>
+            <li>Click &ldquo;Install Font&rdquo; button</li>
             <li>The font is now available in all applications</li>
           </ol>
         </Card>
@@ -49,7 +58,7 @@ chmod +x install-tibetan-fonts.sh
         <Card title="Windows" variant="bordered">
           <ol>
             <li>Download the font files (.ttf or .otf format)</li>
-            <li>Right-click the font file and select "Install"</li>
+            <li>Right-click the font file and select &ldquo;Install&rdquo;</li>
             <li>Or copy fonts to: <CodeBlock inline>C:\Windows\Fonts</CodeBlock></li>
             <li>Restart applications to see the new fonts</li>
           </ol>
@@ -66,56 +75,56 @@ chmod +x install-tibetan-fonts.sh
       </Section>
 
       <Section title="Recommended Tibetan Fonts">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-          <Card title="Tibetan Machine Uni" variant="elevated">
-            <p>The most widely used Unicode Tibetan font. Clean and readable.</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-6">
+          <Card title="Tibetan Machine Uni" variant="bordered">
+            <p className="mb-4">The most widely used Unicode Tibetan font. Clean and readable.</p>
             <Button
               href="https://collab.its.virginia.edu/wiki/tibetan-script/Tibetan%20Machine%20Uni.html"
-              variant="outline"
+              variant="secondary"
               size="small"
               target="_blank"
               rel="noopener noreferrer"
             >
-              Download from UVA
+              Download from UVA →
             </Button>
           </Card>
 
-          <Card title="Jomolhari" variant="elevated">
-            <p>Beautiful Uchen script font with excellent readability.</p>
+          <Card title="Jomolhari" variant="bordered">
+            <p className="mb-4">Beautiful Uchen script font with excellent readability.</p>
             <Button
               href="https://collab.its.virginia.edu/wiki/tibetan-script/Jomolhari.html"
-              variant="outline"
+              variant="secondary"
               size="small"
               target="_blank"
               rel="noopener noreferrer"
             >
-              Download from UVA
+              Download from UVA →
             </Button>
           </Card>
 
-          <Card title="Monlam Uni" variant="elevated">
-            <p>Popular font from the Monlam IT Research Centre.</p>
+          <Card title="Monlam Uni" variant="bordered">
+            <p className="mb-4">Popular font from the Monlam IT Research Centre.</p>
             <Button
               href="https://www.monlam.ai/en/fonts/"
-              variant="outline"
+              variant="secondary"
               size="small"
               target="_blank"
               rel="noopener noreferrer"
             >
-              Download from Monlam
+              Download from Monlam →
             </Button>
           </Card>
 
-          <Card title="DDC Uchen" variant="elevated">
-            <p>Traditional Uchen style from the Dzongkha Development Commission.</p>
+          <Card title="DDC Uchen" variant="bordered">
+            <p className="mb-4">Traditional Uchen style from the Dzongkha Development Commission.</p>
             <Button
               href="http://www.dzongkha.gov.bt/IT/fonts.html"
-              variant="outline"
+              variant="secondary"
               size="small"
               target="_blank"
               rel="noopener noreferrer"
             >
-              Download from DDC
+              Download from DDC →
             </Button>
           </Card>
         </div>
@@ -163,29 +172,29 @@ chmod +x install-tibetan-fonts.sh
         </Card>
       </Section>
 
-      <Section title="Using Tibetan Keyboards" variant="highlight">
-        <h3 className="text-gray-800 mt-6 mb-4 text-2xl font-serif">
+      <Section title="Using Tibetan Keyboards">
+        <h3 className="text-gray-900 mt-6 mb-4 text-2xl font-serif">
           Wylie Transliteration
         </h3>
-        <p>
+        <p className="text-lg mb-6">
           The Wylie system is the most popular method for typing Tibetan.
           Type phonetically and the text converts to Tibetan script:
         </p>
         
-        <div className="my-6 p-6 bg-gray-50 rounded-lg">
+        <div className="my-6 p-8 bg-gradient-to-br from-gray-50 to-white rounded-xl border border-gray-200">
           <div className="flex items-center gap-4 my-4 flex-wrap">
             <CodeBlock inline>om mani padme hung</CodeBlock>
-            <span className="text-primary-500 font-bold text-xl">→</span>
-            <span className="text-3xl text-gray-800 font-medium">ཨོམ་མ་ནི་པདྨེ་ཧཱུྃ</span>
+            <span className="text-gray-400 font-bold text-xl">→</span>
+            <span className="text-3xl text-gray-900 font-medium">ཨོམ་མ་ནི་པདྨེ་ཧཱུྃ</span>
           </div>
           <div className="flex items-center gap-4 my-4 flex-wrap">
             <CodeBlock inline>bkra shis bde legs</CodeBlock>
-            <span className="text-primary-500 font-bold text-xl">→</span>
-            <span className="text-3xl text-gray-800 font-medium">བཀྲ་ཤིས་བདེ་ལེགས</span>
+            <span className="text-gray-400 font-bold text-xl">→</span>
+            <span className="text-3xl text-gray-900 font-medium">བཀྲ་ཤིས་བདེ་ལེགས</span>
           </div>
         </div>
 
-        <h3 className="text-gray-800 mt-6 mb-4 text-2xl font-serif">
+        <h3 className="text-gray-900 mt-8 mb-4 text-2xl font-serif">
           Common Wylie Conventions
         </h3>
         <ul>
@@ -197,43 +206,43 @@ chmod +x install-tibetan-fonts.sh
       </Section>
 
       <Section title="Additional Resources">
-        <ul className="list-none p-0 m-0 space-y-4">
-          <li className="pl-6 relative before:content-['→'] before:absolute before:left-0 before:text-primary-500 before:font-bold">
+        <ul className="list-none p-0 m-0 space-y-3">
+          <li className="pl-6 relative before:content-['→'] before:absolute before:left-0 before:text-gray-400 before:font-bold">
             <a
               href="https://www.thlib.org/tools/scripts/wiki/tibetan%20script.html"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-primary-500 hover:text-accent-600 font-medium transition-colors hover:underline"
+              className="text-gray-700 hover:text-gray-900 font-medium transition-colors hover:underline"
             >
               Tibetan & Himalayan Library - Script Resources
             </a>
           </li>
-          <li className="pl-6 relative before:content-['→'] before:absolute before:left-0 before:text-primary-500 before:font-bold">
+          <li className="pl-6 relative before:content-['→'] before:absolute before:left-0 before:text-gray-400 before:font-bold">
             <a
               href="https://www.studybuddhism.com/en/tibetan-buddhism/tibetan-culture/learn-to-read-tibetan"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-primary-500 hover:text-accent-600 font-medium transition-colors hover:underline"
+              className="text-gray-700 hover:text-gray-900 font-medium transition-colors hover:underline"
             >
               Study Buddhism - Learn to Read Tibetan
             </a>
           </li>
-          <li className="pl-6 relative before:content-['→'] before:absolute before:left-0 before:text-primary-500 before:font-bold">
+          <li className="pl-6 relative before:content-['→'] before:absolute before:left-0 before:text-gray-400 before:font-bold">
             <a
               href="https://collab.its.virginia.edu/wiki/tibetan-script/Tibetan%20Keyboard%20Input%20Methods.html"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-primary-500 hover:text-accent-600 font-medium transition-colors hover:underline"
+              className="text-gray-700 hover:text-gray-900 font-medium transition-colors hover:underline"
             >
               UVA - Tibetan Keyboard Input Methods
             </a>
           </li>
-          <li className="pl-6 relative before:content-['→'] before:absolute before:left-0 before:text-primary-500 before:font-bold">
+          <li className="pl-6 relative before:content-['→'] before:absolute before:left-0 before:text-gray-400 before:font-bold">
             <a
               href="https://www.monlam.ai/"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-primary-500 hover:text-accent-600 font-medium transition-colors hover:underline"
+              className="text-gray-700 hover:text-gray-900 font-medium transition-colors hover:underline"
             >
               Monlam IT - Tibetan Language Technology
             </a>

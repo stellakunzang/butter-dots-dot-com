@@ -61,7 +61,10 @@ npm start
 
 ## Architecture
 
-This project uses **Tailwind CSS** with React/Next.js best practices. Component-based architecture with utility-first styling. See [ARCHITECTURE.md](./ARCHITECTURE.md) and [TAILWIND_GUIDE.md](./TAILWIND_GUIDE.md) for detailed documentation.
+This project uses **Tailwind CSS** with React/Next.js best practices.
+Component-based architecture with utility-first styling. See
+[ARCHITECTURE.md](./ARCHITECTURE.md) and
+[TAILWIND_GUIDE.md](./TAILWIND_GUIDE.md) for detailed documentation.
 
 ### Key Principles
 
@@ -108,13 +111,17 @@ This project uses **Tailwind CSS** with React/Next.js best practices. Component-
 ## Pages
 
 ### Home (`/`)
+
 The main landing page featuring the iconic butter dots image and description.
 
 ### Resources (`/resources`)
+
 A comprehensive guide for installing Tibetan fonts and keyboards, including:
+
 - Automated installation script for macOS
 - Manual installation instructions for macOS, Windows, and Linux
-- Recommended Tibetan fonts (Tibetan Machine Uni, Jomolhari, Monlam Uni, DDC Uchen)
+- Recommended Tibetan fonts (Tibetan Machine Uni, Jomolhari, Monlam Uni, DDC
+  Uchen)
 - Keyboard installation guides for all major platforms
 - Wylie transliteration guide and examples
 - Links to additional Tibetan language resources

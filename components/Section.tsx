@@ -14,15 +14,15 @@ export const Section: React.FC<SectionProps> = ({
   className = '',
 }) => {
   const variantClasses = {
-    default: 'my-8 p-8 bg-white rounded-xl shadow-sm',
-    highlight: 'my-8 p-8 bg-white border-l-4 border-primary-500 rounded-xl shadow-md',
+    default: 'my-8 p-8 bg-white rounded-xl border border-gray-100 shadow-sm',
+    highlight: 'my-8 p-8 bg-gradient-to-br from-yellow-50 to-white rounded-xl border border-yellow-200/50',
     minimal: 'my-8 py-4',
   }
   
   return (
     <section className={`${variantClasses[variant]} ${className}`}>
       {title && (
-        <h2 className="mt-0 mb-6 text-gray-800 text-3xl font-serif border-b-2 border-butter-600 pb-2">
+        <h2 className="mt-0 mb-6 text-gray-900 text-3xl font-serif border-b border-gray-200 pb-3">
           {title}
         </h2>
       )}
