@@ -1,51 +1,48 @@
 import type {NextPage} from 'next'
-import Head from 'next/head'
 import Image from 'next/image'
-import styles from '../styles/Home.module.css'
+import {Layout, Button} from '../components'
 
 const Home: NextPage = () => {
   return (
-    <div className={styles.container}>
-      <Head>
-        <title>Butter Dots</title>
-        <meta name="description" content="Butter Dots are small discs of butter formed in ice cold water" />
-        <link rel="icon" href="/favicon.ico" />
-      </Head>
+    <Layout
+      title="Butter Dots"
+      description="Butter Dots are small discs of butter formed in ice cold water"
+    >
+      <div className="flex flex-col items-center justify-center py-8 text-center max-w-4xl mx-auto">
+        <h1 className="text-6xl font-serif text-gray-800 mb-2">
+          Butter Dots Dot Com
+        </h1>
+        <p className="text-xl text-gray-400 italic mb-1">
+          (try saying it out loud...fun!)
+        </p>
+        <p className="text-xl text-gray-400 italic mb-12">
+          (yes, Jon, I fixed the typo)
+        </p>
 
-      <main className={styles.main}>
-        <h3 className={styles.title}>Butter Dots Dot Com</h3>
-        <p className={styles.description}>(try saying it out loud...fun!)</p>
-        <p className={styles.description}>(yes, Jon, I fixed the typo)</p>
-        <div className={styles.card}>
-          {' '}
+        <div className="my-12 max-w-2xl w-full">
           <Image
             src="/butterdots.jpg"
             alt="butter dots in a metal bowl with ice"
             width={600}
             height={800}
             priority
+            className="rounded-xl shadow-2xl w-full h-auto"
           />
         </div>
-        <div className={styles.description}>
-          Butter Dots are small discs of butter (european style works best)
-          which are formed in ice cold water by rolling bits of butter into a
-          ball and then pressing them flat.
-        </div>
-      </main>
 
-      <footer className={styles.footer}>
-        <a
-          href="https://vercel.com?utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Powered by{' '}
-          <span className={styles.logo}>
-            <Image src="/vercel.svg" alt="Vercel Logo" width={72} height={16} />
-          </span>
-        </a>
-      </footer>
-    </div>
+        <div className="max-w-2xl my-8">
+          <p className="text-xl leading-relaxed text-gray-600">
+            Butter Dots are small discs of butter (european style works best)
+            which are formed in ice cold water by rolling bits of butter into a
+            ball and then pressing them flat.
+          </p>
+        </div>
+
+        <Button href="/resources" variant="primary" size="large">
+          📚 Tibetan Fonts & Keyboard Resources
+        </Button>
+      </div>
+    </Layout>
   )
 }
 
