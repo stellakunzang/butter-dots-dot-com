@@ -15,68 +15,308 @@ All project documentation has been organized in the `/docs` directory:
 
 See [`/docs/README.md`](./docs/README.md) for the complete documentation index.
 
-## Prerequisites
+## Project Structure
 
-- Node.js 14.x or later
-- npm or yarn package manager
+This is a monorepo containing:
+- **`frontend/`** - Next.js web application
+- **`backend/`** - Python FastAPI service
+- **`database/`** - PostgreSQL schema and migrations
+- **`docs/`** - All project documentation
 
-## Local Development
+See [ARCHITECTURE_SIMPLE.md](./ARCHITECTURE_SIMPLE.md) for a beginner-friendly overview, or [docs/guides/PROJECT_STRUCTURE.md](./docs/guides/PROJECT_STRUCTURE.md) for detailed architecture.
 
-### First Time Setup
+## Getting Started (Complete Setup from Scratch)
 
-1. Clone the repository and navigate to the project directory:
+This guide assumes you're starting with nothing installed. Follow these steps in order.
+
+### Step 1: Install Docker Desktop
+
+> **First time using Docker?** Think of Docker like a virtual computer that runs your app. Instead of installing Python, Node.js, and PostgreSQL separately on your machine, Docker creates an isolated environment with everything pre-configured. You just click "start" and it works.
+
+**Why Docker?** 
+- ✅ Run the entire application (frontend, backend, database) with one command
+- ✅ No need to install Node.js, Python, PostgreSQL separately
+- ✅ Everyone on the team has the exact same setup
+- ✅ Easy to start fresh if something breaks
+
+#### macOS Installation:
+
+1. **Download Docker Desktop**:
+   - Visit https://www.docker.com/products/docker-desktop/
+   - Click "Download for Mac"
+   - Choose the right version:
+     - **Apple Silicon (M1/M2/M3)**: Download "Mac with Apple chip"
+     - **Intel Mac**: Download "Mac with Intel chip"
+   
+2. **Install**:
+   - Open the downloaded `.dmg` file
+   - Drag Docker to your Applications folder
+   - Open Docker from Applications
+   - Follow the setup wizard (accept terms, allow permissions)
+   
+3. **Verify Docker is running**:
+   - You should see a Docker whale icon in your menu bar
+   - Open Terminal and run:
+     ```bash
+     docker --version
+     ```
+   - Should show something like: `Docker version 24.0.x`
+
+#### Windows Installation:
+
+1. Download from https://www.docker.com/products/docker-desktop/
+2. Run the installer
+3. Enable WSL 2 if prompted
+4. Restart your computer
+5. Open Docker Desktop from Start menu
+6. Verify with: `docker --version` in PowerShell
+
+#### Linux Installation:
 
 ```bash
-git clone <your-repo-url>
-cd butter-dots-dot-com
+# Ubuntu/Debian
+curl -fsSL https://get.docker.com -o get-docker.sh
+sudo sh get-docker.sh
+sudo usermod -aG docker $USER
+# Log out and back in
+
+# Verify
+docker --version
 ```
 
-2. Install dependencies:
+### Step 2: Clone and Run the Project
+
+1. **Clone the repository**:
+   ```bash
+   git clone <your-repo-url>
+   cd butter-dots-dot-com
+   ```
+
+2. **Start everything with one command**:
+   ```bash
+   docker compose up
+   ```
+   
+   **Note**: Use `docker compose` (with a space), not `docker-compose` (with a hyphen). Docker Compose V2 is built into Docker Desktop.
+
+3. **Wait for everything to start** (first time takes 2-5 minutes):
+   
+   You'll see output like:
+   ```
+   [+] Running 3/3
+   ✔ Container tibetan_db       Started
+   ✔ Container tibetan_backend  Started  
+   ✔ Container tibetan_frontend Started
+   ```
+
+4. **Open your browser and verify everything works**:
+   
+   - **Frontend** (http://localhost:3000):
+     - You should see "Butter Dots Dot Com" header
+     - Dictionary-style entry for "butter dots"
+     - Navigation link to "Language Tools"
+   
+   - **Backend API** (http://localhost:8000):
+     - Should show: `{"status":"healthy","service":"tibetan-spellchecker"}`
+   
+   - **API Docs** (http://localhost:8000/docs):
+     - Interactive Swagger UI
+     - See all available API endpoints
+     - Can test endpoints directly in browser
+
+5. **What you'll see in the terminal**:
+   ```
+   tibetan_backend   | INFO:     Application startup complete.
+   tibetan_backend   | INFO:     Uvicorn running on http://0.0.0.0:8000
+   tibetan_frontend  | ▲ Next.js 14.2.0
+   tibetan_frontend  | - Local:        http://localhost:3000
+   ```
+
+6. **Stop everything** (when done):
+   - Press `Ctrl+C` in the terminal
+   - Or run: `docker compose down`
+
+### Troubleshooting
+
+**"docker: command not found"**
+- Docker Desktop isn't installed or not running
+- Check the menu bar (Mac) or system tray (Windows) for the Docker icon
+- Make sure Docker Desktop is open and running
+
+**"Cannot connect to the Docker daemon"**
+- Docker Desktop isn't running
+- Open Docker Desktop and wait for it to fully start (green icon)
+
+**"port is already allocated"**
+- Another service is using ports 3000, 8000, or 5432
+- Stop other applications using those ports, or:
+  ```bash
+  docker compose down
+  docker compose up
+  ```
+
+**"Error response from daemon: pull access denied"**
+- No internet connection, or Docker Hub is down
+- Wait a moment and try again
+
+**Changes not showing up**
+- For backend changes: Docker watches automatically, no restart needed
+- For frontend changes: Docker watches automatically, no restart needed  
+- If still not working, restart: `docker compose restart backend` or `frontend`
+
+## Quick Reference
+
+**Start the app**:
+```bash
+docker compose up
+```
+
+**Start in background** (daemon mode):
+```bash
+docker compose up -d
+```
+
+**View logs**:
+```bash
+docker compose logs -f          # All services
+docker compose logs -f backend  # Just backend
+docker compose logs -f frontend # Just frontend
+```
+
+**Stop the app**:
+```bash
+docker compose down
+```
+
+**Rebuild after changing dependencies**:
+```bash
+docker compose up --build
+```
+
+**Access database directly**:
+```bash
+docker compose exec postgres psql -U tibetan -d tibetan_spellcheck
+```
+
+## Alternative: Run Without Docker (Manual Setup)
+
+Start all services (Postgres + Backend + Frontend):
 
 ```bash
+docker-compose up
+```
+
+Access:
+- **Frontend**: http://localhost:3000
+- **Backend API**: http://localhost:8000
+- **API Docs**: http://localhost:8000/docs
+
+View logs:
+```bash
+docker-compose logs -f backend
+docker-compose logs -f frontend
+```
+
+Stop everything:
+```bash
+docker-compose down
+```
+
+## Alternative: Run Without Docker (Manual Setup)
+
+If you prefer not to use Docker, you can run each service manually.
+
+### Prerequisites (Without Docker):
+- Node.js 20.x (from https://nodejs.org)
+- Python 3.11+ (from https://python.org)
+- PostgreSQL 15+ (from https://postgresql.org or `brew install postgresql@15`)
+- Yarn (`npm install -g yarn`)
+
+### Setup Steps:
+
+**1. Install PostgreSQL and create database**:
+```bash
+# macOS
+brew install postgresql@15
+brew services start postgresql@15
+createdb tibetan_spellcheck
+psql tibetan_spellcheck < database/schema.sql
+```
+
+**2. Start Backend** (in one terminal):
+```bash
+cd backend
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload
+```
+Backend runs at http://localhost:8000
+
+**3. Start Frontend** (in another terminal):
+```bash
+cd frontend
 yarn install
-# or
-npm install
+yarn dev
 ```
+Frontend runs at http://localhost:3000
 
-### Running the Development Server
+**Note**: You'll need 3 terminals open (Postgres, Backend, Frontend) vs Docker's single command.
 
-Start the development server:
+## Testing
+
+### Backend Tests
 
 ```bash
-yarn dev
-# or
-npm run dev
+cd backend
+pytest
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser to see the
-result.
+### Frontend Tests
 
-The page will automatically update as you edit files. The main page is located
-at `pages/index.tsx`.
+```bash
+cd frontend
+yarn test
+```
+
+### Run All Tests (CI Mode)
+
+```bash
+cd backend && pytest && cd ../frontend && yarn test:ci
+```
+
+GitHub Actions automatically runs all tests on push/PR.
 
 ### Building for Production
 
-To test the production build locally:
-
+**Frontend**:
 ```bash
-# Build the application
+cd frontend
 yarn build
-# or
-npm run build
-
-# Start the production server
 yarn start
-# or
-npm start
+```
+
+**Backend**:
+```bash
+cd backend
+uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+**Docker Production Build**:
+```bash
+docker-compose -f docker-compose.prod.yml up -d
 ```
 
 ## Architecture
 
-This project uses **Tailwind CSS** with React/Next.js best practices.
-Component-based architecture with utility-first styling. See
-[ARCHITECTURE.md](./ARCHITECTURE.md) and
-[TAILWIND_GUIDE.md](./TAILWIND_GUIDE.md) for detailed documentation.
+This is a full-stack application with:
+- **Frontend**: Next.js, React, TypeScript, Tailwind CSS
+- **Backend**: Python, FastAPI, SQLAlchemy
+- **Database**: PostgreSQL
+- **Testing**: pytest (backend), Jest (frontend)
+- **CI/CD**: GitHub Actions
+
+See [docs/guides/ARCHITECTURE.md](./docs/guides/ARCHITECTURE.md) for detailed architecture documentation.
 
 ### Key Principles
 
@@ -86,39 +326,23 @@ Component-based architecture with utility-first styling. See
 - **Single Source of Truth**: Make changes in config, apply everywhere
 - **TypeScript**: Type-safe components and props
 
+### Key Principles
+
+- **TDD**: Test-Driven Development with pragmatic coverage
+- **Monorepo**: Frontend and backend in one repository
+- **Containerization**: Docker Compose for consistent environments
+- **Type Safety**: TypeScript (frontend) + Pydantic (backend)
+- **Component-Based**: Reusable UI components with Tailwind CSS
+
 ### Quick Reference
 
-- **Change colors/design**: Edit `tailwind.config.js` theme configuration
-- **Add new component**: Create in `components/`, use Tailwind utilities
-- **Add new page**: Create in `pages/`, use `Layout` component
-- **Reusable components**: `Layout`, `Button`, `Section`, `Card`, `CodeBlock`
-- **Tailwind docs**: See [TAILWIND_GUIDE.md](./TAILWIND_GUIDE.md)
-
-## Project Structure
-
-```
-├── components/                 # Reusable UI components
-│   ├── Layout.tsx              # Page layout with header/footer
-│   ├── Button.tsx              # Button component (multiple variants)
-│   ├── Section.tsx             # Section container
-│   ├── Card.tsx                # Card container
-│   ├── CodeBlock.tsx           # Code display
-│   └── index.ts                # Component exports
-├── pages/                      # Next.js pages and routing
-│   ├── index.tsx               # Home page
-│   ├── resources.tsx           # Tibetan fonts & keyboard resources
-│   └── api/                    # API routes
-├── public/                     # Static assets (images, favicon)
-│   ├── butterdots.jpg          # Main butter dots image (optimized)
-│   └── install-tibetan-fonts.sh # Tibetan font installation script
-├── styles/                     # Styles
-│   └── globals.css             # Tailwind directives & base styles
-├── tailwind.config.js          # Tailwind theme configuration
-├── postcss.config.js           # PostCSS configuration
-├── ARCHITECTURE.md             # Architecture documentation
-├── TAILWIND_GUIDE.md           # Tailwind CSS guide
-└── package.json                # Dependencies and scripts
-```
+- **Frontend**: `frontend/` directory (Next.js, React, Tailwind)
+- **Backend**: `backend/` directory (FastAPI, SQLAlchemy)
+- **Database**: `database/` directory (PostgreSQL schema)
+- **Docs**: `docs/` directory (ADRs, guides, planning)
+- **Change colors/design**: Edit `frontend/tailwind.config.js`
+- **Add API endpoint**: Create in `backend/app/api/`
+- **Add page**: Create in `frontend/pages/`, use `Layout` component
 
 ## Pages
 
@@ -223,12 +447,71 @@ To optimize new images:
 sips -Z 1200 --setProperty format jpeg --setProperty formatOptions 80 input.jpg --out output.jpg
 ```
 
+## Frequently Asked Questions
+
+### Do I need to know Docker to use this?
+
+No! Just install Docker Desktop and run `docker compose up`. That's it. You don't need to understand how Docker works.
+
+### What if I don't want to use Docker?
+
+See the "Alternative: Run Without Docker" section above. You'll need to install Node.js, Python, and PostgreSQL manually.
+
+### How do I make changes to the code?
+
+1. Edit files in `frontend/` for website changes
+2. Edit files in `backend/` for API changes
+3. Docker automatically reloads when you save files
+4. Refresh your browser to see changes
+
+### Where is the database stored?
+
+Docker stores it in a volume (isolated from your machine). To reset the database:
+```bash
+docker compose down -v  # -v removes volumes
+docker compose up       # Fresh database
+```
+
+### Can I use this on Windows?
+
+Yes! Install Docker Desktop for Windows and follow the same instructions. Use PowerShell instead of Terminal.
+
+### How do I stop the app from running in the background?
+
+```bash
+docker compose down
+```
+
+### The app is slow or using too much memory?
+
+Docker Desktop → Settings → Resources → Increase memory/CPU allocation
+
+### How do I update dependencies?
+
+**Frontend**:
+```bash
+cd frontend
+yarn add package-name
+docker compose up --build
+```
+
+**Backend**:
+```bash
+cd backend
+# Add to requirements.txt
+docker compose up --build
+```
+
 ## Learn More
 
 - [Next.js Documentation](https://nextjs.org/docs)
-- [Learn Next.js](https://nextjs.org/learn)
-- [Next.js GitHub Repository](https://github.com/vercel/next.js)
+- [Docker Getting Started](https://docs.docker.com/get-started/)
+- [FastAPI Documentation](https://fastapi.tiangolo.com/)
+- [PostgreSQL Documentation](https://www.postgresql.org/docs/)
 
 ## Support
 
-For issues or questions, please open an issue in the repository.
+For issues or questions:
+1. Check the FAQ above
+2. Check [SETUP_COMPLETE.md](./SETUP_COMPLETE.md) for verification steps
+3. Open an issue in the repository

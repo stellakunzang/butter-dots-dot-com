@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: tibetan_db
+    environment:
+      POSTGRES_DB: tibetan_spellcheck
+      POSTGRES_USER: tibetan
+      POSTGRES_PASSWORD: dev_password
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U tibetan']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Python Backend (FastAPI)
+  backend:
+    build: ./backend
+    container_name: tibetan_backend
+    ports:
+      - '8000:8000'
+    environment:
+      DATABASE_URL: postgresql://tibetan:dev_password@postgres:5432/tibetan_spellcheck
+      PYTHONUNBUFFERED: '1'
+      DEBUG: 'true'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - ./uploads:/app/uploads      # User uploaded PDFs
+      - ./results:/app/results      # Generated annotated PDFs
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # Next.js Frontend
+  frontend:
+    build: ./frontend
+    container_name: tibetan_frontend
+    ports:
+      - '3000:3000'
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      - backend
+    command: yarn dev
+
+volumes:
+  postgres_data:
