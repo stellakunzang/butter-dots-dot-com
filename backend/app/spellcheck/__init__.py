@@ -1,0 +1,1 @@
+"""Tibetan spell checking module"""
