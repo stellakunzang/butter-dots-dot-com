@@ -3,6 +3,18 @@
 A website that started out as a joke but now houses resources for the Orgyen
 Khandroling Sangha
 
+## Documentation
+
+All project documentation has been organized in the `/docs` directory:
+
+- **`/docs/guides`** - Developer guides (architecture, components, setup)
+- **`/docs/adr`** - Architecture Decision Records
+- **`/docs/planning`** - Project planning and roadmaps
+- **`/docs/research`** - External resources and references
+- **`/docs/archive`** - Historical/completed documentation
+
+See [`/docs/README.md`](./docs/README.md) for the complete documentation index.
+
 ## Prerequisites
 
 - Node.js 14.x or later
