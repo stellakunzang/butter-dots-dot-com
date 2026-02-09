@@ -1,34 +1,151 @@
-This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# Butter Dots Dot Com
 
-## Getting Started
+A delightful Next.js website showcasing the art of butter dots - small discs of butter formed in ice cold water.
 
-First, run the development server:
+## Prerequisites
 
+- Node.js 14.x or later
+- npm or yarn package manager
+
+## Local Development
+
+### First Time Setup
+
+1. Clone the repository and navigate to the project directory:
 ```bash
-npm run dev
-# or
-yarn dev
+git clone <your-repo-url>
+cd butter-dots-dot-com
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2. Install dependencies:
+```bash
+yarn install
+# or
+npm install
+```
 
-You can start editing the page by modifying `pages/index.tsx`. The page auto-updates as you edit the file.
+### Running the Development Server
 
-[API routes](https://nextjs.org/docs/api-routes/introduction) can be accessed on [http://localhost:3000/api/hello](http://localhost:3000/api/hello). This endpoint can be edited in `pages/api/hello.ts`.
+Start the development server:
 
-The `pages/api` directory is mapped to `/api/*`. Files in this directory are treated as [API routes](https://nextjs.org/docs/api-routes/introduction) instead of React pages.
+```bash
+yarn dev
+# or
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) in your browser to see the result.
+
+The page will automatically update as you edit files. The main page is located at `pages/index.tsx`.
+
+### Building for Production
+
+To test the production build locally:
+
+```bash
+# Build the application
+yarn build
+# or
+npm run build
+
+# Start the production server
+yarn start
+# or
+npm start
+```
+
+## Project Structure
+
+```
+├── pages/              # Next.js pages and routing
+│   ├── index.tsx       # Home page
+│   └── api/            # API routes
+├── public/             # Static assets (images, favicon)
+│   └── butterdots.jpg  # Main butter dots image
+├── styles/             # CSS modules and global styles
+│   ├── Home.module.css # Homepage styles
+│   └── globals.css     # Global styles
+└── package.json        # Dependencies and scripts
+```
+
+## Deployment
+
+### Deploying to Vercel (Recommended)
+
+Vercel is the easiest way to deploy Next.js apps and is created by the Next.js team.
+
+#### Option 1: Deploy via Git Integration (Recommended)
+
+1. Push your code to GitHub, GitLab, or Bitbucket
+2. Go to [vercel.com](https://vercel.com/new)
+3. Import your repository
+4. Vercel will automatically detect Next.js and configure build settings
+5. Click "Deploy"
+
+**Automatic deployments**: After initial setup, every push to your main branch automatically deploys to production, and every pull request gets a preview URL.
+
+#### Option 2: Deploy via Vercel CLI
+
+1. Install Vercel CLI:
+```bash
+npm i -g vercel
+```
+
+2. Run deployment command from your project directory:
+```bash
+vercel
+```
+
+3. Follow the prompts to link your project
+
+4. For production deployment:
+```bash
+vercel --prod
+```
+
+### Deploying Changes
+
+Once set up with git integration:
+
+1. Make your changes locally
+2. Test locally with `yarn dev`
+3. Commit your changes:
+```bash
+git add .
+git commit -m "Description of your changes"
+```
+4. Push to your repository:
+```bash
+git push origin main
+```
+5. Vercel automatically builds and deploys your changes (usually takes 30-60 seconds)
+6. You'll receive a deployment URL in your Vercel dashboard
+
+### Other Deployment Options
+
+- **Netlify**: Connect your git repository at [netlify.com](https://netlify.com)
+- **AWS Amplify**: Use the Amplify Console to deploy from git
+- **Self-hosted**: Build with `yarn build` and serve the `.next` folder with `yarn start`
+
+## Image Optimization
+
+The butter dots image is optimized for web:
+- Resized to 900×1200px (maintains 3:4 aspect ratio)
+- Compressed to ~331KB for fast loading
+- Uses Next.js Image component for automatic optimization
+
+To optimize new images:
+```bash
+# Install ImageMagick or use sips (macOS)
+sips -Z 1200 --setProperty format jpeg --setProperty formatOptions 80 input.jpg --out output.jpg
+```
 
 ## Learn More
 
-To learn more about Next.js, take a look at the following resources:
+- [Next.js Documentation](https://nextjs.org/docs)
+- [Learn Next.js](https://nextjs.org/learn)
+- [Next.js GitHub Repository](https://github.com/vercel/next.js)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Support
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js/) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/deployment) for more details.
+For issues or questions, please open an issue in the repository.
