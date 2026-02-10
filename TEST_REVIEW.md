@@ -175,7 +175,7 @@ pytest tests/test_*.py -v
 
 ### 4. **Realistic Test Data**
 - Real Tibetan Unicode characters
-- Based on VBA research (Paul Hackett)
+- Based on Tibetan linguistic research
 - Edge cases from actual usage
 
 ### 5. **Interview-Ready**

@@ -44,13 +44,13 @@ class TestSingleSyllableChecking:
         from app.spellcheck.engine import TibetanSpellChecker
         
         engine = TibetanSpellChecker()
-        result = engine.check_syllable("ལང")  # la + nga (invalid prefix)
+        result = engine.check_syllable("གཀར")  # ga + ka + ra (invalid: ga cannot prefix ka)
         
         assert result is not None
-        assert result['error_type'] == 'invalid_prefix'
+        assert result['error_type'] == 'invalid_prefix_combination'
         assert result['severity'] == 'error'
         assert 'word' in result
-        assert result['word'] == "ལང"
+        assert result['word'] == "གཀར"
     
     def test_check_invalid_superscript(self):
         """Invalid superscript combination detected"""
@@ -108,11 +108,11 @@ class TestFullTextChecking:
         from app.spellcheck.engine import TibetanSpellChecker
         
         engine = TibetanSpellChecker()
-        text = "བོད་ལང་"  # Second syllable invalid
+        text = "བོད་གཀར་"  # Second syllable invalid (ga cannot prefix ka)
         errors = engine.check_text(text)
         
         assert len(errors) == 1
-        assert errors[0]['word'] == "ལང"
+        assert errors[0]['word'] == "གཀར"
         assert 'position' in errors[0]
         assert errors[0]['position'] > 0  # Not at start
     
@@ -193,8 +193,8 @@ class TestErrorStructure:
         
         engine = TibetanSpellChecker()
         # Use an actually invalid word for this test
-        # Example: གང་ where ga is trying to be a prefix before nga (invalid combo)
-        text = "གངའ"  # Invalid prefix combination
+        # Example: གཀ where ga prefix before ka root = INVALID
+        text = "གཀ"  # Invalid: ga cannot prefix ka
         errors = engine.check_text(text)
         
         if len(errors) > 0:

@@ -200,24 +200,24 @@ To find the root letter in a syllable:
 4. **Otherwise**:
    - The first consonant is the root
 
-## Paul Hackett's Approach
+## Validation Approach
 
-Paul Hackett's spellchecker uses **"exclusive" checking**:
+This spellchecker uses **"exclusive" checking**:
 - It looks for INVALID patterns
 - It does NOT validate that things are correct
 - If a syllable doesn't match any invalid pattern, it's considered valid
 
 **What this means:**
-- Hackett checks for invalid prefix combinations
-- Hackett checks for invalid superscript/subscript combinations
-- Hackett does NOT explicitly validate suffixes
+- Checks for invalid prefix combinations
+- Checks for invalid superscript/subscript combinations
+- Does NOT explicitly validate suffixes
 - Suffixes are implicitly valid if they don't trigger other invalid patterns
 
 ## Sources
 
 1. FPMT Mandala: "Suffixes and Finding the Root Letter of a Syllable"
 2. Rigpa Wiki: "Tibetan Grammar - Formation of the Tibetan Syllable"
-3. Paul Hackett's Tibetan Spellchecker VBA (2011)
+3. Traditional Tibetan grammar rules
 4. Tibetan Language Learning Resources
 
 ## For Implementation

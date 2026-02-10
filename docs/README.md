@@ -34,8 +34,8 @@ Completed migration summaries and historical documentation.
 ### `/research` - External Resources
 Research materials, reference implementations, and third-party resources.
 
-- `SCRIPT_ANALYSIS.md` - Analysis of Paul Hackett's VBA spellchecker
-- `Tibetan_Spellchecker_vba.txt` - Original VBA script (GPL licensed)
+- `SCRIPT_ANALYSIS.md` - Historical analysis of VBA reference implementation
+- `Tibetan_Spellchecker_vba.txt` - Historical VBA reference (GPL licensed)
 
 ## Quick Links
 

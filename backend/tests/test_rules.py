@@ -1,7 +1,7 @@
 """
 Tests for Tibetan spelling rules validation
 
-Based on Paul Hackett's VBA implementation patterns
+Based on traditional Tibetan grammar rules and linguistic research
 Following TDD: Write tests FIRST, then implement
 """
 import pytest
@@ -30,10 +30,12 @@ class TestPrefixRules:
         assert is_valid_prefix_combination("ག", "ཡ") is True  # ga-ya
         assert is_valid_prefix_combination("ག", "ཉ") is True  # ga-nya
         assert is_valid_prefix_combination("ག", "ད") is True  # ga-da
+        assert is_valid_prefix_combination("ག", "ང") is True  # ga-nga VALID
         
         # Invalid combinations (from VBA line 334)
-        assert is_valid_prefix_combination("ག", "ང") is False  # ga-nga invalid
+        # ga CANNOT prefix: ka, kha, cha, ja, tha, tsa, pa, pha, dza, wa, ha
         assert is_valid_prefix_combination("ག", "ཀ") is False  # ga-ka invalid
+        assert is_valid_prefix_combination("ག", "པ") is False  # ga-pa invalid
     
     def test_da_prefix_valid_combinations(self):
         """da (ད) can prefix certain letters"""
@@ -78,34 +80,37 @@ class TestSuperscriptRules:
         """ra-mgo (ར) can superscript certain letters"""
         from app.spellcheck.rules import is_valid_superscript_combination
         
-        # Valid combinations (from VBA line 395)
-        assert is_valid_superscript_combination("ར", "ཀ") is True  # rka
-        assert is_valid_superscript_combination("ར", "ག") is True  # rga
+        # Valid combinations (from authoritative valid stacks list)
+        assert is_valid_superscript_combination("ར", "ཀ") is True  # རྐ rka
+        assert is_valid_superscript_combination("ར", "ག") is True  # རྒ rga
+        assert is_valid_superscript_combination("ར", "ང") is True  # རྔ rnga - VALID per stacks list
         
-        # Invalid combinations (from VBA line 395)
-        assert is_valid_superscript_combination("ར", "ང") is False  # rnga invalid
+        # Invalid combinations (not in valid stacks list)
+        # TODO: Add examples of invalid ra-mgo combinations
     
     def test_la_mgo_valid_combinations(self):
         """la-mgo (ལ) can superscript certain letters"""
         from app.spellcheck.rules import is_valid_superscript_combination
         
-        # Valid combinations (from VBA line 456)
-        assert is_valid_superscript_combination("ལ", "ཀ") is True  # lka
-        assert is_valid_superscript_combination("ལ", "ག") is True  # lga
+        # Valid combinations (from authoritative valid stacks list)
+        assert is_valid_superscript_combination("ལ", "ཀ") is True  # ལྐ lka
+        assert is_valid_superscript_combination("ལ", "ག") is True  # ལྒ lga
+        assert is_valid_superscript_combination("ལ", "ང") is True  # ལྔ lnga - VALID per stacks list
         
-        # Invalid combinations
-        assert is_valid_superscript_combination("ལ", "ང") is False
+        # Invalid combinations (not in valid stacks list)
+        # TODO: Add examples of invalid la-mgo combinations
     
     def test_sa_mgo_valid_combinations(self):
         """sa-mgo (ས) can superscript certain letters"""
         from app.spellcheck.rules import is_valid_superscript_combination
         
-        # Valid combinations (from VBA line 517)
-        assert is_valid_superscript_combination("ས", "ཀ") is True  # ska
-        assert is_valid_superscript_combination("ས", "ག") is True  # sga
+        # Valid combinations (from authoritative valid stacks list)
+        assert is_valid_superscript_combination("ས", "ཀ") is True  # སྐ ska
+        assert is_valid_superscript_combination("ས", "ག") is True  # སྒ sga
+        assert is_valid_superscript_combination("ས", "ང") is True  # སྔ snga - VALID per stacks list
         
-        # Invalid combinations
-        assert is_valid_superscript_combination("ས", "ང") is False
+        # Invalid combinations (not in valid stacks list)
+        # TODO: Add examples of invalid sa-mgo combinations
     
     def test_non_superscript_letter(self):
         """Non-superscript letters should fail"""

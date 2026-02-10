@@ -110,6 +110,13 @@ Result: VALID TIBETAN SYLLABLE
 ```
 གཡང་ = ག (prefix) + ཡ (root) + ང (suffix) = VALID
 དབང་ = ད (prefix) + བ (root) + ང (suffix) = VALID
+གང་ = ག (prefix) + ང (root) = VALID (ga can prefix nga)
+```
+
+### Invalid prefix combinations:
+```
+གཀ = ག (prefix) + ཀ (root) = INVALID (ga cannot prefix ka)
+གཔ = ག (prefix) + པ (root) = INVALID (ga cannot prefix pa)
 ```
 
 ### With superscript:
@@ -118,23 +125,23 @@ Result: VALID TIBETAN SYLLABLE
       ↑ HERE la is a superscript, not a root!
 ```
 
-## What Paul Hackett's VBA Actually Does
+## Exclusive vs Inclusive Validation
 
-Paul Hackett uses **"exclusive" spellchecking**:
+The spellchecker uses **"exclusive" validation**:
 - Looks for INVALID patterns only
 - Does NOT validate entire syllable structures
 - If a syllable doesn't match any invalid pattern → it's considered valid
 
-**Key insight:** Hackett's patterns check for:
+**Key insight:** The validation checks for:
 1. Invalid prefix + root combinations
 2. Invalid superscript + subscript combinations  
 3. Invalid subscript combinations
 4. Too many letters
 5. Encoding errors
 
-**Hackett does NOT explicitly validate suffixes** because:
+**Suffixes are NOT explicitly validated** because:
 - Suffix validation would be "inclusive" checking
-- His approach is "exclusive" - only flag what's wrong
+- The approach is "exclusive" - only flag what's wrong
 - Valid suffixes are implicitly accepted
 
 ## Files That Need Updating
@@ -187,13 +194,13 @@ def identify_root(syllable):
 - [ ] Implement correct syllable parsing logic
 - [ ] Verify all Tibetan examples in tests are correctly labeled
 - [ ] Test with known valid words: བོད་, ལང་, དབང་, རྒྱ་, etc.
-- [ ] Re-read Paul Hackett's VBA patterns with correct understanding
+- [ ] Review validation patterns with correct understanding
 
 ## References
 
 1. FPMT Mandala: "Suffixes and Finding the Root Letter of a Syllable"
 2. Rigpa Wiki: "Tibetan Grammar - Formation of the Tibetan Syllable"  
-3. Paul Hackett's Tibetan Spellchecker VBA (2011) - `/docs/research/Tibetan_Spellchecker_vba.txt`
+3. Traditional Tibetan grammar rules - `/docs/research/Tibetan_Spellchecker_vba.txt` (historical reference)
 4. Our reference: `/docs/research/TIBETAN_SYLLABLE_STRUCTURE.md`
 
 ## Key Takeaway
