@@ -23,14 +23,13 @@ SUBJOINED_CONSONANT_END = 0x0FBC
 VOWEL_START = 0x0F71
 VOWEL_END = 0x0F7C
 
-# The 5 valid prefixes
-VALID_PREFIXES = {'ག', 'ད', 'བ', 'མ', 'ར'}  # ga, da, ba, ma, ra
-
-# The 3 valid superscripts (when followed by subjoined consonants)
-VALID_SUPERSCRIPTS = {'ར', 'ལ', 'ས'}  # ra-mgo, la-mgo, sa-mgo
-
-# Valid post-suffixes (only these 2)
-VALID_POST_SUFFIXES = {'ད', 'ས'}  # da, sa
+# Import shared constants from rules module (DRY principle)
+from app.spellcheck.rules import (
+    VALID_PREFIXES,
+    VALID_SUPERSCRIPTS, 
+    VALID_POST_SUFFIXES,
+    VALID_SUFFIXES
+)
 
 
 def split_syllables(text: str) -> List[str]:
@@ -131,6 +130,28 @@ def is_post_suffix(char: str) -> bool:
     return char in VALID_POST_SUFFIXES
 
 
+def subjoined_to_base(char: str) -> str:
+    """
+    Convert subjoined consonant (U+0F90-0FBC) to base consonant (U+0F40-0F6C).
+    
+    Subjoined consonants are used below superscripts but represent the same
+    letters as base consonants. For validation, we need the base form.
+    
+    Examples:
+        ྐ (U+0F90) → ཀ (U+0F40) ka
+        ྲ (U+0FB2) → ར (U+0F62) ra
+    """
+    if not char or not is_subjoined_consonant(char):
+        return char
+    
+    # Calculate offset: subjoined start - base start = 0x0F90 - 0x0F40 = 0x50
+    offset = SUBJOINED_CONSONANT_START - BASE_CONSONANT_START
+    base_code = ord(char) - offset
+    
+    # Return base consonant
+    return chr(base_code)
+
+
 class TibetanSyllableParser:
     """
     Parser for Tibetan syllable structure.
@@ -180,25 +201,24 @@ class TibetanSyllableParser:
             'raw': syllable
         }
         
-        # 1. Check for PREFIX vs SUPERSCRIPT vs ROOT
-        # CRITICAL RULE for 2-letter syllables:
-        #   - If 2nd letter is VALID SUFFIX → 1st is ROOT, 2nd is SUFFIX
-        #   - If 2nd letter is NOT VALID SUFFIX → 1st is PREFIX/SUPERSCRIPT, 2nd is ROOT
+        # 1. Check for PREFIX vs ROOT
+        # CRITICAL RULES:
+        #   - Base consonant + subjoined WITHOUT prefix first = ROOT + SUBSCRIPT
+        #   - Base consonant + subjoined WITH prefix first = might be SUPERSCRIPT
+        #   - For 2 base consonants: check if 2nd is valid suffix
         # 
         # Examples:
-        #   དང (da + nga, nga is suffix) = root + suffix
-        #   གཡ (ga + ya, ya is NOT suffix) = prefix + root
-        #   དཀར (3 letters) = prefix + root + suffix
-        #   སྐད (stack) = superscript + root + suffix
+        #   སྲ = ས (root) + ྲ (subscript) - NO prefix, so ས is root!
+        #   བསྒྲ = བ (prefix) + ས (superscript) + ྒ (root) + ྲ (subscript)
+        #   དང = ད (root) + ང (suffix)
+        #   གཡ = ག (prefix) + ཡ (root)
         
         if i < len(chars) and is_base_consonant(chars[i]):
             if i + 1 < len(chars):
                 # Check what follows to determine role
-                if is_subjoined_consonant(chars[i + 1]) and is_superscript(chars[i]):
-                    # Followed by subjoined AND is valid superscript = SUPERSCRIPT
-                    result['superscript'] = chars[i]
-                    i += 1
-                elif is_base_consonant(chars[i + 1]) and is_prefix(chars[i]):
+                # NOTE: Don't check for superscript here - only prefixes at the start!
+                # Superscripts only appear AFTER a prefix
+                if is_base_consonant(chars[i + 1]) and is_prefix(chars[i]):
                     # Check if this is truly a prefix situation
                     # For 2-letter case: check if 2nd letter is a valid suffix
                     # If it IS a valid suffix → 1st is root, not prefix
@@ -213,7 +233,6 @@ class TibetanSyllableParser:
                     # For 2-letter case with no additional structure
                     if not has_more_structure:
                         # Check if 2nd letter is a valid suffix
-                        from app.spellcheck.rules import VALID_SUFFIXES
                         second_letter = chars[i + 1]
                         if second_letter in VALID_SUFFIXES:
                             # 2nd is valid suffix → 1st is root (not prefix)
@@ -241,7 +260,8 @@ class TibetanSyllableParser:
         if i < len(chars):
             if is_subjoined_consonant(chars[i]):
                 # Root is in subjoined form (below superscript)
-                result['root'] = chars[i]
+                # Convert to base form for validation
+                result['root'] = subjoined_to_base(chars[i])
                 i += 1
             elif is_base_consonant(chars[i]):
                 # Standalone root (no superscript)

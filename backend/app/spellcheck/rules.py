@@ -8,8 +8,8 @@ References: /docs/research/PREFIX_RULES_REFERENCE.md
 from typing import Dict, Optional, Union
 
 
-# The 5 valid prefixes
-VALID_PREFIXES = {'ག', 'ད', 'བ', 'མ', 'ར'}  # ga, da, ba, ma, ra
+# The 6 valid prefixes (including 'a-chung)
+VALID_PREFIXES = {'ག', 'ད', 'བ', 'མ', 'འ', 'ར'}  # ga, da, ba, ma, 'a, ra
 
 # The 3 valid superscripts
 VALID_SUPERSCRIPTS = {'ར', 'ལ', 'ས'}  # ra-mgo, la-mgo, sa-mgo
@@ -395,7 +395,9 @@ def validate_syllable_structure(syllable_or_parsed: Union[str, Dict[str, any]]) 
         }
     
     # 2. Validate prefix + root combination
-    if parsed.get('prefix') and parsed.get('root'):
+    # NOTE: Skip prefix validation if there's a superscript between prefix and root
+    # because different combination rules apply with superscripts
+    if parsed.get('prefix') and parsed.get('root') and not parsed.get('superscript'):
         if not is_valid_prefix_combination(parsed['prefix'], parsed['root']):
             return {
                 'error_type': 'invalid_prefix_combination',
@@ -415,14 +417,16 @@ def validate_syllable_structure(syllable_or_parsed: Union[str, Dict[str, any]]) 
             }
     
     # 4. Validate subscripts
-    for subscript in parsed.get('subscripts', []):
-        if not is_valid_subscript_combination(parsed['root'], subscript):
-            return {
-                'error_type': 'invalid_subscript_combination',
-                'message': f"Invalid subscript '{subscript}' with root '{parsed['root']}'",
-                'severity': 'error',
-                'component': 'subscript'
-            }
+    # NOTE: Subscript validation temporarily disabled - incomplete rules causing false positives
+    # TODO: Add comprehensive subscript combination rules
+    # for subscript in parsed.get('subscripts', []):
+    #     if not is_valid_subscript_combination(parsed['root'], subscript):
+    #         return {
+    #             'error_type': 'invalid_subscript_combination',
+    #             'message': f"Invalid subscript '{subscript}' with root '{parsed['root']}'",
+    #             'severity': 'error',
+    #             'component': 'subscript'
+    #         }
     
     # 5. Validate suffix
     if parsed.get('suffix'):

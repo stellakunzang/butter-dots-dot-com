@@ -11,15 +11,16 @@ class TestPrefixRules:
     """Test prefix validation rules"""
     
     def test_valid_prefixes_exist(self):
-        """Only 5 letters can be prefixes: ga, da, ba, ma, ra"""
+        """6 letters can be prefixes: ga, da, ba, ma, 'a, ra"""
         from app.spellcheck.rules import VALID_PREFIXES
         
-        # These are the only valid prefixes in Tibetan
-        assert len(VALID_PREFIXES) == 5
+        # These are the valid prefixes in Tibetan
+        assert len(VALID_PREFIXES) == 6
         assert "ག" in VALID_PREFIXES  # ga
         assert "ད" in VALID_PREFIXES  # da
         assert "བ" in VALID_PREFIXES  # ba
         assert "མ" in VALID_PREFIXES  # ma
+        assert "འ" in VALID_PREFIXES  # 'a (a-chung)
         assert "ར" in VALID_PREFIXES  # ra
     
     def test_ga_prefix_valid_combinations(self):
