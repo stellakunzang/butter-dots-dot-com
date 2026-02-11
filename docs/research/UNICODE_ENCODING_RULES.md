@@ -146,93 +146,24 @@ Structure: SUPERSCRIPT + ROOT + SUBSCRIPT + VOWEL + SUFFIX
 
 ## Parsing Algorithm
 
-```python
-def parse_tibetan_syllable(syllable_chars):
-    """
-    Parse a Tibetan syllable based on Unicode ranges.
-    
-    syllable_chars: list of Unicode characters (without tsheg)
-    """
-    prefix = None
-    superscript = None
-    root = None
-    subscripts = []
-    vowels = []
-    suffix = None
-    post_suffix = None
-    
-    i = 0
-    
-    # 1. Check for PREFIX (must be one of 5: ga, da, ba, ma, ra)
-    if is_prefix(syllable_chars[i]):
-        prefix = syllable_chars[i]
-        i += 1
-    
-    # 2. Check for SUPERSCRIPT (next BASE consonant if followed by SUBJOINED)
-    if i < len(syllable_chars) and is_base_consonant(syllable_chars[i]):
-        if i+1 < len(syllable_chars) and is_subjoined_consonant(syllable_chars[i+1]):
-            superscript = syllable_chars[i]
-            i += 1
-    
-    # 3. Get ROOT
-    if i < len(syllable_chars):
-        if is_subjoined_consonant(syllable_chars[i]):
-            # Root is below superscript
-            root = syllable_chars[i]
-            i += 1
-        elif is_base_consonant(syllable_chars[i]):
-            # Standalone root (no superscript)
-            root = syllable_chars[i]
-            i += 1
-    
-    # 4. Collect SUBSCRIPTS (any remaining subjoined consonants)
-    while i < len(syllable_chars) and is_subjoined_consonant(syllable_chars[i]):
-        subscripts.append(syllable_chars[i])
-        i += 1
-    
-    # 5. Collect VOWELS
-    while i < len(syllable_chars) and is_vowel(syllable_chars[i]):
-        vowels.append(syllable_chars[i])
-        i += 1
-    
-    # 6. Get SUFFIX (next base consonant)
-    if i < len(syllable_chars) and is_base_consonant(syllable_chars[i]):
-        suffix = syllable_chars[i]
-        i += 1
-    
-    # 7. Get POST-SUFFIX (only da or sa after suffix)
-    if i < len(syllable_chars) and suffix is not None:
-        if is_post_suffix(syllable_chars[i]):
-            post_suffix = syllable_chars[i]
-            i += 1
-    
-    return {
-        'prefix': prefix,
-        'superscript': superscript,
-        'root': root,
-        'subscripts': subscripts,
-        'vowels': vowels,
-        'suffix': suffix,
-        'post_suffix': post_suffix
-    }
+The parsing algorithm processes Tibetan syllables character-by-character, using Unicode ranges to identify component types. The algorithm follows these steps in order:
 
-def is_base_consonant(char):
-    return 0x0F40 <= ord(char) <= 0x0F6C
+1. **Check for PREFIX** - If the first character is one of the 5 valid prefixes (ག, ད, བ, མ, ར), mark it as the prefix
+2. **Check for SUPERSCRIPT** - If the next base consonant is followed by a subjoined consonant, it's a superscript
+3. **Identify ROOT** - The root is either:
+   - A subjoined consonant (if there was a superscript above it)
+   - A base consonant (if no superscript)
+4. **Collect SUBSCRIPTS** - Gather all remaining subjoined consonants after the root
+5. **Collect VOWELS** - Gather all vowel marks (U+0F71-0F7C range)
+6. **Identify SUFFIX** - The next base consonant after vowels
+7. **Identify POST-SUFFIX** - Only ད or ས can appear as post-suffix after a suffix
 
-def is_subjoined_consonant(char):
-    return 0x0F90 <= ord(char) <= 0x0FBC
+The implementation uses Unicode range checks:
+- Base consonants: U+0F40-0F6C
+- Subjoined consonants: U+0F90-0FBC
+- Vowel marks: U+0F71-0F7C
 
-def is_vowel(char):
-    return 0x0F71 <= ord(char) <= 0x0F7C
-
-def is_prefix(char):
-    # Only 5 letters can be prefixes
-    return char in ['ག', 'ད', 'བ', 'མ', 'ར']
-
-def is_post_suffix(char):
-    # Only da and sa can be post-suffixes
-    return char in ['ད', 'ས']
-```
+For the actual implementation, see `backend/app/spellcheck/syllable_parser.py`.
 
 ## Validation Rules
 

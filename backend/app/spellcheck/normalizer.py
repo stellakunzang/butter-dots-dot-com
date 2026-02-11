@@ -5,7 +5,7 @@ Handles Unicode normalization (NFC), zero-width character removal,
 and Tibetan character validation.
 """
 import unicodedata
-from typing import Optional
+from typing import Optional, List, Dict
 
 
 def normalize_tibetan(text: str) -> str:
@@ -64,3 +64,37 @@ def extract_tibetan(text: str) -> str:
         Text containing only Tibetan characters
     """
     return ''.join(char for char in text if is_tibetan_char(char))
+
+
+def validate_tibetan_text(text: str) -> Dict:
+    """
+    Validate text and count non-Tibetan characters (excluding whitespace).
+    
+    Returns a summary of non-Tibetan characters found, useful for informing
+    users that some content was skipped during spell checking.
+    
+    Args:
+        text: Text to validate
+        
+    Returns:
+        Dictionary with summary of non-Tibetan characters:
+        {
+            'count': int,           # Number of non-Tibetan chars (excluding whitespace)
+            'has_non_tibetan': bool # True if any non-Tibetan chars found
+        }
+    """
+    non_tibetan_count = 0
+    
+    for char in text:
+        # Skip whitespace - it's normal and expected
+        if char.isspace():
+            continue
+        
+        # Count non-Tibetan characters
+        if not is_tibetan_char(char):
+            non_tibetan_count += 1
+    
+    return {
+        'count': non_tibetan_count,
+        'has_non_tibetan': non_tibetan_count > 0
+    }
