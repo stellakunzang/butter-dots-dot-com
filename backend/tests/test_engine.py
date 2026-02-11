@@ -259,8 +259,10 @@ class TestEdgeCases:
         text = "Hello world"
         errors = engine.check_text(text)
         
-        # Should return empty (no Tibetan to check)
-        assert errors == []
+        # Should have one informational message about non-Tibetan characters
+        assert len(errors) == 1
+        assert errors[0]['error_type'] == 'non_tibetan_skipped'
+        assert errors[0]['severity'] == 'info'
     
     def test_check_mixed_script_text(self):
         """Mixed Tibetan and English"""

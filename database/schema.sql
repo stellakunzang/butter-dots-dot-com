@@ -1,39 +1,31 @@
 -- Tibetan Spellchecker Database Schema
 -- PostgreSQL 15+
+-- NOTE: Database not used yet - planned for Block 5 (PDF Processing)
 
--- Jobs table: Track spell check jobs
+-- Jobs table: Track PDF spell check jobs
 CREATE TABLE jobs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_email VARCHAR(255),
     status VARCHAR(50) NOT NULL,  -- 'pending', 'processing', 'completed', 'failed'
-    file_name VARCHAR(255),
+    file_name VARCHAR(255) NOT NULL,
     file_size INTEGER,
-    file_path TEXT,               -- Path to uploaded file: /app/uploads/{job_id}/{filename}
-    result_path TEXT,             -- Path to result file: /app/results/{job_id}_annotated.pdf
-    error_count INTEGER,
+    file_path TEXT NOT NULL,      -- Path to uploaded file: /app/uploads/{job_id}/{filename}
+    result_path TEXT,              -- Path to result file: /app/results/{job_id}_annotated.pdf
+    error_count INTEGER DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Spell errors table: Errors found in jobs
+-- Spell errors table: Errors found in PDF jobs
 CREATE TABLE spell_errors (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    job_id UUID REFERENCES jobs(id) ON DELETE CASCADE,
+    job_id UUID NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
     word TEXT NOT NULL,
     position INTEGER NOT NULL,
-    page_number INTEGER,
-    error_type VARCHAR(50) NOT NULL,  -- 'invalid_prefix', 'invalid_stack', etc.
-    severity VARCHAR(20) NOT NULL,    -- 'critical', 'error', 'info'
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- Spelling reference table: Known valid words/syllables
-CREATE TABLE spelling_reference (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    word TEXT NOT NULL UNIQUE,
-    word_type VARCHAR(50),  -- 'syllable', 'word', 'phrase'
-    source VARCHAR(100),    -- 'THDL', 'Monlam', 'user_submitted'
-    is_validated BOOLEAN DEFAULT false,
+    page_number INTEGER,           -- PDF page number (1-indexed)
+    error_type VARCHAR(50) NOT NULL,  -- 'invalid_prefix_combination', 'invalid_superscript', etc.
+    severity VARCHAR(20) NOT NULL,    -- 'error', 'warning', 'info'
+    message TEXT,                  -- Human-readable error message
+    component VARCHAR(50),         -- Which syllable component has error (prefix, root, etc.)
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -41,4 +33,3 @@ CREATE TABLE spelling_reference (
 CREATE INDEX idx_jobs_status ON jobs(status);
 CREATE INDEX idx_jobs_created_at ON jobs(created_at DESC);
 CREATE INDEX idx_spell_errors_job_id ON spell_errors(job_id);
-CREATE INDEX idx_spelling_reference_word ON spelling_reference(word);

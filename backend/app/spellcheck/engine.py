@@ -4,7 +4,7 @@ Tibetan Spell Check Engine
 Main spell checking engine that integrates normalization, parsing, and rules.
 """
 from typing import List, Dict, Optional
-from .normalizer import normalize_tibetan, is_tibetan_char
+from .normalizer import normalize_tibetan, is_tibetan_char, validate_tibetan_text
 from .syllable_parser import split_syllables_with_position
 from .rules import (
     validate_syllable_structure,
@@ -77,7 +77,8 @@ class TibetanSpellChecker:
                 'word': str,           # The problematic syllable
                 'position': int,       # Character position in text
                 'error_type': str,     # Type of error
-                'severity': str        # 'critical', 'error', or 'info'
+                'severity': str,       # 'critical', 'error', or 'info'
+                'message': str         # Human-readable message (optional)
             }
         
         Raises:
@@ -89,14 +90,18 @@ class TibetanSpellChecker:
         if not text:
             return []
         
+        # Check for non-Tibetan characters (excluding whitespace)
+        non_tibetan_summary = validate_tibetan_text(text)
+        
         # Normalize text
         text = normalize_tibetan(text)
         
         # Split into syllables with position tracking
         syllables = split_syllables_with_position(text)
         
-        # Check each syllable (skip non-Tibetan syllables)
+        # Check each syllable for spelling errors
         errors = []
+        
         for item in syllables:
             syllable = item['syllable']
             
@@ -109,5 +114,15 @@ class TibetanSpellChecker:
                 # Add position information
                 error['position'] = item['position']
                 errors.append(error)
+        
+        # Add a single informational note if non-Tibetan characters were found
+        if non_tibetan_summary['has_non_tibetan']:
+            errors.append({
+                'word': '',
+                'position': 0,  # Use 0 for informational messages (Pydantic requires >= 0)
+                'error_type': 'non_tibetan_skipped',
+                'severity': 'info',
+                'message': f"{non_tibetan_summary['count']} non-Tibetan character(s) were skipped during spell checking"
+            })
         
         return errors

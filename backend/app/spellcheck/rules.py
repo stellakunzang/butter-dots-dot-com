@@ -406,7 +406,7 @@ def validate_syllable_structure(syllable_or_parsed: Union[str, Dict[str, any]]) 
                 'component': 'prefix'
             }
     
-    # 3. Validate superscript + root combination
+    # 5. Validate superscript + root combination
     if parsed.get('superscript') and parsed.get('root'):
         if not is_valid_superscript_combination(parsed['superscript'], parsed['root']):
             return {
@@ -416,7 +416,7 @@ def validate_syllable_structure(syllable_or_parsed: Union[str, Dict[str, any]]) 
                 'component': 'superscript'
             }
     
-    # 4. Validate subscripts
+    # 6. Validate subscripts
     # NOTE: Subscript validation temporarily disabled - incomplete rules causing false positives
     # TODO: Add comprehensive subscript combination rules
     # for subscript in parsed.get('subscripts', []):
@@ -428,7 +428,7 @@ def validate_syllable_structure(syllable_or_parsed: Union[str, Dict[str, any]]) 
     #             'component': 'subscript'
     #         }
     
-    # 5. Validate suffix
+    # 7. Validate suffix
     if parsed.get('suffix'):
         if not is_valid_suffix(parsed['suffix']):
             return {
@@ -438,15 +438,8 @@ def validate_syllable_structure(syllable_or_parsed: Union[str, Dict[str, any]]) 
                 'component': 'suffix'
             }
     
-    # 6. Validate post-suffix
+    # 8. Validate post-suffix
     if parsed.get('post_suffix'):
-        if not parsed.get('suffix'):
-            return {
-                'error_type': 'post_suffix_without_suffix',
-                'message': 'Post-suffix can only appear after a suffix',
-                'severity': 'error',
-                'component': 'post_suffix'
-            }
         if not is_valid_post_suffix(parsed['post_suffix']):
             return {
                 'error_type': 'invalid_post_suffix',
