@@ -323,6 +323,248 @@ class TestPerformance:
             assert errors1[0]['word'] == errors2[0]['word'] == errors3[0]['word']
 
 
+class TestQAFindings_PrefixBugs_20260211:
+    """
+    Integration tests for prefix validation bugs found during QA.
+
+    Real Tibetan words that are currently incorrectly flagged due to
+    data errors in INVALID_PREFIX_COMBOS. These must all pass after fixing.
+    """
+
+    def test_dngos_actual(self):
+        """དངོས (dngos = actual/real) should be valid.
+        Structure: ད (prefix) + ང (root) + ོ (vowel o) + ས (suffix)
+        BUG: ང incorrectly in ད's invalid prefix list.
+        """
+        from app.spellcheck.engine import TibetanSpellChecker
+        engine = TibetanSpellChecker()
+        result = engine.check_syllable("དངོས")
+        assert result is None, f"དངོས (dngos = actual) should be valid but got: {result}"
+
+    def test_dngul_silver(self):
+        """དངུལ (dngul = silver/money) should be valid.
+        Structure: ད (prefix) + ང (root) + ུ (vowel u) + ལ (suffix)
+        Same bug: ད+ང prefix combo incorrectly flagged.
+        """
+        from app.spellcheck.engine import TibetanSpellChecker
+        engine = TibetanSpellChecker()
+        result = engine.check_syllable("དངུལ")
+        assert result is None, f"དངུལ (dngul = silver) should be valid but got: {result}"
+
+    def test_dngos_in_text(self):
+        """དངོས in running text should not be flagged."""
+        from app.spellcheck.engine import TibetanSpellChecker
+        engine = TibetanSpellChecker()
+        errors = engine.check_text("དངོས་གནས་")
+        error_words = [e.get('word', '') for e in errors]
+        assert "དངོས" not in error_words, f"དངོས flagged in text. Errors: {errors}"
+
+    def test_text_with_da_nga_prefix_words(self):
+        """Sentence using ད+ང prefix words should have zero false positives."""
+        from app.spellcheck.engine import TibetanSpellChecker
+        engine = TibetanSpellChecker()
+        # "actual silver" - both words have ད prefix + ང root
+        errors = engine.check_text("དངོས་དངུལ་")
+        prefix_errors = [
+            e for e in errors
+            if e.get('error_type') == 'invalid_prefix_combination'
+        ]
+        assert len(prefix_errors) == 0, (
+            f"False prefix errors on ད+ང words: {prefix_errors}"
+        )
+
+
+class TestAchungISuffixValidation:
+    """
+    Test validation of འི (achung + i-vowel) as genitive suffix.
+
+    In Tibetan grammar, འི is added to form the genitive case on words
+    that have EITHER:
+    - No suffix (e.g., པ → པའི, ཡ → ཡའི)
+    - Suffix འ/achung (e.g., དགའ → དགའི, བཀའ → བཀའི)
+
+    This is a special exception to the single-vowel rule: when འི is
+    a valid genitive suffix, the ི on འ is allowed even if the root
+    already carries a vowel (e.g., མཐོའི has both ོ and ི).
+
+    འི CANNOT be added after any other suffix (ག, ང, ད, ན, བ, མ, ར, ལ, ས).
+    """
+
+    # ================================================================
+    # POSITIVE: འི after no suffix → valid
+    # ================================================================
+
+    def test_ya_achung_i_valid_no_suffix(self):
+        """ཡའི (ya'i) - valid: ཡ has no suffix, འི added as genitive"""
+        from app.spellcheck.engine import TibetanSpellChecker
+
+        engine = TibetanSpellChecker()
+        result = engine.check_syllable("ཡའི")
+        assert result is None, f"ཡའི should be valid but got: {result}"
+
+    def test_pa_achung_i_valid_no_suffix(self):
+        """པའི (pa'i) - valid: པ has no suffix, འི added as genitive
+
+        པའི is one of the most common genitive particles in Tibetan.
+        """
+        from app.spellcheck.engine import TibetanSpellChecker
+
+        engine = TibetanSpellChecker()
+        result = engine.check_syllable("པའི")
+        assert result is None, f"པའི should be valid but got: {result}"
+
+    def test_la_achung_i_valid_no_suffix(self):
+        """ལའི (la'i) - valid: ལ has no suffix, འི added as genitive"""
+        from app.spellcheck.engine import TibetanSpellChecker
+
+        engine = TibetanSpellChecker()
+        result = engine.check_syllable("ལའི")
+        assert result is None, f"ལའི should be valid but got: {result}"
+
+    def test_ba_achung_i_valid_no_suffix(self):
+        """བའི (ba'i) - valid: བ has no suffix, འི added as genitive"""
+        from app.spellcheck.engine import TibetanSpellChecker
+
+        engine = TibetanSpellChecker()
+        result = engine.check_syllable("བའི")
+        assert result is None, f"བའི should be valid but got: {result}"
+
+    # ================================================================
+    # POSITIVE: འི after suffix འ (achung) → valid
+    # ================================================================
+
+    def test_dga_achung_i_valid_achung_suffix(self):
+        """དགའི (dga'i) - valid: དགའ has suffix འ, ི added for genitive
+
+        དགའ (dga' = love/joy) already ends in འ. The genitive just
+        adds ི to the existing achung.
+        """
+        from app.spellcheck.engine import TibetanSpellChecker
+
+        engine = TibetanSpellChecker()
+        result = engine.check_syllable("དགའི")
+        assert result is None, f"དགའི should be valid but got: {result}"
+
+    def test_bka_achung_i_valid_achung_suffix(self):
+        """བཀའི (bka'i) - valid: བཀའ has suffix འ, ི added for genitive
+
+        བཀའ (bka' = decree/command) ends in འ.
+        """
+        from app.spellcheck.engine import TibetanSpellChecker
+
+        engine = TibetanSpellChecker()
+        result = engine.check_syllable("བཀའི")
+        assert result is None, f"བཀའི should be valid but got: {result}"
+
+    def test_mkha_achung_i_valid_achung_suffix(self):
+        """མཁའི (mkha'i) - valid: མཁའ has suffix འ, ི added for genitive
+
+        མཁའ (mkha' = sky/space) ends in འ.
+        """
+        from app.spellcheck.engine import TibetanSpellChecker
+
+        engine = TibetanSpellChecker()
+        result = engine.check_syllable("མཁའི")
+        assert result is None, f"མཁའི should be valid but got: {result}"
+
+    # ================================================================
+    # POSITIVE: Root vowel + འི suffix (two vowel marks) → valid
+    # ================================================================
+
+    def test_mtho_achung_i_valid_two_vowels(self):
+        """མཐོའི (mtho'i) - valid despite TWO vowel marks
+
+        མཐོ (mtho = high) has root vowel ོ and no suffix.
+        Adding འི gives མཐོའི with ོ on root and ི on suffix འ.
+        This is a legitimate exception to the single-vowel rule.
+        """
+        from app.spellcheck.engine import TibetanSpellChecker
+
+        engine = TibetanSpellChecker()
+        result = engine.check_syllable("མཐོའི")
+        assert result is None, f"མཐོའི should be valid (two vowels allowed with འི suffix) but got: {result}"
+
+    # ================================================================
+    # POSITIVE: འི in running text → no false positives
+    # ================================================================
+
+    def test_achung_i_in_running_text(self):
+        """འི genitive forms should not be flagged in running text"""
+        from app.spellcheck.engine import TibetanSpellChecker
+
+        engine = TibetanSpellChecker()
+        # "of the decree" - both syllables valid
+        errors = engine.check_text("བཀའི་པའི་")
+        error_words = [e.get('word', '') for e in errors if e.get('severity') != 'info']
+        assert "བཀའི" not in error_words, f"བཀའི flagged in text. Errors: {errors}"
+        assert "པའི" not in error_words, f"པའི flagged in text. Errors: {errors}"
+
+    # ================================================================
+    # NEGATIVE: འི after non-achung suffix → invalid
+    # ================================================================
+
+    def test_bod_achung_i_invalid_suffix_da(self):
+        """བོདའི - INVALID: བོད has suffix ད, འི cannot follow ད
+
+        འི can only follow no suffix or suffix འ.
+        Suffix ད requires a different genitive particle.
+        """
+        from app.spellcheck.engine import TibetanSpellChecker
+
+        engine = TibetanSpellChecker()
+        result = engine.check_syllable("བོདའི")
+        assert result is not None, \
+            "བོདའི should be invalid -- འི cannot follow suffix ད"
+
+    def test_lang_achung_i_invalid_suffix_nga(self):
+        """ལངའི - INVALID: ལང has suffix ང, འི cannot follow ང
+
+        འི can only follow no suffix or suffix འ.
+        """
+        from app.spellcheck.engine import TibetanSpellChecker
+
+        engine = TibetanSpellChecker()
+        result = engine.check_syllable("ལངའི")
+        assert result is not None, \
+            "ལངའི should be invalid -- འི cannot follow suffix ང"
+
+    def test_skad_achung_i_invalid_suffix_da(self):
+        """སྐདའི - INVALID: སྐད has suffix ད, འི cannot follow ད
+
+        སྐད (skad = language/speech) has suffix ད.
+        """
+        from app.spellcheck.engine import TibetanSpellChecker
+
+        engine = TibetanSpellChecker()
+        result = engine.check_syllable("སྐདའི")
+        assert result is not None, \
+            "སྐདའི should be invalid -- འི cannot follow suffix ད"
+
+    def test_deb_achung_i_invalid_suffix_ba(self):
+        """དེབའི - INVALID: དེབ has suffix བ, འི cannot follow བ
+
+        དེབ (deb = book) has suffix བ.
+        """
+        from app.spellcheck.engine import TibetanSpellChecker
+
+        engine = TibetanSpellChecker()
+        result = engine.check_syllable("དེབའི")
+        assert result is not None, \
+            "དེབའི should be invalid -- འི cannot follow suffix བ"
+
+    def test_yig_achung_i_invalid_suffix_ga(self):
+        """ཡིགའི - INVALID: ཡིག has suffix ག, འི cannot follow ག
+
+        ཡིག (yig = letter/script) has suffix ག.
+        """
+        from app.spellcheck.engine import TibetanSpellChecker
+
+        engine = TibetanSpellChecker()
+        result = engine.check_syllable("ཡིགའི")
+        assert result is not None, \
+            "ཡིགའི should be invalid -- འི cannot follow suffix ག"
+
+
 class TestIntegration:
     """Integration tests combining all components"""
     

@@ -1,9 +1,13 @@
 """
-Tests for Tibetan syllable parsing
+Tests for Tibetan Syllable Splitting
 
-Following TDD: Write tests FIRST, then implement
+Tests the splitting functions in splitter.py:
+- split_syllables(): Split text by tsheg into syllable strings
+- split_syllables_with_position(): Split with character position tracking
+
+Previously part of test_syllable_parser.py.
 """
-import pytest
+from app.spellcheck.splitter import split_syllables, split_syllables_with_position
 
 
 class TestBasicSyllableSplitting:
@@ -11,8 +15,6 @@ class TestBasicSyllableSplitting:
     
     def test_split_by_tsheg(self):
         """Split text by tsheg (་) into syllables"""
-        from app.spellcheck.syllable_parser import split_syllables
-        
         text = "བོད་ཡིག་"
         syllables = split_syllables(text)
         
@@ -22,8 +24,6 @@ class TestBasicSyllableSplitting:
     
     def test_split_single_syllable(self):
         """Single syllable with no tsheg"""
-        from app.spellcheck.syllable_parser import split_syllables
-        
         text = "བོད"
         syllables = split_syllables(text)
         
@@ -32,8 +32,6 @@ class TestBasicSyllableSplitting:
     
     def test_split_with_trailing_tsheg(self):
         """Handle trailing tsheg correctly"""
-        from app.spellcheck.syllable_parser import split_syllables
-        
         text = "བོད་ཡིག་"
         syllables = split_syllables(text)
         
@@ -43,8 +41,6 @@ class TestBasicSyllableSplitting:
     
     def test_split_multiple_syllables(self):
         """Split text with many syllables"""
-        from app.spellcheck.syllable_parser import split_syllables
-        
         text = "བོད་ཀྱི་སྐད་ཡིག་"
         syllables = split_syllables(text)
         
@@ -57,8 +53,6 @@ class TestPunctuationHandling:
     
     def test_handle_shad(self):
         """Shad (།) as sentence delimiter"""
-        from app.spellcheck.syllable_parser import split_syllables
-        
         text = "བོད་ཡིག་།"
         syllables = split_syllables(text)
         
@@ -69,8 +63,6 @@ class TestPunctuationHandling:
     
     def test_handle_double_shad(self):
         """Double shad (༎) handling"""
-        from app.spellcheck.syllable_parser import split_syllables
-        
         text = "བོད་ཡིག་༎"
         syllables = split_syllables(text)
         
@@ -79,8 +71,6 @@ class TestPunctuationHandling:
     
     def test_multiple_sentences(self):
         """Multiple sentences separated by shad"""
-        from app.spellcheck.syllable_parser import split_syllables
-        
         text = "བོད་ཡིག་། བོད་སྐད་།"
         syllables = split_syllables(text)
         
@@ -95,8 +85,6 @@ class TestPositionTracking:
     
     def test_track_syllable_positions(self):
         """Track character position of each syllable"""
-        from app.spellcheck.syllable_parser import split_syllables_with_position
-        
         text = "བོད་ཡིག་"
         result = split_syllables_with_position(text)
         
@@ -113,8 +101,6 @@ class TestPositionTracking:
     
     def test_position_with_complex_text(self):
         """Position tracking in complex text"""
-        from app.spellcheck.syllable_parser import split_syllables_with_position
-        
         text = "བོད་ཀྱི་སྐད་ཡིག་"
         result = split_syllables_with_position(text)
         
@@ -131,8 +117,6 @@ class TestPositionTracking:
     
     def test_position_after_punctuation(self):
         """Position tracking across punctuation"""
-        from app.spellcheck.syllable_parser import split_syllables_with_position
-        
         text = "བོད་། ཡིག་"
         result = split_syllables_with_position(text)
         
@@ -146,27 +130,19 @@ class TestEdgeCases:
     
     def test_empty_string(self):
         """Empty string returns empty list"""
-        from app.spellcheck.syllable_parser import split_syllables
-        
         assert split_syllables("") == []
     
     def test_whitespace_only(self):
         """Whitespace-only string returns empty list"""
-        from app.spellcheck.syllable_parser import split_syllables
-        
         assert split_syllables("   ") == []
         assert split_syllables("\t\n") == []
     
     def test_only_tsheg(self):
         """String of only tsheg returns empty list"""
-        from app.spellcheck.syllable_parser import split_syllables
-        
         assert split_syllables("་་་") == []
     
     def test_mixed_whitespace_and_tibetan(self):
         """Handle mixed whitespace and Tibetan"""
-        from app.spellcheck.syllable_parser import split_syllables
-        
         text = "  བོད་  ཡིག་  "
         syllables = split_syllables(text)
         
@@ -176,8 +152,6 @@ class TestEdgeCases:
     
     def test_consecutive_tsheg(self):
         """Handle consecutive tsheg (edge case)"""
-        from app.spellcheck.syllable_parser import split_syllables
-        
         text = "བོད་་ཡིག"  # Double tsheg (unusual but possible)
         syllables = split_syllables(text)
         
@@ -187,12 +161,10 @@ class TestEdgeCases:
 
 
 class TestComplexStructures:
-    """Test complex Tibetan structures"""
+    """Test complex Tibetan structures stay together during splitting"""
     
     def test_syllable_with_stacking(self):
         """Syllables with subscripts/superscripts"""
-        from app.spellcheck.syllable_parser import split_syllables
-        
         text = "སྐད་བརྒྱུད་"
         syllables = split_syllables(text)
         
@@ -203,8 +175,6 @@ class TestComplexStructures:
     
     def test_syllable_with_vowels(self):
         """Syllables with vowel marks"""
-        from app.spellcheck.syllable_parser import split_syllables
-        
         text = "རྒྱལ་པོ་"
         syllables = split_syllables(text)
         
@@ -215,8 +185,6 @@ class TestComplexStructures:
     
     def test_preserves_syllable_integrity(self):
         """Syllables should not be broken apart"""
-        from app.spellcheck.syllable_parser import split_syllables
-        
         text = "སྤྱན་རས་གཟིགས་"
         syllables = split_syllables(text)
         
