@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api import health
+from app.api import health, spellcheck
 
 app = FastAPI(
     title="Tibetan Spellchecker API",
@@ -19,3 +19,4 @@ app.add_middleware(
 
 # Include routers
 app.include_router(health.router, prefix="/api/v1", tags=["health"])
+app.include_router(spellcheck.router, prefix="/api/v1", tags=["spellcheck"])
