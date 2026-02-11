@@ -3,43 +3,38 @@ Tibetan Syllable Parser
 
 Main parser for analyzing Tibetan syllable structure.
 
-KEY PRINCIPLE: Vowels always attach to the root consonant.
-The consonant immediately before the first vowel is the root.
+Delegates to the new pipeline (char_typing -> parsing) and provides
+backwards-compatible dict output via TibetanSyllable.to_dict().
 
 Syllable structure:
-    PREFIX + SUPERSCRIPT + ROOT + SUBSCRIPT(S) + VOWEL(S) + SUFFIX + POST-SUFFIX
+    PREFIX + SUPERSCRIPT + ROOT + SUBSCRIPT(S) + VOWEL + SUFFIX + POST-SUFFIX
 """
 from typing import Dict
-from .syllable_parser_helpers import (
-    split_syllables,
-    split_syllables_with_position,
-    find_first_vowel,
-    parse_with_vowels,
-    parse_without_vowels,
-    create_empty_result
-)
+from .char_typing import type_characters
+from .parsing import parse_syllable
+from .splitter import split_syllables, split_syllables_with_position
 
 
 class TibetanSyllableParser:
     """
     Parser for Tibetan syllable structure.
-    
-    Breaks down syllables into grammatical components for validation.
-    Uses vowel position as the key to identifying the root consonant.
+
+    Uses the new three-stage pipeline internally:
+    1. Classify characters (char_typing)
+    2. Parse structure (parsing) using stacking rules
+    3. Return TibetanSyllable (or dict for backwards compatibility)
     """
-    
+
     def parse(self, syllable: str) -> Dict[str, any]:
         """
         Parse a Tibetan syllable into its grammatical components.
-        
-        Strategy:
-        1. Find first vowel (if present)
-        2. If vowel exists: work backwards to identify root
-        3. If no vowel: use consonant-based heuristics
-        
+
+        Returns dict for backwards compatibility. Use parse_to_model()
+        for the TibetanSyllable dataclass.
+
         Args:
             syllable: Single Tibetan syllable (no tsheg)
-            
+
         Returns:
             Dictionary with components:
             {
@@ -52,28 +47,28 @@ class TibetanSyllableParser:
                 'post_suffix': str | None,
                 'raw': str
             }
-            
-        Examples:
-            བོད → {'root': 'བ', 'vowels': ['ོ'], 'suffix': 'ད'}
-            དང → {'root': 'ད', 'suffix': 'ང'}
-            བརྗེད → {'prefix': 'བ', 'superscript': 'ར', 'root': 'ཇ', 
-                     'vowels': ['ེ'], 'suffix': 'ད'}
+        """
+        model = self.parse_to_model(syllable)
+        return model.to_dict()
+
+    def parse_to_model(self, syllable: str):
+        """
+        Parse a Tibetan syllable into a TibetanSyllable dataclass.
+
+        This is the preferred method for new code.
+
+        Args:
+            syllable: Single Tibetan syllable (no tsheg)
+
+        Returns:
+            TibetanSyllable with all components identified
         """
         if not syllable:
-            return create_empty_result("")
-        
-        chars = list(syllable)
-        
-        # Find vowel position (key to identifying root)
-        first_vowel_index = find_first_vowel(chars)
-        
-        # Use appropriate parsing strategy
-        if first_vowel_index is not None:
-            # Has vowels - use vowel-based parsing
-            return parse_with_vowels(chars, first_vowel_index, syllable)
-        else:
-            # No vowels - use consonant-based parsing
-            return parse_without_vowels(chars, syllable)
+            from .data_types import TibetanSyllable
+            return TibetanSyllable(raw="")
+
+        typed_chars = type_characters(syllable)
+        return parse_syllable(typed_chars)
 
 
 # Re-export splitting functions for backwards compatibility
