@@ -14,6 +14,7 @@
 **Status**: ✅ Decided - Python with FastAPI
 
 **Context**:
+
 - Need to process PDFs with OCR
 - Need to implement complex spell checking rules
 - Want to showcase full-stack capabilities
@@ -42,17 +43,20 @@
 **Decision**: Python with FastAPI
 
 **Rationale**:
+
 - OCR is a hard requirement - Python's ecosystem is significantly better
 - PDF manipulation is much easier in Python
 - FastAPI provides modern DX (type hints, auto docs, async)
 - Shows pragmatic tool selection for the job
 
 **Trade-offs**:
+
 - Adds language complexity to stack
 - Team needs Python knowledge
 - Deployment requires Python environment
 
 **Interview Talking Points**:
+
 - "Chose Python for OCR/PDF ecosystem maturity"
 - "FastAPI gives Node-like performance with Python's text processing power"
 - "Type hints enable API contract safety similar to TypeScript"
@@ -66,6 +70,7 @@
 **Status**: ✅ Decided - REST
 
 **Context**:
+
 - Need API for file upload, job status, result download
 - Want to demonstrate modern API design
 - Simple operations: upload → process → download
@@ -93,12 +98,14 @@
 **Decision**: REST with OpenAPI specification
 
 **Rationale**:
+
 - We have 3-4 simple endpoints, no complex data fetching
 - File operations are REST-native
 - HTTP status codes (202 Accepted, 404, etc.) are semantically meaningful
 - Demonstrates pragmatic decision-making over trend-chasing
 
 **API Endpoints**:
+
 ```
 POST   /api/v1/spellcheck/upload      → 202 Accepted {job_id}
 GET    /api/v1/spellcheck/job/:id     → 200 OK {status, progress}
@@ -107,15 +114,18 @@ POST   /api/v1/spellcheck/text        → 200 OK {errors[]}
 ```
 
 **Trade-offs**:
+
 - No real-time progress without polling or SSE
 - Multiple endpoints instead of single GraphQL endpoint
 - Client needs to know endpoint structure
 
 **Alternatives Considered**:
+
 - Server-Sent Events (SSE) for real-time progress
 - WebSockets for bidirectional updates
 
 **Interview Talking Points**:
+
 - "REST is the right tool for this problem - simple operations, file handling"
 - "HTTP semantics provide meaningful status codes"
 - "GraphQL would add complexity without solving actual problems"
@@ -129,6 +139,7 @@ POST   /api/v1/spellcheck/text        → 200 OK {errors[]}
 **Status**: ✅ Decided - PostgreSQL
 
 **Context**:
+
 - Need to store: jobs, users (email), errors, dictionary
 - Async job processing requires job state tracking
 - Interview showcase - want production-ready choices
@@ -163,6 +174,7 @@ POST   /api/v1/spellcheck/text        → 200 OK {errors[]}
 **Decision**: PostgreSQL
 
 **Schema Design**:
+
 ```sql
 -- Job tracking
 jobs (
@@ -197,17 +209,20 @@ dictionary (
 ```
 
 **Rationale**:
+
 - Need reliable job state tracking for async processing
 - JSONB columns provide flexibility for error metadata
 - Full-text search useful for dictionary lookups
 - Shows production-ready thinking
 
 **Trade-offs**:
+
 - More complex setup than SQLite
 - Requires database server (Docker for local, hosted for prod)
 - Need to handle migrations (Alembic)
 
 **Interview Talking Points**:
+
 - "PostgreSQL scales with concurrent job processing"
 - "JSONB provides flexibility while maintaining relational integrity"
 - "Could add GIN indexes for full-text search on dictionary"
@@ -221,6 +236,7 @@ dictionary (
 **Status**: 🤔 Under Discussion
 
 **Context**:
+
 - PDF processing can take minutes for large files
 - Can't block HTTP request
 - Need to notify user when complete (email)
@@ -255,9 +271,11 @@ dictionary (
    - ❌ Manual implementation
    - ❌ Polling overhead
 
-**Current Thinking**: Start with BackgroundTasks for MVP, design for Celery migration
+**Current Thinking**: Start with BackgroundTasks for MVP, design for Celery
+migration
 
 **Interview Talking Points**:
+
 - "Chose BackgroundTasks for MVP speed"
 - "Architecture supports Celery migration when we need scaling"
 - "Job state in database ensures recoverability"
@@ -270,6 +288,7 @@ dictionary (
 **Status**: 🤔 Under Discussion
 
 **Context**:
+
 - Need to extract Tibetan text from PDFs
 - Tibetan OCR historically poor quality
 - User mentioned "new OCR that works well with Tibetan"
@@ -298,6 +317,7 @@ dictionary (
    - ❌ Need to verify Tibetan support
 
 **Action Items**:
+
 - Research "new Tibetan OCR" mentioned by user
 - Test quality of each option with sample Tibetan PDF
 - Consider cost/quality trade-off
@@ -312,6 +332,7 @@ dictionary (
 **User Requirement**: "I would like to not limit the size of PDFs to start with"
 
 **Challenges**:
+
 - Large PDFs (100+ pages) could take 10+ minutes
 - User experience: waiting vs progress vs email
 - Server resources: memory, processing time
@@ -337,13 +358,15 @@ dictionary (
    - ✅ Progressive enhancement
    - ❌ Can't return annotated PDF incrementally
 
-**Current Thinking**: 
+**Current Thinking**:
+
 - Accept files up to 100MB
 - Queue job immediately
 - Email results when complete
 - Optional: polling endpoint for status
 
 **Questions**:
+
 - Simple email capture for MVP, or full authentication?
 - Email service: SendGrid, AWS SES, or SMTP?
 
@@ -355,6 +378,7 @@ dictionary (
 **Status**: 🤔 Needs Decision
 
 **Context**:
+
 - Have existing Next.js frontend
 - Adding Python backend
 - Want clean separation for interview discussion
@@ -362,6 +386,7 @@ dictionary (
 **Options**:
 
 1. **Monorepo (Single Repository)**
+
    ```
    butter-dots-dot-com/
    ├── frontend/          (Next.js)
@@ -369,6 +394,7 @@ dictionary (
    ├── shared/            (types, constants)
    └── docker-compose.yml
    ```
+
    - ✅ Easy to keep in sync
    - ✅ Shared types/constants
    - ✅ Single clone for demo
@@ -380,6 +406,7 @@ dictionary (
    butter-dots-frontend/  (Next.js)
    tibetan-spellcheck-api/ (FastAPI)
    ```
+
    - ✅ Clean separation of concerns
    - ✅ Independent deployment
    - ✅ Clear service boundaries
@@ -393,6 +420,7 @@ dictionary (
 ## Questions to Resolve
 
 ### High Priority (Blocking Development):
+
 1. ❓ Monorepo vs separate repos?
 2. ❓ Start with Celery or BackgroundTasks?
 3. ❓ OCR service choice? (need to research options)
@@ -400,11 +428,13 @@ dictionary (
 5. ❓ Authentication approach for MVP?
 
 ### Medium Priority (Can decide during development):
+
 6. ❓ Deployment target (local demo vs hosted)?
 7. ❓ Start with SQLite or PostgreSQL from day 1?
 8. ❓ File storage: local filesystem vs S3?
 
 ### Data/Resources Needed:
+
 9. ❓ Tibetan suffix/prefix rules documentation (standard or Amdo-specific?)
 10. ❓ Valid letter combination rules
 11. ❓ Tibetan dictionary word list source
@@ -419,6 +449,7 @@ dictionary (
 ### **Phase 1: Syllable-Level Spell Checking (MVP - This Week)**
 
 **What It Checks:**
+
 - ✓ Valid prefix-base consonant combinations
 - ✓ Valid superscript/subscript stacking rules
 - ✓ Valid suffix and post-suffix rules
@@ -426,12 +457,14 @@ dictionary (
 - ✓ Structural violations (e.g., two prefixes, invalid vowel placement)
 
 **What It DOESN'T Check:**
+
 - ✗ Whether syllables form real words
 - ✗ Word boundaries (where one word ends, another begins)
 - ✗ Contextual correctness
 - ✗ Commonly confused words
 
 **Example:**
+
 ```
 Input:  བོད་ཡིབ
 Result: ✓ All syllables grammatically valid
@@ -439,12 +472,14 @@ Reality: ✗ Not a real word (should be བོད་ཡིག "bod-yig")
 ```
 
 **Value Proposition:**
+
 - Catches ~40-50% of errors (structural/grammatical)
 - Fast (no dictionary lookups)
 - Good foundation for Phase 2
 - Educational: Users learn Tibetan syllable structure
 
 **Limitations:**
+
 - Won't catch: བོད་ཡིབ (nonsense but valid syllables)
 - Won't catch: བདེ་ལགས (misspelling of བདེ་ལེགས "bde-legs")
 - Won't suggest: actual words, just valid structures
@@ -454,6 +489,7 @@ Reality: ✗ Not a real word (should be བོད་ཡིག "bod-yig")
 ### **Phase 2: Word-Level Intelligence (Post-Interview)**
 
 **Additional Capabilities:**
+
 - ✓ Dictionary lookup (100,000+ word database)
 - ✓ Word boundary detection
 - ✓ Contextual suggestions
@@ -462,6 +498,7 @@ Reality: ✗ Not a real word (should be བོད་ཡིག "bod-yig")
 - ✓ Frequency-based ranking (suggest common words first)
 
 **Example:**
+
 ```
 Input:  བོད་ཡིབ
 Phase 1: ✓ Valid syllables
@@ -469,17 +506,20 @@ Phase 2: ✗ Not in dictionary → Suggest: བོད་ཡིག (95% confidenc
 ```
 
 **Impact:**
+
 - Catches ~80% more errors than Phase 1
 - Provides meaningful suggestions
 - Understands word context
 
 **Technical Requirements:**
+
 - Larger dictionary database
 - Word segmentation algorithm
 - N-gram frequency data
 - More complex suggestion engine
 
 **Why Phase 2 is MUCH More Useful:**
+
 ```
 Scenario: Writing a document about Tibetan Buddhism
 
@@ -498,6 +538,7 @@ Result: 5-10x more actionable feedback
 ---
 
 ### **Phase 3: Advanced Features (Future)**
+
 - ✓ Grammar checking (not just spelling)
 - ✓ Style suggestions (formal vs colloquial)
 - ✓ Regional dialect awareness
@@ -511,6 +552,7 @@ Result: 5-10x more actionable feedback
 **Interview Date**: TBD (later this week)
 
 **Phase 1 (MVP) Breakdown**:
+
 - **Day 1**: Core spell check engine + tests
 - **Day 2**: API layer + database setup
 - **Day 3**: PDF/OCR integration
@@ -522,6 +564,7 @@ Result: 5-10x more actionable feedback
 ## Success Criteria for Interview
 
 ### Must Demonstrate:
+
 - ✅ Full-stack capability (Python + TypeScript)
 - ✅ API design (REST with proper status codes)
 - ✅ Database schema design (relational model)
@@ -530,12 +573,14 @@ Result: 5-10x more actionable feedback
 - ✅ Type safety (TypeScript + Python type hints)
 
 ### Nice to Have:
+
 - ✅ Working OCR integration
 - ✅ Deployed demo (vs local only)
 - ✅ Real dictionary integration
 - ✅ Email notifications working
 
 ### Documentation:
+
 - ✅ This decision document
 - ✅ API documentation (auto-generated by FastAPI)
 - ✅ README with setup instructions
@@ -549,6 +594,7 @@ Result: 5-10x more actionable feedback
 **Status**: ✅ Decided - Normalized Schema
 
 **Context**:
+
 - Initially considered JSONB for error positions and dictionary flexibility
 - Need to scale from simple word list to full dictionary
 - Want efficient querying and analytics
@@ -556,6 +602,7 @@ Result: 5-10x more actionable feedback
 **Decision**: Use normalized tables instead of JSONB
 
 **Schema** (see separate schema document for full details):
+
 ```sql
 -- Normalized error positions (not JSONB)
 spell_errors (
@@ -572,6 +619,7 @@ dictionary_etymology (word_id, origin_language, origin_word)
 ```
 
 **Rationale**:
+
 - Need to query errors by position, type, frequency
 - Dictionary will evolve from word list → full definitions
 - JSONB makes analytics difficult
@@ -579,11 +627,13 @@ dictionary_etymology (word_id, origin_language, origin_word)
 - Schema constraints enforce data quality
 
 **When JSONB IS appropriate**:
+
 - User preferences (truly variable structure)
 - Audit logs (event-specific data)
 - API response caching
 
 **Interview Talking Points**:
+
 - "JSONB is powerful but was wrong tool for this data"
 - "Our data has clear structure that benefits from normalization"
 - "Can efficiently query: 'Most common error type' or 'Errors in region X'"
@@ -598,6 +648,7 @@ dictionary_etymology (word_id, origin_language, origin_word)
 **Updated**: 2026-02-09 - Deferred pronunciation/dialect to Phase 3+
 
 **Context**:
+
 - Wylie is standard scholarly transliteration
 - But: Wylie represents written form, not pronunciation
 - Creates disconnect: scholars write Wylie, often can't speak
@@ -606,6 +657,7 @@ dictionary_etymology (word_id, origin_language, origin_word)
 - **CRITICAL**: Community uses Amdo dialect, not U-Tsang (most documented)
 
 **Problem Example**:
+
 ```
 Written Tibetan:  བསྟན་པ
 Wylie:            bstan-pa
@@ -634,6 +686,7 @@ Why? Historical spelling preserved etymology, letters dropped in speech
 **Decision**: Support multiple transliteration systems with clear labeling
 
 **Implementation**:
+
 ```typescript
 enum TransliterationSystem {
   WYLIE = 'wylie',           // Scholarly, represents script
@@ -644,8 +697,8 @@ enum TransliterationSystem {
 // In UI
 <ErrorDisplay>
   <TibetanScript>བོད་</TibetanScript>
-  <Transliteration 
-    system={userPreference} 
+  <Transliteration
+    system={userPreference}
     showBoth={true}
     explanation="Wylie matches written form; pronunciation differs"
   >
@@ -655,6 +708,7 @@ enum TransliterationSystem {
 ```
 
 **Educational Content**:
+
 ```
 Page: /learn/transliteration
 
@@ -667,10 +721,10 @@ The Challenge:
 
 Example:
   Written: བསྟན (bstan) "teaching"
-  
+
   Historical: Probably pronounced all letters: b-s-tan
   Modern:     Pronounced: "ten"
-  
+
 Why This Matters:
 - Wylie helps you READ Tibetan script
 - Phonetic helps you SPEAK Tibetan
@@ -678,11 +732,13 @@ Why This Matters:
 ```
 
 **MVP Approach (Phase 1-2)**:
+
 - Display Wylie transliteration only
 - Focus on written form validation
 - No pronunciation/phonetic features
 
 **Future Enhancement (Phase 3+)**:
+
 ```typescript
 // Future: Multi-system support
 enum TransliterationSystem {
@@ -699,28 +755,33 @@ enum TransliterationSystem {
 ```
 
 **Why Defer**:
+
 - Pronunciation not critical for spell checking
 - Amdo phonetic rules less documented (research needed)
 - Can build transliteration script later
 - Keeps MVP focused
 
 **What We're Keeping**:
+
 - ✓ Display Wylie alongside Tibetan script
 - ✓ Educational content about Wylie vs pronunciation
 - ✓ Architecture ready for future dialect support
 
 **Rationale**:
+
 - Respects both scholarly and practical needs
 - Educates users about linguistic reality
 - Doesn't hide the complexity, explains it
 - Empowers users to make informed choice
 
 **Trade-offs**:
+
 - More complex UI (multiple views)
 - Need to maintain multiple transliteration systems
 - Educational content requires linguistic expertise
 
 **Interview Talking Points**:
+
 - "Identified real-world problem: Wylie creates written/spoken divide"
 - "Solution balances scholarly needs with accessibility"
 - "Added educational component to empower users"
@@ -735,11 +796,13 @@ enum TransliterationSystem {
 **Status**: ✅ Decided - Syllable-Aware Processing
 
 **Context**:
+
 - Tibetan is syllabic, not alphabetic
 - Unicode "characters" can be multiple code points
 - Can't process character-by-character like English
 
 **Technical Challenges**:
+
 ```python
 # Length confusion
 tibetan = "བོད་"
@@ -754,6 +817,7 @@ text1 == text2  # Might be False!
 **Decision**: Always normalize, work with syllables
 
 **Implementation**:
+
 ```python
 import unicodedata
 import regex  # Not 're' - better Unicode support
@@ -766,12 +830,13 @@ def split_syllables(text):
     return text.split('་')  # Split on tsheg
 
 # Database
-CREATE DATABASE tibetan_spellcheck 
-    ENCODING 'UTF8' 
+CREATE DATABASE tibetan_spellcheck
+    ENCODING 'UTF8'
     LC_COLLATE='en_US.UTF-8';
 ```
 
 **Educational Content**:
+
 ```
 Page: /learn/unicode
 
@@ -780,7 +845,7 @@ Interactive Demo:
 
 Behind the Scenes:
 - Character 1: བ (U+0F56) - Base consonant "ba"
-- Character 2: ོ (U+0F7C) - Vowel sign "o"  
+- Character 2: ོ (U+0F7C) - Vowel sign "o"
 - Character 3: ད (U+0F51) - Suffix "da"
 - Character 4: ་ (U+0F0B) - Tsheg (syllable marker)
 
@@ -793,6 +858,7 @@ Why This Matters:
 ```
 
 **Requirements**:
+
 - ✓ Always use UTF-8 encoding
 - ✓ Normalize all text (NFC form)
 - ✓ Use `regex` module (not `re`)
@@ -800,6 +866,7 @@ Why This Matters:
 - ✓ Test with real Tibetan text
 
 **Interview Talking Points**:
+
 - "Tibetan requires syllable-aware processing, not character-level"
 - "Built educational content to demystify Unicode complexity"
 - "Shows understanding of internationalization challenges"
@@ -812,12 +879,14 @@ Why This Matters:
 **Status**: 📋 Deferred to Phase 3+
 
 **Context**:
+
 - Tibetan texts contain Sanskrit mantras, prayers, and technical Buddhist terms
 - Sanskrit sounds don't exist in native Tibetan phonology
 - Special transliteration rules apply
 - These will fail normal Tibetan spelling rules
 
 **Examples of Sanskrit in Tibetan:**
+
 ```
 Mantra: ཨོཾ་མ་ཎི་པདྨེ་ཧཱུྃ
 Wylie:  oṃ ma ṇi padme hūṃ
@@ -831,6 +900,7 @@ Technical terms: དྷརྨ (dharma), སངྒྷ (saṅgha), བོདྷི
 ```
 
 **The Problem:**
+
 ```python
 # Normal Tibetan rules
 check_spelling("བོད")  # ✓ Valid
@@ -863,23 +933,27 @@ check_spelling("དྷརྨ")  # ✗ Fails normal rules!
 **Deferred Approach (Phase 3+):**
 
 Keep track of Sanskrit letters for future:
+
 ```python
 # For future implementation
 SANSKRIT_LETTERS = {'དྷ', 'གྷ', 'བྷ', 'ཊ', 'ཋ', 'ཌ', 'ཌྷ', 'ཎ'}
 ```
 
 **Why Defer:**
+
 - Edge case, not common in all texts
 - Complex to implement correctly
 - MVP can function without it
 - Users can work around (ignore errors in Sanskrit sections)
 
 **MVP Behavior:**
+
 - Sanskrit words may be flagged as errors
 - Document this as known limitation
 - Users can note in feedback: "This is Sanskrit"
 
 **Interview Talking Points**:
+
 - "Identified Sanskrit transliteration as edge case early"
 - "Phased approach: skip in MVP, proper handling in Phase 3"
 - "Shows understanding of domain complexity"
@@ -893,6 +967,7 @@ SANSKRIT_LETTERS = {'དྷ', 'གྷ', 'བྷ', 'ཊ', 'ཋ', 'ཌ', 'ཌྷ',
 **Status**: 📋 Deferred to Phase 3+
 
 **Context**:
+
 - Initial corpus will be incomplete (especially for Amdo dialect)
 - Users encounter valid words not in our database
 - Community knowledge > any single reference
@@ -901,17 +976,20 @@ SANSKRIT_LETTERS = {'དྷ', 'གྷ', 'བྷ', 'ཊ', 'ཋ', 'ཌ', 'ཌྷ',
 **Naming Decision:**
 
 **NOT "Dictionary"** because:
+
 - Implies definitions (we don't have those in Phase 1)
 - Suggests completeness (we're definitely incomplete)
 - Formal/intimidating
 
 **Better options:**
+
 - ✅ **"Word Corpus"** (technical but accurate)
 - ✅ **"Spelling Reference"** (functional, approachable)
 - ✅ **"Lexicon"** (linguistic term, less formal than dictionary)
 - ✅ **"Word List"** (simple, honest)
 
-**Recommendation**: "Spelling Reference" for user-facing, "corpus" in technical docs
+**Recommendation**: "Spelling Reference" for user-facing, "corpus" in technical
+docs
 
 **Implementation:**
 
@@ -921,7 +999,7 @@ CREATE TABLE spelling_reference (
     id SERIAL PRIMARY KEY,
     word TEXT UNIQUE NOT NULL,
     word_normalized TEXT NOT NULL,
-    
+
     -- Source tracking
     source VARCHAR(50) NOT NULL CHECK (source IN (
         'initial_corpus',      -- Original word list
@@ -930,24 +1008,24 @@ CREATE TABLE spelling_reference (
         'amdo_variant',        -- Dialect-specific
         'sanskrit'             -- Sanskrit transliteration
     )),
-    
+
     -- Metadata
     submitted_by_user_id UUID REFERENCES users(id),
     submitted_at TIMESTAMP DEFAULT NOW(),
     verified_by_user_id UUID REFERENCES users(id),
     verified_at TIMESTAMP,
-    
+
     -- Usage tracking
     frequency INTEGER DEFAULT 1,
     times_flagged_as_error INTEGER DEFAULT 0,
-    
+
     -- Dialect/context
     dialect VARCHAR(20),  -- 'amdo', 'u_tsang', etc.
     is_sanskrit BOOLEAN DEFAULT FALSE,
-    
+
     -- Notes
     notes TEXT,  -- Context, usage, why it's valid
-    
+
     INDEX idx_word (word),
     INDEX idx_source (source),
     INDEX idx_dialect (dialect)
@@ -959,12 +1037,12 @@ CREATE TABLE word_submissions (
     word TEXT NOT NULL,
     user_id UUID REFERENCES users(id),
     submitted_at TIMESTAMP DEFAULT NOW(),
-    
+
     -- Context
     found_in_document TEXT,  -- Where they encountered it
     reason TEXT,             -- Why they think it's valid
     dialect VARCHAR(20),
-    
+
     -- Moderation
     status VARCHAR(20) CHECK (status IN (
         'pending',
@@ -975,7 +1053,7 @@ CREATE TABLE word_submissions (
     reviewed_by UUID REFERENCES users(id),
     reviewed_at TIMESTAMP,
     review_notes TEXT,
-    
+
     INDEX idx_status (status),
     INDEX idx_user (user_id)
 );
@@ -992,13 +1070,13 @@ User clicks: "This word is correct"
   ↓
 Modal appears:
   "Submit this word to our spelling reference?"
-  
+
   Word: མཁའ་འགྲོ
   Wylie: mkha' 'gro
   Meaning (optional): [text field]
   Dialect: [Amdo ▼]
   Context: [Where you found this word]
-  
+
   [Cancel] [Submit]
   ↓
 Word added to pending submissions
@@ -1011,6 +1089,7 @@ Now valid for all users!
 ```
 
 **Gamification (Optional):**
+
 ```
 User contributions tracked:
 - 10 approved words → "Contributor" badge
@@ -1026,22 +1105,22 @@ Leaderboard: Top contributors
 # Automatic checks before accepting submission
 def validate_submission(word):
     checks = []
-    
+
     # Basic structure
     if not is_valid_tibetan_unicode(word):
         return False, "Not valid Tibetan text"
-    
+
     # Not already in corpus
     if exists_in_corpus(word):
         return False, "Word already in spelling reference"
-    
+
     # Multiple independent submissions increase confidence
     submission_count = count_submissions(word)
     if submission_count >= 3:
         # 3 different users submitted same word
         # Automatically approve
         return True, "Multiple independent submissions"
-    
+
     # Flag for manual review
     return 'pending', "Needs moderator review"
 ```
@@ -1060,7 +1139,7 @@ Notes: Common in tantric texts
 
 Similar words in corpus:
   - མཁའ་འགྲོ་མ (mkha' 'gro ma) - already exists
-  
+
 [Approve] [Reject] [Needs More Info]
 ```
 
@@ -1080,23 +1159,27 @@ GET /api/v1/corpus/stats    # Public stats
 ```
 
 **Why Defer:**
+
 - Adds complexity (user accounts, moderation, UI)
 - Need solid base corpus first
 - Quality control requires time/resources
 - Can launch MVP with static corpus
 
 **When to Add (Phase 3+):**
+
 - After MVP proves useful
 - When gaps in corpus are identified
 - When community requests it
 - With proper moderation plan
 
 **Keep in Mind:**
+
 - Design database to support this (source tracking)
 - Document words users report as missing
 - Build feedback mechanism ("Report issue with this word")
 
 **Interview Talking Points**:
+
 - "Identified feature for Phase 3+, designed database to support it"
 - "Phased approach: static corpus first, community later"
 - "Shows product thinking: launch fast, add community features when proven"
@@ -1109,6 +1192,7 @@ GET /api/v1/corpus/stats    # Public stats
 **Status**: ✅ Decided - Multi-Source Cross-Referenced Approach
 
 **Context**:
+
 - Need starting word list for spell checking
 - No definitions needed (just valid words)
 - Want high quality, avoid errors
@@ -1147,11 +1231,12 @@ GET /api/v1/corpus/stats    # Public stats
 **Decision: Multi-Source Cross-Referencing**
 
 **Approach:**
+
 ```python
 # 1. Extract word lists from multiple sources
 sources = [
     'thdl_dictionary',      # ~50k words
-    'monlam_dict',          # ~100k words  
+    'monlam_dict',          # ~100k words
     'rangjung_yeshe',       # ~30k words
     'frequency_corpus',     # From actual texts
 ]
@@ -1159,7 +1244,7 @@ sources = [
 # 2. Cross-reference for quality
 def build_corpus(sources):
     all_words = {}
-    
+
     for source in sources:
         words = extract_words(source)
         for word in words:
@@ -1171,14 +1256,14 @@ def build_corpus(sources):
                     'frequency': 0
                 }
             all_words[normalized]['sources'].append(source)
-    
+
     # Filter: only words appearing in 2+ sources
     validated_words = {
-        word: data 
-        for word, data in all_words.items() 
+        word: data
+        for word, data in all_words.items()
         if len(data['sources']) >= 2
     }
-    
+
     return validated_words
 
 # Result: High-confidence word list
@@ -1187,6 +1272,7 @@ def build_corpus(sources):
 **Rationale:**
 
 **Why multiple sources:**
+
 - ✅ Higher confidence (2+ sources = likely valid)
 - ✅ Catches errors in individual sources
 - ✅ Broader coverage than single source
@@ -1196,40 +1282,43 @@ def build_corpus(sources):
   - Rangjung Yeshe: Buddhist terminology
 
 **Why cross-reference (require 2+ sources):**
+
 - ✅ Reduces false positives
 - ✅ Filters OCR errors in source data
 - ✅ Removes typos/mistakes
 - ✅ Higher quality corpus
 
 **Schema for tracking:**
+
 ```sql
 CREATE TABLE spelling_reference (
     id SERIAL PRIMARY KEY,
     word TEXT UNIQUE NOT NULL,
     word_normalized TEXT NOT NULL,
-    
+
     -- Multi-source tracking
     source_count INTEGER DEFAULT 1,
     sources JSONB,  -- ['thdl', 'monlam']
-    
+
     -- Quality indicators
     confidence_score DECIMAL(3,2),  -- Based on sources
     first_seen_in VARCHAR(50),      -- Which source first
-    
+
     -- Usage tracking (from our spell checks)
     times_seen INTEGER DEFAULT 0,
     times_validated INTEGER DEFAULT 0,
-    
+
     INDEX idx_word (word),
     INDEX idx_confidence (confidence_score DESC)
 );
 ```
 
 **Confidence Scoring:**
+
 ```python
 def calculate_confidence(word_data):
     score = 0.0
-    
+
     # Base: number of sources
     num_sources = len(word_data['sources'])
     if num_sources >= 3:
@@ -1238,11 +1327,11 @@ def calculate_confidence(word_data):
         score += 0.7
     else:
         score += 0.4
-    
+
     # Bonus: appears in frequency corpus (actual usage)
     if 'frequency_corpus' in word_data['sources']:
         score += 0.1
-    
+
     # Cap at 1.0
     return min(score, 1.0)
 ```
@@ -1250,12 +1339,14 @@ def calculate_confidence(word_data):
 **Implementation Plan:**
 
 **Step 1: Source Identification (Before Coding)**
+
 - Research licensing for each source
 - Identify APIs or datasets
 - Check if we can legally use/redistribute
 - Document attribution requirements
 
 **Step 2: Extraction Scripts**
+
 ```python
 # scripts/build_corpus.py
 
@@ -1283,34 +1374,238 @@ if __name__ == '__main__':
         extract_monlam(),
         extract_rangjung_yeshe(),
     ])
-    
+
     export_to_db(corpus)
     print(f"Built corpus: {len(corpus)} words")
 ```
 
 **Step 3: Quality Check**
+
 - Manual spot-checking
 - Test with known valid/invalid words
 - Check for obvious errors
 - Measure coverage (test with real texts)
 
 **Expected Outcome:**
+
 - ~30,000-50,000 high-confidence words
 - Focused on words appearing in multiple sources
 - Can expand later if too restrictive
 
 **Alternative (If Licensing Issues):**
+
 - Start with frequency corpus from public domain texts
 - Extract words, normalize, deduplicate
 - Lower initial coverage but fully legal
 - Build up from actual usage
 
 **Interview Talking Points**:
+
 - "Multi-source approach ensures data quality"
-- "Cross-referencing filters errors/OCR mistakes"  
+- "Cross-referencing filters errors/OCR mistakes"
 - "Confidence scoring allows future threshold tuning"
 - "Can discuss: data quality, source validation, trade-offs"
 - "Shows research skills: identified multiple sources"
+
+---
+
+---
+
+### ADR-014: Comprehensive Structural Validation
+
+**Date**: 2026-02-11  
+**Status**: ✅ Implemented
+
+**Context**:
+
+- QA testing revealed spellchecker was missing obvious structural errors
+- User input "ཨེརྡ་ཕ༹ཀལ་ཨེཨོརོ་" - all three syllables impossible, but only one was flagged
+- Parser was completing successfully but leaving characters unparsed
+- Tests were passing but not comprehensive enough to catch real-world errors
+
+**Problem Examples**:
+
+```
+Input: ཨེརྡ་ཕ༹ཀལ་ཨེཨོརོ་
+
+Expected: ALL 3 syllables should be flagged as errors
+Actual (before fix): Only 1 syllable flagged
+
+Breakdown:
+1. ཨེརྡ (a-e-ra-subscript-da)
+   - Subscript appearing AFTER suffix → Structurally impossible
+   - Parser consumed ཨེར but ignored trailing ྡ
+
+2. ཕ༹ཀལ (pha-tsa-phru-ka-la)
+   - TSA-PHRU mark (༹) followed by consonants → Invalid usage
+   - Multiple base consonants in single syllable → Impossible
+
+3. ཨེཨོརོ (a-e-a-o-ra-o)
+   - Multiple vowel groups with consonants between → Multiple "roots"
+   - Structurally impossible in single syllable
+```
+
+**Root Causes**:
+
+1. **Parser Incompleteness**: Parser would complete without consuming all characters
+2. **No Unparsed Character Detection**: No validation that all characters were accounted for
+3. **Missing Structural Checks**: No checks for impossible structures like:
+   - Subscripts after suffixes
+   - Multiple base consonants
+   - Multiple vowel groups (vowel-consonant-vowel pattern)
+   - Unusual marks in invalid positions
+
+**Solution Implemented**:
+
+Added comprehensive structural validation layer: `check_syllable_structure_completeness()`
+
+**Key Checks Added**:
+
+1. **Trailing Consonant Detection**
+   ```python
+   # Check if last base consonant is accounted for as suffix/post-suffix
+   # Catches: བོདབ (bod + ba where ba is not valid post-suffix)
+   ```
+
+2. **Subscript Position Validation**
+   ```python
+   # Subscripts MUST appear before vowels
+   # After vowels = structurally impossible
+   # Catches: ཨེརྡ (subscript after vowel)
+   ```
+
+3. **Subscript After Suffix Detection**
+   ```python
+   # If parsed suffix exists, no subscript can appear after it
+   # Catches: subscripts in impossible positions
+   ```
+
+4. **Multiple Vowel Groups Detection**
+   ```python
+   # Pattern: vowel + consonant + vowel = multiple roots attempt
+   # Single syllable can only have ONE root
+   # Catches: ཨེཨོརོ (multiple vowel-consonant groups)
+   ```
+
+5. **Unusual Mark Position Detection**
+   ```python
+   # TSA-PHRU (༹) followed by consonant = unusual/invalid
+   # Catches: ཕ༹ཀལ (TSA-PHRU between consonants)
+   ```
+
+**Implementation Details**:
+
+```python
+# In rules.py
+def check_syllable_structure_completeness(syllable: str, parsed: Dict) -> Optional[Dict]:
+    """
+    Check that parsed structure accounts for all characters.
+    Detects impossible structures parser may have skipped.
+    """
+    # 1. Check trailing consonants not accounted for
+    # 2. Check subscripts in invalid positions  
+    # 3. Check for multiple vowel groups
+    # 4. Check for unusual marks
+
+# In engine.py
+def check_syllable(self, syllable: str) -> Optional[Dict]:
+    # Pattern checks (encoding, too long, etc.)
+    pattern_error = check_syllable_patterns(syllable)
+    
+    # NEW: Structural completeness checks
+    completeness_error = check_syllable_structure_completeness(syllable, parsed)
+    
+    # Grammar rule checks (prefix, superscript, etc.)
+    structure_error = validate_syllable_structure(parsed)
+```
+
+**Test Coverage Added**:
+
+Created `test_impossible_structures.py` with comprehensive tests:
+
+```python
+class TestImpossibleStructures:
+    def test_subscript_after_suffix_impossible()
+    def test_multiple_base_consonants_impossible()
+    def test_multiple_vowels_on_different_consonants()
+    
+class TestUserQAFindings:
+    def test_user_qa_input_all_invalid()  # The failing case!
+    def test_individual_qa_syllable_1()
+    def test_individual_qa_syllable_2()
+    def test_individual_qa_syllable_3()
+
+class TestParserCompleteness:
+    def test_parser_identifies_unparsed_characters()
+    def test_parser_detects_consonant_after_suffix()
+```
+
+**Results**:
+
+Before fix:
+```
+User QA Input: ཨེརྡ་ཕ༹ཀལ་ཨེཨོརོ་
+Errors detected: 1/3 syllables
+✗ ཨེརྡ - NOT FLAGGED
+✗ ཕ༹ཀལ - NOT FLAGGED
+✓ ཨེཨོརོ - FLAGGED
+```
+
+After fix:
+```
+User QA Input: ཨེརྡ་ཕ༹ཀལ་ཨེཨོརོ་
+Errors detected: 3/3 syllables
+✓ ཨེརྡ - FLAGGED (subscript_after_vowel)
+✓ ཕ༹ཀལ - FLAGGED (unusual_mark_position)
+✓ ཨེཨོརོ - FLAGGED (unparsed_characters)
+```
+
+Regression tests:
+```
+✓ Valid syllables still pass (no false positives)
+✓ Complex valid words (བརྒྱུད, སྤྱོད) recognized correctly
+✓ Known invalid patterns still caught
+✓ 24/24 comprehensive tests passing
+```
+
+**Error Types Introduced**:
+
+- `unparsed_characters`: Characters not accounted for in parse
+- `subscript_after_vowel`: Subscript in impossible position
+- `subscript_after_suffix`: Subscript after suffix (impossible)
+- `multiple_vowel_groups`: Multiple vowel-consonant groups (multiple roots)
+- `unusual_mark_position`: Special marks (like TSA-PHRU) in invalid positions
+- `too_many_consonants`: More consonants than structurally possible
+
+**Trade-offs**:
+
+- ✅ Catches 100% of user's QA cases (was 33%)
+- ✅ No false positives on valid complex words
+- ✅ Better error messages (specific to structural issue)
+- ⚠️ Slightly more complex validation pipeline
+- ⚠️ Relies on parser output + raw text analysis (two-pass approach)
+
+**Future Improvements**:
+
+1. Fix parser to properly handle complex syllables (བརྒྱུད misparse noticed)
+2. Add more specific error messages with educational content
+3. Consider performance optimization for very long texts
+4. Add error recovery suggestions ("Did you mean...")
+
+**Rationale**:
+
+- QA testing revealed critical gap in validation
+- Real-world impossible structures were passing undetected
+- Parser completeness checking is essential for text processing
+- Better to catch more errors with clear messages than miss obvious mistakes
+
+**Interview Talking Points**:
+
+- "QA testing revealed gap between passing tests and real-world errors"
+- "Implemented comprehensive structural validation layer"
+- "Two-pass approach: pattern checks + structural completeness"
+- "Zero false positives while catching 100% of QA cases"
+- "Shows importance of realistic test data and QA feedback"
 
 ---
 
@@ -1324,3 +1619,4 @@ if __name__ == '__main__':
 - **Amdo dialect support is critical for this community**
 - **Sanskrit handling is important edge case**
 - **User submissions enable continuous improvement**
+- **QA testing is essential - passing unit tests ≠ working software** (ADR-014)
