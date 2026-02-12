@@ -1,0 +1,1 @@
+export { DictionaryEntry } from './DictionaryEntry'
