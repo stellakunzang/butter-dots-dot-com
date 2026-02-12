@@ -108,9 +108,8 @@ class TestComponentValidation:
         # Should return error if invalid
 
 
-# NOTE: Sanskrit detection is OUT OF SCOPE for MVP (Phase 1)
-# See: docs/planning/MVP_SCOPE.md and docs/adr/SPELLCHECKER_DECISIONS.md (ADR-011)
-# Sanskrit validation is deferred to Phase 3+
+# NOTE: Sanskrit detection is deferred to Phase 3+
+# See: docs/adr/SPELLCHECKER_DECISIONS.md (ADR-011)
 
 
 # ============================================================================

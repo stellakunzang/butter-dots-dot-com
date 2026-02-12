@@ -568,11 +568,10 @@ Dictionary & Context:
 - Scholars and learners both feel served
 - Reduces confusion about Wylie
 
-**Interview Value:**
-- Shows domain expertise
-- Demonstrates user empathy
-- Not just building features, educating users
-- Attention to cultural/linguistic implications
+**Value:**
+- Demonstrates domain expertise and user empathy
+- Not just building features, but educating users
+- Attention to cultural and linguistic implications
 
 ---
 

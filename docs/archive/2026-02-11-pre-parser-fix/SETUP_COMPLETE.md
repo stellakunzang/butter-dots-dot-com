@@ -156,17 +156,9 @@ Now ready to build the spellchecker MVP:
 2. PDF annotation
 3. Full integration
 
-## Interview Readiness
+## Architecture Summary
 
-**What to say**:
-> "I set up a monorepo with Docker Compose orchestrating a Next.js frontend, FastAPI backend, and PostgreSQL database. I implemented TDD from the start with pytest and Jest, and GitHub Actions runs all tests automatically. File storage uses local volumes for the MVP, with a clear migration path to S3 documented in ADR-015. The architecture demonstrates pragmatic engineering: focus on core value first, defer infrastructure optimization."
-
-**Demonstrates**:
-- ✅ Full-stack architecture
-- ✅ Modern tooling (Docker, FastAPI, Next.js)
-- ✅ Testing discipline (TDD, CI)
-- ✅ Documentation (ADRs)
-- ✅ Trade-off thinking (MVP vs production)
+Monorepo with Docker Compose orchestrating a Next.js frontend, FastAPI backend, and PostgreSQL database. TDD from the start with pytest and Jest, and GitHub Actions runs all tests automatically. File storage uses local volumes for the MVP, with a clear migration path to S3 documented in ADR-015.
 
 ## Files Created/Modified
 

@@ -190,13 +190,13 @@ These fixes dramatically improved accuracy:
 - ✅ འཕེལ (increase) - 'a prefix + pha
 - ✅ བརྗེད (forget) - ba prefix + ra superscript + ja
 
-## Lessons for Interview
+## Lessons Learned
 
-This debugging process demonstrates:
+This debugging process demonstrated:
 1. **Iterative testing** - Real-world test revealed gaps in rules
 2. **Unicode complexity** - Understanding base vs. subjoined characters is critical
 3. **Context-dependent rules** - Prefix validation behaves differently with superscripts
-4. **Linguistic expertise matters** - User's knowledge was essential for identifying the issues
+4. **Linguistic expertise matters** - Native speaker knowledge was essential for identifying the issues
 5. **Test-driven validation** - Comprehensive unit tests caught regressions
 
 ## Files Modified
