@@ -6,7 +6,8 @@ backend/**/*.pyc
 backend/**/__pycache__/
 backend/.env
 
-# Next.js (now in frontend/)
+# Next.js
+.next/
 frontend/.next/
 frontend/out/
 frontend/node_modules/
