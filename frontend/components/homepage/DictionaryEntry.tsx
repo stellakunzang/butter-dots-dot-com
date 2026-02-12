@@ -77,7 +77,7 @@ export const DictionaryEntry = () => {
         </div>
       </div>
 
-      {/* Language Resources Section */}
+      {/* Language Resources Section
       <div className="mt-16 pt-12 border-t-2 border-gray-200">
         <div className="bg-gradient-to-br from-gray-50 to-white p-8 md:p-10 rounded-xl border border-gray-200">
           <div className="max-w-2xl">
@@ -94,7 +94,7 @@ export const DictionaryEntry = () => {
             </Button>
           </div>
         </div>
-      </div>
+      </div> */}
     </div>
   )
 }
