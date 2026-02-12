@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import {render, screen, fireEvent, waitFor} from '@testing-library/react'
 import SpellCheckPage from '@/pages/spellcheck'
 import * as api from '@/lib/api'
 
@@ -18,7 +18,9 @@ describe('SpellCheckPage', () => {
 
     expect(screen.getByText('Tibetan Spell Checker')).toBeInTheDocument()
     expect(
-      screen.getByText(/paste tibetan text below to check for spelling errors/i)
+      screen.getByText(
+        /paste tibetan text below to check for spelling errors/i,
+      ),
     ).toBeInTheDocument()
     expect(screen.getByLabelText('Tibetan text input')).toBeInTheDocument()
   })
@@ -27,7 +29,7 @@ describe('SpellCheckPage', () => {
     render(<SpellCheckPage />)
 
     expect(
-      screen.getByText(/enter text and click "check spelling" to see results/i)
+      screen.getByText(/enter text and click "check spelling" to see results/i),
     ).toBeInTheDocument()
   })
 
@@ -35,7 +37,7 @@ describe('SpellCheckPage', () => {
     render(<SpellCheckPage />)
 
     const textarea = screen.getByLabelText('Tibetan text input')
-    fireEvent.change(textarea, { target: { value: 'བོད་ཡིག' } })
+    fireEvent.change(textarea, {target: {value: 'བོད་ཡིག'}})
 
     expect(textarea).toHaveValue('བོད་ཡིག')
   })
@@ -52,9 +54,9 @@ describe('SpellCheckPage', () => {
     render(<SpellCheckPage />)
 
     const textarea = screen.getByLabelText('Tibetan text input')
-    fireEvent.change(textarea, { target: { value: 'བོད་ཡིག' } })
+    fireEvent.change(textarea, {target: {value: 'བོད་ཡིག'}})
 
-    const submitButton = screen.getByRole('button', { name: /check spelling/i })
+    const submitButton = screen.getByRole('button', {name: /check spelling/i})
     fireEvent.click(submitButton)
 
     await waitFor(() => {
@@ -71,7 +73,7 @@ describe('SpellCheckPage', () => {
 
     // Create a promise that we can control
     let resolvePromise: (value: api.SpellCheckResponse) => void
-    const promise = new Promise<api.SpellCheckResponse>((resolve) => {
+    const promise = new Promise<api.SpellCheckResponse>(resolve => {
       resolvePromise = resolve
     })
 
@@ -80,9 +82,9 @@ describe('SpellCheckPage', () => {
     render(<SpellCheckPage />)
 
     const textarea = screen.getByLabelText('Tibetan text input')
-    fireEvent.change(textarea, { target: { value: 'བོད་ཡིག' } })
+    fireEvent.change(textarea, {target: {value: 'བོད་ཡིག'}})
 
-    const submitButton = screen.getByRole('button', { name: /check spelling/i })
+    const submitButton = screen.getByRole('button', {name: /check spelling/i})
     fireEvent.click(submitButton)
 
     // Check for loading state
@@ -109,13 +111,13 @@ describe('SpellCheckPage', () => {
     render(<SpellCheckPage />)
 
     const textarea = screen.getByLabelText('Tibetan text input')
-    fireEvent.change(textarea, { target: { value: 'བོད་ཡིག' } })
+    fireEvent.change(textarea, {target: {value: 'བོད་ཡིག'}})
 
-    const submitButton = screen.getByRole('button', { name: /check spelling/i })
+    const submitButton = screen.getByRole('button', {name: /check spelling/i})
     fireEvent.click(submitButton)
 
     await waitFor(() => {
-      expect(screen.getByText(/no errors found/i)).toBeInTheDocument()
+      expect(screen.getByText(/No spelling errors found!/i)).toBeInTheDocument()
     })
   })
 
@@ -140,16 +142,16 @@ describe('SpellCheckPage', () => {
     render(<SpellCheckPage />)
 
     const textarea = screen.getByLabelText('Tibetan text input')
-    fireEvent.change(textarea, { target: { value: 'གཀར' } })
+    fireEvent.change(textarea, {target: {value: 'གཀར'}})
 
-    const submitButton = screen.getByRole('button', { name: /check spelling/i })
+    const submitButton = screen.getByRole('button', {name: /check spelling/i})
     fireEvent.click(submitButton)
 
     await waitFor(() => {
       const words = screen.getAllByText('གཀར')
       expect(words.length).toBeGreaterThan(0)
       expect(screen.getByText('Invalid Prefix Combination')).toBeInTheDocument()
-      expect(screen.getByText(/1 error found/i)).toBeInTheDocument()
+      expect(screen.getByText(/1 spelling error found/i)).toBeInTheDocument()
     })
   })
 
@@ -160,15 +162,15 @@ describe('SpellCheckPage', () => {
     render(<SpellCheckPage />)
 
     const textarea = screen.getByLabelText('Tibetan text input')
-    fireEvent.change(textarea, { target: { value: 'བོད་ཡིག' } })
+    fireEvent.change(textarea, {target: {value: 'བོད་ཡིག'}})
 
-    const submitButton = screen.getByRole('button', { name: /check spelling/i })
+    const submitButton = screen.getByRole('button', {name: /check spelling/i})
     fireEvent.click(submitButton)
 
     // Use findByText which waits for the element to appear
     expect(await screen.findByText('Error')).toBeInTheDocument()
     expect(await screen.findByText(errorMessage)).toBeInTheDocument()
-    
+
     // Verify the API was called
     expect(mockedApi.checkText).toHaveBeenCalledWith('བོད་ཡིག')
   })
@@ -180,9 +182,9 @@ describe('SpellCheckPage', () => {
     render(<SpellCheckPage />)
 
     const textarea = screen.getByLabelText('Tibetan text input')
-    fireEvent.change(textarea, { target: { value: 'བོད་ཡིག' } })
+    fireEvent.change(textarea, {target: {value: 'བོད་ཡིག'}})
 
-    let submitButton = screen.getByRole('button', { name: /check spelling/i })
+    let submitButton = screen.getByRole('button', {name: /check spelling/i})
     fireEvent.click(submitButton)
 
     // Wait for error to appear
@@ -196,7 +198,7 @@ describe('SpellCheckPage', () => {
     }
     mockedApi.checkText.mockResolvedValue(mockResponse)
 
-    submitButton = screen.getByRole('button', { name: /check spelling/i })
+    submitButton = screen.getByRole('button', {name: /check spelling/i})
     fireEvent.click(submitButton)
 
     await waitFor(() => {
@@ -235,23 +237,23 @@ describe('SpellCheckPage', () => {
     const textarea = screen.getByLabelText('Tibetan text input')
 
     // First check
-    fireEvent.change(textarea, { target: { value: 'བོད' } })
-    let submitButton = screen.getByRole('button', { name: /check spelling/i })
+    fireEvent.change(textarea, {target: {value: 'བོད'}})
+    let submitButton = screen.getByRole('button', {name: /check spelling/i})
     fireEvent.click(submitButton)
 
     await waitFor(() => {
-      expect(screen.getByText(/no errors found/i)).toBeInTheDocument()
+      expect(screen.getByText(/No spelling errors found!/i)).toBeInTheDocument()
     })
 
     // Second check with different text
-    fireEvent.change(textarea, { target: { value: 'གཀར' } })
-    submitButton = screen.getByRole('button', { name: /check spelling/i })
+    fireEvent.change(textarea, {target: {value: 'གཀར'}})
+    submitButton = screen.getByRole('button', {name: /check spelling/i})
     fireEvent.click(submitButton)
 
     await waitFor(() => {
       const words = screen.getAllByText('གཀར')
       expect(words.length).toBeGreaterThan(0)
-      expect(screen.getByText(/1 error found/i)).toBeInTheDocument()
+      expect(screen.getByText(/1 spelling error found/i)).toBeInTheDocument()
     })
 
     expect(mockedApi.checkText).toHaveBeenCalledTimes(2)
