@@ -201,7 +201,7 @@ chmod +x install-tibetan-fonts.sh
           <li>Use <CodeBlock inline>tsheg</CodeBlock> (space) between syllables: type space for ་</li>
           <li>Stacked consonants: type letters consecutively (e.g., <CodeBlock inline>bkra</CodeBlock> → བཀྲ)</li>
           <li>Vowels: <CodeBlock inline>a</CodeBlock> (default), <CodeBlock inline>i</CodeBlock> (◌ི), <CodeBlock inline>u</CodeBlock> (◌ུ), <CodeBlock inline>e</CodeBlock> (◌ེ), <CodeBlock inline>o</CodeBlock> (◌ོ)</li>
-          <li>End with <CodeBlock inline>/</CodeBlock> for shad (།) or <CodeBlock inline>//</CodeBlock> for double shad (༎)</li>
+          <li>End with <CodeBlock inline>/</CodeBlock> for shad (།) or <CodeBlock inline>{'//'}</CodeBlock> for double shad (༎)</li>
         </ul>
       </Section>
 

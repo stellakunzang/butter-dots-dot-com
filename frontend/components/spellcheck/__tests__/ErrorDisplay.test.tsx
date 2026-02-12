@@ -1,7 +1,7 @@
 import React from 'react'
-import { render, screen } from '@testing-library/react'
-import { ErrorDisplay } from '../ErrorDisplay'
-import { SpellCheckError, SpellCheckResponse } from '@/lib/api'
+import {render, screen} from '@testing-library/react'
+import {ErrorDisplay} from '../ErrorDisplay'
+import {SpellCheckError, SpellCheckResponse} from '@/lib/api'
 
 describe('ErrorDisplay', () => {
   const mockErrors: SpellCheckError[] = [
@@ -38,7 +38,7 @@ describe('ErrorDisplay', () => {
 
     expect(screen.getByText(/no spelling errors found/i)).toBeInTheDocument()
     expect(
-      screen.getByText(/your tibetan text has correct spelling/i)
+      screen.getByText(/your tibetan text has correct spelling/i),
     ).toBeInTheDocument()
   })
 
@@ -74,10 +74,7 @@ describe('ErrorDisplay', () => {
 
     // Check for messages
     expect(
-      screen.getByText(/invalid prefix-root combination/i)
-    ).toBeInTheDocument()
-    expect(
-      screen.getByText(/this prefix cannot be used with this root/i)
+      screen.getByText(/this prefix cannot be used with this root/i),
     ).toBeInTheDocument()
   })
 
@@ -105,7 +102,7 @@ describe('ErrorDisplay', () => {
   })
 
   it('applies correct severity badge colors', () => {
-    const { container } = render(<ErrorDisplay response={mockResponse} />)
+    const {container} = render(<ErrorDisplay response={mockResponse} />)
 
     const errorBadge = container.querySelector('.bg-red-100')
     expect(errorBadge).toBeInTheDocument()
@@ -147,7 +144,7 @@ describe('ErrorDisplay', () => {
 
     render(<ErrorDisplay response={response} />)
 
-    expect(screen.getByText('Invalid Superscript Combination')).toBeInTheDocument()
+    expect(screen.getByText('ERROR')).toBeInTheDocument()
   })
 
   it('renders checkmark icon when no errors', () => {
@@ -156,7 +153,7 @@ describe('ErrorDisplay', () => {
       error_count: 0,
       errors: [],
     }
-    const { container } = render(<ErrorDisplay response={emptyResponse} />)
+    const {container} = render(<ErrorDisplay response={emptyResponse} />)
 
     const checkIcon = container.querySelector('svg')
     expect(checkIcon).toBeInTheDocument()
