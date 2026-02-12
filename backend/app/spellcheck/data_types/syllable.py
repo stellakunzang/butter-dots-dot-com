@@ -14,7 +14,7 @@ class TibetanSyllable:
     base form, making it directly usable as a dictionary lookup key.
 
     Syllable structure:
-        PREFIX + SUPERSCRIPT + ROOT + SUBSCRIPT(S) + VOWEL + SUFFIX + POST-SUFFIX
+        PREFIX + SUPERSCRIPT + ROOT + SUBSCRIPT(S) + VOWEL + SUFFIX + SUFFIX-VOWEL + POST-SUFFIX
 
     Attributes:
         raw: The original syllable string
@@ -24,6 +24,7 @@ class TibetanSyllable:
         subscripts: Subscript letters below root (ྱ ྲ ླ ྭ)
         vowel: The vowel mark, or None for inherent 'a'
         suffix: Optional suffix letter
+        suffix_vowel: Optional vowel on the suffix (ི on འ for genitive འི)
         post_suffix: Optional post-suffix letter (ད or ས)
         unparsed: Characters the parser could not assign to a component
     """
@@ -34,6 +35,7 @@ class TibetanSyllable:
     subscripts: List[str] = field(default_factory=list)
     vowel: Optional[str] = None
     suffix: Optional[str] = None
+    suffix_vowel: Optional[str] = None
     post_suffix: Optional[str] = None
     unparsed: list = field(default_factory=list)  # List[TypedChar]
 
@@ -64,6 +66,7 @@ class TibetanSyllable:
             'subscripts': self.subscripts,
             'vowels': [self.vowel] if self.vowel else [],
             'suffix': self.suffix,
+            'suffix_vowel': self.suffix_vowel,
             'post_suffix': self.post_suffix,
             'raw': self.raw,
         }

@@ -41,19 +41,33 @@ def check_syllable_structure_completeness(syllable: str, parsed: Dict[str, any])
 
     # ERROR 1: Multiple separated vowels
     if len(vowels) > 1:
-        vowel_positions = [pos for pos, _ in vowels]
-        has_separated = any(
-            vowel_positions[i + 1] - vowel_positions[i] > 1
-            for i in range(len(vowel_positions) - 1)
-        )
-        if has_separated or len(vowels) > 2:
-            errors_found.append({
-                'error_type': 'multiple_vowels',
-                'message': f'Syllable has {len(vowels)} vowels - a syllable can only have one vowel (or vowel combination like ོུ)',
-                'severity': 'error',
-                'component': 'structure',
-                'priority': 1
-            })
+        # Exception: འི genitive suffix
+        # When a syllable ends with འ + ི, the ི is a valid suffix vowel.
+        # This creates exactly 2 vowel marks (root vowel + suffix ི) which
+        # is legitimate and should not be flagged.
+        is_achung_i_suffix = False
+        if len(vowels) == 2:
+            last_vowel_pos, last_vowel_char = vowels[-1]
+            if (last_vowel_char == '\u0F72' and  # ི
+                    last_vowel_pos > 0 and
+                    last_vowel_pos - 1 < len(syllable) and
+                    ord(syllable[last_vowel_pos - 1]) == 0x0F60):  # འ
+                is_achung_i_suffix = True
+
+        if not is_achung_i_suffix:
+            vowel_positions = [pos for pos, _ in vowels]
+            has_separated = any(
+                vowel_positions[i + 1] - vowel_positions[i] > 1
+                for i in range(len(vowel_positions) - 1)
+            )
+            if has_separated or len(vowels) > 2:
+                errors_found.append({
+                    'error_type': 'multiple_vowels',
+                    'message': f'Syllable has {len(vowels)} vowels - a syllable can only have one vowel (or vowel combination like ོུ)',
+                    'severity': 'error',
+                    'component': 'structure',
+                    'priority': 1
+                })
 
     # ERROR 2: Subjoined consonant after vowel
     if subjoined_consonants and vowels:
