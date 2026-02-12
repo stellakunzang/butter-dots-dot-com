@@ -8,6 +8,9 @@ import unicodedata
 from typing import Optional, List, Dict
 
 
+ZERO_WIDTH_CHARS = {'\u200b', '\u200c', '\u200d'}
+
+
 def normalize_tibetan(text: str) -> str:
     """
     Normalize Tibetan text to NFC form and remove zero-width characters.
@@ -27,6 +30,58 @@ def normalize_tibetan(text: str) -> str:
     text = text.replace('\u200d', '')  # Zero-width joiner
     
     return text
+
+
+def normalize_tibetan_with_position_map(text: str) -> tuple[str, list[int]]:
+    """
+    Normalize Tibetan text and return a mapping from positions in the
+    normalized string back to positions in the original string.
+
+    This allows callers to translate character offsets computed on the
+    normalized text into offsets that are correct for the original,
+    un-normalized input.
+
+    Args:
+        text: Tibetan text to normalize
+
+    Returns:
+        (normalized_text, position_map) where ``position_map[i]`` is the
+        index in the *original* ``text`` that corresponds to index ``i``
+        in ``normalized_text``.
+    """
+    if not text:
+        return ("", [])
+
+    # --- Phase 1: NFC normalization with position tracking ---------------
+    nfc_text = unicodedata.normalize('NFC', text)
+
+    # Fast path: NFC is a no-op for the vast majority of Tibetan input.
+    if nfc_text == text:
+        nfc_to_orig: list[int] = list(range(len(text)))
+    else:
+        # Build the mapping via incremental prefix normalization.
+        # For each original character we add, record how many new NFC
+        # characters it produced and map them all back to that original
+        # index.
+        nfc_to_orig = []
+        prev_nfc_len = 0
+        for orig_i in range(len(text)):
+            cur_nfc_len = len(unicodedata.normalize('NFC', text[:orig_i + 1]))
+            for _ in range(cur_nfc_len - prev_nfc_len):
+                nfc_to_orig.append(orig_i)
+            prev_nfc_len = cur_nfc_len
+
+    # --- Phase 2: Remove zero-width characters with position tracking ----
+    result_chars: list[str] = []
+    result_to_orig: list[int] = []
+
+    for nfc_i, ch in enumerate(nfc_text):
+        if ch not in ZERO_WIDTH_CHARS:
+            result_chars.append(ch)
+            orig_pos = nfc_to_orig[nfc_i] if nfc_i < len(nfc_to_orig) else nfc_i
+            result_to_orig.append(orig_pos)
+
+    return (''.join(result_chars), result_to_orig)
 
 
 def is_tibetan_char(char: str) -> bool:

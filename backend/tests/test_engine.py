@@ -565,6 +565,66 @@ class TestAchungISuffixValidation:
             "ཡིགའི should be invalid -- འི cannot follow suffix ག"
 
 
+class TestPositionMappingWithZeroWidth:
+    """
+    Regression tests: error positions must be relative to the *original*
+    text, even when zero-width characters cause normalization to shift
+    character offsets.
+    """
+
+    def test_positions_correct_with_zwsp(self):
+        """Zero-width space before an invalid syllable should not shift its position."""
+        from app.spellcheck.engine import TibetanSpellChecker
+
+        engine = TibetanSpellChecker()
+        # Place a ZWSP right before the tsheg that separates the two syllables.
+        # "བོད" is at 0..2, ZWSP at 3, "་" at 4, "གཀར" starts at 5, "་" at 8
+        original = "བོད\u200b་གཀར་"
+        errors = engine.check_text(original)
+
+        # Filter to the actual spelling error (not the info message)
+        spelling_errors = [e for e in errors if e['severity'] != 'info']
+        assert len(spelling_errors) == 1, f"Expected 1 error, got {spelling_errors}"
+
+        err = spelling_errors[0]
+        assert err['word'] == "གཀར"
+        # Position must point into the *original* string, not the normalized one.
+        pos = err['position']
+        assert original[pos] == "ག", (
+            f"Expected position {pos} to point to 'ག' in original text, "
+            f"but got '{original[pos]}'"
+        )
+
+    def test_positions_correct_with_multiple_zwc(self):
+        """Multiple zero-width chars accumulate; positions still correct."""
+        from app.spellcheck.engine import TibetanSpellChecker
+
+        engine = TibetanSpellChecker()
+        # Two ZWSP characters before the second syllable
+        original = "བོད\u200b\u200c་གཀར་"
+        errors = engine.check_text(original)
+
+        spelling_errors = [e for e in errors if e['severity'] != 'info']
+        assert len(spelling_errors) == 1
+        pos = spelling_errors[0]['position']
+        assert original[pos] == "ག", (
+            f"Position {pos} should point to 'ག', got '{original[pos]}'"
+        )
+
+    def test_positions_without_zero_width_unchanged(self):
+        """Without zero-width chars, positions must still be correct (no regression)."""
+        from app.spellcheck.engine import TibetanSpellChecker
+
+        engine = TibetanSpellChecker()
+        original = "བོད་གཀར་"
+        errors = engine.check_text(original)
+
+        spelling_errors = [e for e in errors if e['severity'] != 'info']
+        assert len(spelling_errors) == 1
+        pos = spelling_errors[0]['position']
+        assert original[pos:pos + len("གཀར")] == "གཀར"
+
+
 class TestIntegration:
     """Integration tests combining all components"""
     
