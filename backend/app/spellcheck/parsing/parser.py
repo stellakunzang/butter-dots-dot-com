@@ -279,7 +279,20 @@ def _parse_no_vowel(
         result.unparsed = chars[i:]
         return result
 
-    # Check for prefix
+    # Check for prefix — 2-letter heuristic
+    # Two BASE consonants where the second is NOT a valid suffix must be
+    # prefix + root (root + invalid-suffix is always wrong).  This mirrors
+    # the same logic in _parse_body_consonants which uses len >= 2.
+    if (len(chars) == 2 and
+            chars[0].type == CharType.BASE and
+            chars[0].base_form in VALID_PREFIXES and
+            chars[1].type == CharType.BASE and
+            chars[1].base_form not in VALID_SUFFIXES):
+        result.prefix = chars[0].base_form
+        result.root = chars[1].base_form
+        return result
+
+    # Check for prefix — 3+ letter case
     if (chars[0].type == CharType.BASE and
             chars[0].base_form in VALID_PREFIXES and
             len(chars) >= 3):
