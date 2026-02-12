@@ -88,7 +88,6 @@ butter-dots-dot-com/                    (monorepo root)
 │
 ├── docs/                               (Documentation)
 │   ├── SPELLCHECKER_DECISIONS.md      (Architecture Decision Records)
-│   ├── MVP_SCOPE.md                    (MVP scope definition)
 │   ├── EDUCATIONAL_CONTENT_PLAN.md     (Future educational features)
 │   └── PROJECT_STRUCTURE.md            (This file)
 │
@@ -124,10 +123,9 @@ butter-dots-dot-com/                    (monorepo root)
    # Postgres + Python + Next.js all running
    ```
 
-4. **Interview Value**
-   - Shows DevOps awareness
+4. **DevOps Best Practices**
+   - Containerized for reproducibility
    - Modern development practices
-   - "Containerized for reproducibility"
 
 ### docker-compose.yml
 
@@ -469,55 +467,12 @@ chore: Set up Docker Compose
 
 ---
 
-## Interview Demo Strategy
+## Running the Project
 
-**Option 1: Local Docker Demo (Recommended)**
-- ✅ Start with `docker-compose up`
-- ✅ Show it running on your laptop
-- ✅ Walk through code
-- ✅ Explain architecture
+**Docker makes sense for this project because:**
 
-**Option 2: Deployed Demo**
-- ✅ Live URL to show
-- ✅ More impressive
-- ❌ More setup time
-- ❌ Costs if free tier exceeded
+1. ✅ **Postgres setup** - Trivial with Docker
+2. ✅ **Reproducible** - Works the same on any machine
+3. ✅ **Simple** - Just 3-4 commands to know
 
-**Option 3: Hybrid**
-- Deploy frontend only (Vercel - free)
-- Run backend locally during demo
-- Show how they connect
-
----
-
-## Recommendation: Use Docker
-
-**For this project, Docker makes sense because:**
-
-1. ✅ **Learning value** - Senior engineer skill
-2. ✅ **Postgres setup** - Trivial with Docker
-3. ✅ **Reproducible** - Works same for you and interviewer
-4. ✅ **Simple** - Just 3-4 commands you need to know
-5. ✅ **Interview talking point** - "Containerized for consistency"
-
-**I'll provide:**
-- Complete docker-compose.yml with comments
-- Simple Dockerfiles
-- Troubleshooting guide
-- All commands you need
-
-**You'll learn Docker gradually** while building something useful!
-
----
-
-## Next Steps
-
-1. ✅ Decide: Docker or no Docker?
-2. Create directory structure
-3. Set up backend skeleton
-4. Set up frontend skeleton
-5. Start building!
-
-**My recommendation**: Try Docker. If you hit blockers, we can switch to manual setup. But I think you'll find it easier than expected!
-
-What do you think?
+See the root [README.md](../../README.md) for setup instructions.

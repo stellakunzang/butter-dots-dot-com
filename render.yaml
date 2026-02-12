@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: tibetan-spellchecker-api
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    envVars:
+      - key: ALLOWED_ORIGINS
+        value: https://www.butterdots.com,https://butterdots.com
+      - key: DEBUG
+        value: "false"

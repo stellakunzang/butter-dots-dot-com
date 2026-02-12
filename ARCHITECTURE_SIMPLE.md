@@ -146,6 +146,6 @@ Once you have the app running:
 1. Browse the frontend at http://localhost:3000
 2. Check the API docs at http://localhost:8000/docs
 3. Try the "Language Tools" link in the header
-4. Start building the spell checker! (see `docs/planning/MVP_TASKS.md`)
+4. Start building the spell checker! (see `docs/adr/SPELLCHECKER_DECISIONS.md`)
 
 For detailed technical documentation, see `docs/guides/ARCHITECTURE.md`.

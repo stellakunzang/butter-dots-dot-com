@@ -102,6 +102,82 @@ class TestTibetanCharacterValidation:
         assert is_tibetan_char("ྭ") is True  # wa-zur (subscript wa)
 
 
+class TestNormalizeTibetanWithPositionMap:
+    """Test normalize_tibetan_with_position_map returns correct position mapping."""
+
+    def test_empty_string(self):
+        from app.spellcheck.normalizer import normalize_tibetan_with_position_map
+
+        text, pos_map = normalize_tibetan_with_position_map("")
+        assert text == ""
+        assert pos_map == []
+
+    def test_no_zero_width_chars(self):
+        """Plain Tibetan text: normalized positions equal original positions."""
+        from app.spellcheck.normalizer import normalize_tibetan_with_position_map
+
+        original = "བོད་ཡིག"
+        text, pos_map = normalize_tibetan_with_position_map(original)
+        assert text == original
+        assert pos_map == list(range(len(original)))
+
+    def test_single_zero_width_space(self):
+        """One ZWSP between syllables should shift all subsequent positions."""
+        from app.spellcheck.normalizer import normalize_tibetan_with_position_map
+
+        #              0  1  2  3     4  5  6
+        original = "བོད\u200bཡིག"  # ZWSP at index 3
+        text, pos_map = normalize_tibetan_with_position_map(original)
+        assert text == "བོདཡིག"
+        # pos_map should map back through the removed ZWSP:
+        # normalized[0]='བ'→orig 0, [1]='ོ'→1, [2]='ད'→2,
+        # normalized[3]='ཡ'→orig 4 (skipped ZWSP at 3), [4]='ི'→5, [5]='ག'→6
+        assert pos_map == [0, 1, 2, 4, 5, 6]
+
+    def test_multiple_zero_width_chars(self):
+        """Several zero-width chars accumulate offset correctly."""
+        from app.spellcheck.normalizer import normalize_tibetan_with_position_map
+
+        #               0  1     2  3     4
+        original = "ཀ\u200bག\u200cང"
+        text, pos_map = normalize_tibetan_with_position_map(original)
+        assert text == "ཀགང"
+        assert pos_map == [0, 2, 4]
+
+    def test_consecutive_zero_width_chars(self):
+        """Two zero-width chars in a row."""
+        from app.spellcheck.normalizer import normalize_tibetan_with_position_map
+
+        #               0     1     2  3
+        original = "ཀ\u200b\u200dག"
+        text, pos_map = normalize_tibetan_with_position_map(original)
+        assert text == "ཀག"
+        assert pos_map == [0, 3]
+
+    def test_leading_zero_width(self):
+        """Zero-width char at the very start of text."""
+        from app.spellcheck.normalizer import normalize_tibetan_with_position_map
+
+        original = "\u200bཀ"
+        text, pos_map = normalize_tibetan_with_position_map(original)
+        assert text == "ཀ"
+        assert pos_map == [1]
+
+    def test_agrees_with_normalize_tibetan(self):
+        """Result text must always equal normalize_tibetan(original)."""
+        from app.spellcheck.normalizer import normalize_tibetan, normalize_tibetan_with_position_map
+
+        samples = [
+            "བོད་ཡིག",
+            "བོད\u200bཡིག",
+            "\u200cབོད\u200dཡིག\u200b",
+            "",
+        ]
+        for sample in samples:
+            text, _ = normalize_tibetan_with_position_map(sample)
+            assert text == normalize_tibetan(sample), f"Mismatch for {sample!r}"
+
+
 class TestTextCleaning:
     """Test text cleaning utilities"""
     

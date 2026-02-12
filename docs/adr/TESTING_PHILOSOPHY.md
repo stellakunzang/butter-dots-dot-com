@@ -65,14 +65,6 @@ For each feature:
 - Trivial getters/setters
 - Mock-heavy tests with low value
 
-## Interview Value
-
-This demonstrates:
-- Discipline: TDD from the start
-- Pragmatism: Not over-testing
-- Modern practices: CI, test automation
-- Trade-off awareness: Time vs coverage
-
 ## Rationale
 
 TDD enforces design thinking upfront and provides regression safety for rapid iteration. Pragmatic coverage balances quality with delivery speed - appropriate for MVP.

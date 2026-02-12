@@ -11,7 +11,7 @@ Main spell checking engine that orchestrates the pipeline:
    d. Validate components against stacking rules
 """
 from typing import List, Dict, Optional
-from .normalizer import normalize_tibetan, is_tibetan_char, validate_tibetan_text
+from .normalizer import normalize_tibetan, normalize_tibetan_with_position_map, is_tibetan_char, validate_tibetan_text
 from .splitter import split_syllables_with_position
 from .char_typing import type_characters
 from .parsing import parse_syllable
@@ -103,14 +103,14 @@ class TibetanSpellChecker:
         if not text:
             return []
 
-        # Check for non-Tibetan characters
+        # Check for non-Tibetan characters (on original text)
         non_tibetan_summary = validate_tibetan_text(text)
 
-        # Normalize
-        text = normalize_tibetan(text)
+        # Normalize and get a mapping from normalized positions → original positions
+        normalized, pos_map = normalize_tibetan_with_position_map(text)
 
-        # Split into syllables with position tracking
-        syllables = split_syllables_with_position(text)
+        # Split into syllables with position tracking (positions in normalized text)
+        syllables = split_syllables_with_position(normalized)
 
         # Check each syllable
         errors = []
@@ -122,7 +122,9 @@ class TibetanSpellChecker:
 
             error = self.check_syllable(syllable)
             if error:
-                error['position'] = item['position']
+                # Map position from normalized text back to original text
+                norm_pos = item['position']
+                error['position'] = pos_map[norm_pos] if norm_pos < len(pos_map) else norm_pos
                 errors.append(error)
 
         # Informational note for non-Tibetan characters

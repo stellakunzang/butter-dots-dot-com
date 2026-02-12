@@ -106,19 +106,10 @@ STORAGE_BACKEND = os.getenv("STORAGE_BACKEND", "local")  # or "s3"
 - No disk space management
 - Multi-region replication
 
-## Interview Talking Points
+## Design Rationale
 
-> "For the MVP, I used local filesystem storage with Docker volumes. This let me
-> focus on the spell-checking algorithm without cloud setup overhead. The file
-> operations are abstracted behind a service layer with a clear interface, so
-> migrating to S3 or Cloudflare R2 in production would be straightforward—just
-> swap the implementation without touching the API layer. This demonstrates MVP
-> thinking: defer infrastructure optimization, focus on core value first."
-
-**Shows**:
-
-- MVP vs production trade-offs
-- Knowing when to defer optimization
-- Design for future migration (abstraction)
-- Pragmatic engineering decisions
-- Interview-focused priorities
+For the MVP, we use local filesystem storage with Docker volumes. This keeps
+the focus on the spell-checking algorithm without cloud setup overhead. The file
+operations are abstracted behind a service layer with a clear interface, so
+migrating to S3 or Cloudflare R2 in production would be straightforward -- just
+swap the implementation without touching the API layer.

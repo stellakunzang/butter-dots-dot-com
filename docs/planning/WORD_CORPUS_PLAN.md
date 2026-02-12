@@ -258,8 +258,7 @@ In application footer/about:
 With gratitude to these projects."
 ```
 
-**For Interview:**
-> "Sourced corpus from academic and open resources, cross-referenced for quality, with proper attribution. This approach balances coverage, quality, and legal compliance."
+Corpus is sourced from academic and open resources, cross-referenced for quality, with proper attribution. This approach balances coverage, quality, and legal compliance.
 
 ---
 
@@ -370,19 +369,18 @@ LIMIT 100;
 
 ---
 
-## Interview Discussion Points
+## Corpus Approach Summary
 
-> "For the initial corpus, I took a multi-source approach:
-> 
-> 1. **Identified sources**: THDL (academic), Rangjung Yeshe (Buddhist), considered Monlam
-> 2. **Cross-referenced**: Only kept words appearing in 2+ sources
-> 3. **Quality over quantity**: ~30k validated words vs 100k uncertain
-> 4. **Tracked provenance**: Database stores which sources confirm each word
-> 5. **Confidence scoring**: Can tune threshold based on performance
->
-> This approach balances coverage with data quality and allows expansion over time.
->
-> Trade-offs: Could have larger corpus with single source, but higher error rate. Chose quality for MVP."
+The initial corpus uses a multi-source approach:
+
+1. **Identified sources**: THDL (academic), Rangjung Yeshe (Buddhist), considered Monlam
+2. **Cross-referenced**: Only kept words appearing in 2+ sources
+3. **Quality over quantity**: ~30k validated words vs 100k uncertain
+4. **Tracked provenance**: Database stores which sources confirm each word
+5. **Confidence scoring**: Can tune threshold based on performance
+
+This approach balances coverage with data quality and allows expansion over time.
+Trade-off: could have a larger corpus with a single source, but at a higher error rate. Quality was prioritized for the MVP.
 
 ---
 

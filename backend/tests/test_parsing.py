@@ -225,6 +225,35 @@ class TestPrefixIdentification:
         assert get_root_base_form(parsed) == 'པ'
         assert parsed['suffix'] == 'ས'
 
+    def test_two_letter_prefix_root_when_second_not_valid_suffix(self):
+        """གཡ - ག is valid prefix, ཡ is NOT a valid suffix → prefix+root
+
+        Without this fix, _parse_no_vowel required len >= 3 for prefix
+        detection, so གཡ was parsed as root=ག, suffix=ཡ. But ཡ is not
+        a valid suffix, causing a false positive. Must be prefix+root.
+        """
+        parser = TibetanSyllableParser()
+        parsed = parser.parse("གཡ")
+
+        assert_components(parsed,
+            prefix='ག',
+            root='ཡ',
+        )
+        assert parsed['suffix'] is None, \
+            "ཡ is not a valid suffix; must be parsed as root"
+
+    def test_two_letter_root_suffix_when_second_is_valid_suffix(self):
+        """དང - ང is a valid suffix → root+suffix (existing behavior preserved)
+
+        When both letters could be prefix+root but the second IS a valid
+        suffix, the existing root+suffix interpretation should be kept.
+        """
+        parser = TibetanSyllableParser()
+        parsed = parser.parse("དང")
+
+        assert get_root_base_form(parsed) == 'ད'
+        assert parsed['suffix'] == 'ང'
+
 
 # ============================================================================
 # Complex Root Identification (multiple components)

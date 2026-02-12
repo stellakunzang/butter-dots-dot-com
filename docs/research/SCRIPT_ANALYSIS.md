@@ -267,31 +267,16 @@ class TibetanSpellChecker:
 
 ---
 
-## Interview Talking Points
+## Prior Art
 
-> "Found existing spell checker by Paul Hackett (Columbia, 2011) with GPL
-> license.
->
-> Key insight: Uses 'exclusive' approach - defines INVALID patterns rather than
-> all valid combinations. This is efficient because:
->
-> - Valid Tibetan combinations: potentially infinite (need dictionary)
-> - Invalid combinations: ~1000 patterns (can enumerate)
->
-> The script defines 13 categories of invalid patterns:
->
-> - Prefix rules (5 possible prefixes, each with specific bases)
-> - Superscript rules (ra-mgo, la-mgo, sa-mgo)
-> - Subscript rules (ya-rtags, ra-rtags, la-rtags, wa-zur)
-> - Encoding errors (wrong Unicode characters)
-> - Sanskrit detection (flag but don't error)
->
-> I ported the VBA regex patterns to Python, organized them into testable
-> categories, and added structured error reporting with position information for
-> PDF annotation."
+This project builds on Paul Hackett's spell checker (Columbia, 2011, GPL license).
+Key insight adopted: the "exclusive" approach defines INVALID patterns rather than
+enumerating all valid combinations. This is efficient because valid Tibetan
+combinations are potentially infinite (requiring a dictionary), while invalid
+combinations are ~1000 patterns that can be enumerated.
 
-This gives you a strong story: building on academic work, understanding the
-domain, making it modern and testable.
+The original VBA regex patterns were ported to Python, organized into testable
+categories, and augmented with structured error reporting and position tracking.
 
 ---
 

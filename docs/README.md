@@ -20,10 +20,7 @@ Technical guides for developers working on this project.
 ### `/planning` - Project Planning
 Planning documents, feature roadmaps, and TODO lists.
 
-- `MVP_TASKS.md` - Spellchecker MVP task breakdown
-- `MVP_SCOPE.md` - MVP scope definition
 - `WORD_CORPUS_PLAN.md` - Strategy for building the Tibetan word corpus
-- `EDUCATIONAL_CONTENT_PLAN.md` - Plan for frontend educational content
 
 ### `/archive` - Historical/Completed
 Completed migration summaries and historical documentation.
@@ -35,11 +32,13 @@ Completed migration summaries and historical documentation.
 Research materials, reference implementations, and third-party resources.
 
 - `SCRIPT_ANALYSIS.md` - Historical analysis of VBA reference implementation
-- `Tibetan_Spellchecker_vba.txt` - Historical VBA reference (GPL licensed)
+- `EDUCATIONAL_CONTENT_PLAN.md` - Plan for frontend educational content
+- `UNICODE_ENCODING_RULES.md` - Tibetan Unicode encoding rules reference
+- `PRESSURE_TEST_WORDS.md` - Pressure test words for validation
 
 ## Quick Links
 
 **Just getting started?** → `/guides/ARCHITECTURE.md`  
-**Working on spellchecker?** → `/adr/SPELLCHECKER_DECISIONS.md` + `/planning/MVP_TASKS.md`  
+**Working on spellchecker?** → `/adr/SPELLCHECKER_DECISIONS.md`  
 **Working on frontend?** → `/guides/COMPONENTS.md` + `/guides/TAILWIND_GUIDE.md`  
 **Understanding Tibetan rules?** → `/research/SCRIPT_ANALYSIS.md`
