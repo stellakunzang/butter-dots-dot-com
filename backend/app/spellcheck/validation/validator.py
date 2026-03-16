@@ -61,16 +61,14 @@ def validate_syllable(syllable: TibetanSyllable) -> List[SpellError]:
             ))
 
     # 4. Validate subscripts
-    # NOTE: Subscript validation temporarily disabled - incomplete rules causing false positives
-    # TODO: Enable once stacking rules are fully verified
-    # for subscript in syllable.subscripts:
-    #     if not is_valid_subscript_root(syllable.root, subscript):
-    #         errors.append(SpellError(
-    #             error_type='invalid_subscript_combination',
-    #             message=f"Invalid subscript '{subscript}' with root '{syllable.root}'",
-    #             severity='error',
-    #             component='subscript',
-    #         ))
+    for subscript in syllable.subscripts:
+        if not is_valid_subscript_root(syllable.root, subscript):
+            errors.append(SpellError(
+                error_type='invalid_subscript_combination',
+                message=f"Invalid subscript '{subscript}' with root '{syllable.root}'",
+                severity='error',
+                component='subscript',
+            ))
 
     # 5. Validate suffix
     if syllable.suffix:

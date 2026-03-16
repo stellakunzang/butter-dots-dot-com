@@ -85,38 +85,44 @@ class TestSuperscriptRules:
     def test_ra_mgo_valid_combinations(self):
         """ra-mgo (ར) can superscript certain letters"""
         from app.spellcheck.rules.stacking import is_valid_superscript_root
-        
-        # Valid combinations (from authoritative valid stacks list)
-        assert is_valid_superscript_root("ར", "ཀ") is True  # རྐ rka
-        assert is_valid_superscript_root("ར", "ག") is True  # རྒ rga
-        assert is_valid_superscript_root("ར", "ང") is True  # རྔ rnga - VALID per stacks list
-        
-        # Invalid combinations (not in valid stacks list)
-        # TODO: Add examples of invalid ra-mgo combinations
-    
+
+        assert is_valid_superscript_root("ར", "ཀ") is True   # རྐ rka
+        assert is_valid_superscript_root("ར", "ག") is True   # རྒ rga
+        assert is_valid_superscript_root("ར", "ང") is True   # རྔ rnga
+        assert is_valid_superscript_root("ར", "ཏ") is True   # རྟ rta
+
+        # ra cannot sit over these roots
+        assert is_valid_superscript_root("ར", "ཅ") is False  # ca not in VALID_RA_MGO_ROOTS
+        assert is_valid_superscript_root("ར", "ཐ") is False  # tha not in VALID_RA_MGO_ROOTS
+        assert is_valid_superscript_root("ར", "པ") is False  # pa not in VALID_RA_MGO_ROOTS
+
     def test_la_mgo_valid_combinations(self):
         """la-mgo (ལ) can superscript certain letters"""
         from app.spellcheck.rules.stacking import is_valid_superscript_root
-        
-        # Valid combinations (from authoritative valid stacks list)
-        assert is_valid_superscript_root("ལ", "ཀ") is True  # ལྐ lka
-        assert is_valid_superscript_root("ལ", "ག") is True  # ལྒ lga
-        assert is_valid_superscript_root("ལ", "ང") is True  # ལྔ lnga - VALID per stacks list
-        
-        # Invalid combinations (not in valid stacks list)
-        # TODO: Add examples of invalid la-mgo combinations
-    
+
+        assert is_valid_superscript_root("ལ", "ཀ") is True   # ལྐ lka
+        assert is_valid_superscript_root("ལ", "ག") is True   # ལྒ lga
+        assert is_valid_superscript_root("ལ", "ང") is True   # ལྔ lnga
+        assert is_valid_superscript_root("ལ", "ཧ") is True   # ལྷ lha
+
+        # la cannot sit over these roots
+        assert is_valid_superscript_root("ལ", "ཉ") is False  # nya not in VALID_LA_MGO_ROOTS
+        assert is_valid_superscript_root("ལ", "མ") is False  # ma not in VALID_LA_MGO_ROOTS
+        assert is_valid_superscript_root("ལ", "ས") is False  # sa not in VALID_LA_MGO_ROOTS
+
     def test_sa_mgo_valid_combinations(self):
         """sa-mgo (ས) can superscript certain letters"""
         from app.spellcheck.rules.stacking import is_valid_superscript_root
-        
-        # Valid combinations (from authoritative valid stacks list)
-        assert is_valid_superscript_root("ས", "ཀ") is True  # སྐ ska
-        assert is_valid_superscript_root("ས", "ག") is True  # སྒ sga
-        assert is_valid_superscript_root("ས", "ང") is True  # སྔ snga - VALID per stacks list
-        
-        # Invalid combinations (not in valid stacks list)
-        # TODO: Add examples of invalid sa-mgo combinations
+
+        assert is_valid_superscript_root("ས", "ཀ") is True   # སྐ ska
+        assert is_valid_superscript_root("ས", "ག") is True   # སྒ sga
+        assert is_valid_superscript_root("ས", "ང") is True   # སྔ snga
+        assert is_valid_superscript_root("ས", "མ") is True   # སྨ sma
+
+        # sa cannot sit over these roots
+        assert is_valid_superscript_root("ས", "ཅ") is False  # ca not in VALID_SA_MGO_ROOTS
+        assert is_valid_superscript_root("ས", "ཇ") is False  # ja not in VALID_SA_MGO_ROOTS
+        assert is_valid_superscript_root("ས", "ར") is False  # ra not in VALID_SA_MGO_ROOTS
     
     def test_non_superscript_letter(self):
         """Non-superscript letters should fail"""
@@ -142,50 +148,59 @@ class TestSubscriptRules:
     def test_ya_btags_valid_combinations(self):
         """ya-btags (U+0FB1) can subscript certain letters"""
         from app.spellcheck.rules.stacking import is_valid_subscript_root
-        
-        # ya-btags = \u0FB1 (subscript ya) - combines like: ཀྱ (kya)
-        # Valid combinations (from VBA line 578)
-        assert is_valid_subscript_root("ཀ", "\u0FB1") is True  # ka + ya = ཀྱ (kya)
-        assert is_valid_subscript_root("ག", "\u0FB1") is True  # ga + ya = གྱ (gya)
-        
-        # Invalid combinations (from VBA line 578) 
+
+        assert is_valid_subscript_root("ཀ", "\u0FB1") is True   # ཀྱ kya
+        assert is_valid_subscript_root("ག", "\u0FB1") is True   # གྱ gya
+        assert is_valid_subscript_root("པ", "\u0FB1") is True   # པྱ pya
+        assert is_valid_subscript_root("བ", "\u0FB1") is True   # བྱ bya
+        assert is_valid_subscript_root("མ", "\u0FB1") is True   # མྱ mya
+
         assert is_valid_subscript_root("ང", "\u0FB1") is False  # nga + ya invalid
-    
+        assert is_valid_subscript_root("ད", "\u0FB1") is False  # da + ya invalid
+        assert is_valid_subscript_root("ན", "\u0FB1") is False  # na + ya invalid
+
     def test_ra_btags_valid_combinations(self):
         """ra-btags (U+0FB2) can subscript certain letters"""
         from app.spellcheck.rules.stacking import is_valid_subscript_root
-        
-        # ra-btags = \u0FB2 (subscript ra) - combines like: ཀྲ (kra)
-        # Valid combinations (from VBA line 608)
-        assert is_valid_subscript_root("ཀ", "\u0FB2") is True  # ka + ra = ཀྲ (kra)
-        assert is_valid_subscript_root("ག", "\u0FB2") is True  # ga + ra = གྲ (gra)
-        
-        # Invalid combinations
+
+        assert is_valid_subscript_root("ཀ", "\u0FB2") is True   # ཀྲ kra
+        assert is_valid_subscript_root("ག", "\u0FB2") is True   # གྲ gra
+        assert is_valid_subscript_root("ཏ", "\u0FB2") is True   # ཏྲ tra
+        assert is_valid_subscript_root("ད", "\u0FB2") is True   # དྲ dra
+        assert is_valid_subscript_root("ཧ", "\u0FB2") is True   # ཧྲ hra
+
         assert is_valid_subscript_root("ང", "\u0FB2") is False  # nga + ra invalid
-    
+        assert is_valid_subscript_root("ཅ", "\u0FB2") is False  # ca + ra invalid
+        assert is_valid_subscript_root("ན", "\u0FB2") is False  # na + ra invalid
+
     def test_la_btags_valid_combinations(self):
         """la-btags (U+0FB3) can subscript certain letters"""
         from app.spellcheck.rules.stacking import is_valid_subscript_root
-        
-        # la-btags = \u0FB3 (subscript la) - combines like: ཀླ (kla)
-        # Valid combinations (from VBA line 638)
-        assert is_valid_subscript_root("ཀ", "\u0FB3") is True  # ka + la = ཀླ (kla)
-        assert is_valid_subscript_root("ག", "\u0FB3") is True  # ga + la = གླ (gla)
-        
-        # Invalid combinations
+
+        assert is_valid_subscript_root("ཀ", "\u0FB3") is True   # ཀླ kla
+        assert is_valid_subscript_root("ག", "\u0FB3") is True   # གླ gla
+        assert is_valid_subscript_root("བ", "\u0FB3") is True   # བླ bla
+        assert is_valid_subscript_root("ཟ", "\u0FB3") is True   # ཟླ zla
+        assert is_valid_subscript_root("ར", "\u0FB3") is True   # རླ rla
+        assert is_valid_subscript_root("ས", "\u0FB3") is True   # སླ sla
+
         assert is_valid_subscript_root("ང", "\u0FB3") is False  # nga + la invalid
-    
+        assert is_valid_subscript_root("ད", "\u0FB3") is False  # da + la invalid
+        assert is_valid_subscript_root("མ", "\u0FB3") is False  # ma + la invalid
+
     def test_wa_zur_valid_combinations(self):
         """wa-zur (U+0FAD) can subscript certain letters"""
         from app.spellcheck.rules.stacking import is_valid_subscript_root
-        
-        # wa-zur = \u0FAD (subscript wa) - combines like: ཀྭ (kwa)
-        # Valid combinations (from VBA line 668)
-        assert is_valid_subscript_root("ཀ", "\u0FAD") is True  # ka + wa = ཀྭ (kwa)
-        assert is_valid_subscript_root("ག", "\u0FAD") is True  # ga + wa = གྭ (gwa)
-        
-        # Invalid combinations
+
+        assert is_valid_subscript_root("ཀ", "\u0FAD") is True   # ཀྭ kwa
+        assert is_valid_subscript_root("ག", "\u0FAD") is True   # གྭ gwa
+        assert is_valid_subscript_root("ཞ", "\u0FAD") is True   # ཞྭ zhwa
+        assert is_valid_subscript_root("ར", "\u0FAD") is True   # རྭ rwa
+        assert is_valid_subscript_root("ཧ", "\u0FAD") is True   # ཧྭ hwa
+
         assert is_valid_subscript_root("ང", "\u0FAD") is False  # nga + wa invalid
+        assert is_valid_subscript_root("བ", "\u0FAD") is False  # ba + wa invalid
+        assert is_valid_subscript_root("མ", "\u0FAD") is False  # ma + wa invalid
 
 
 class TestPrefixRuleBugs_QA_20260211:
