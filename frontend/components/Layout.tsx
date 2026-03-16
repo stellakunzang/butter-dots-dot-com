@@ -38,6 +38,12 @@ export const Layout: React.FC<LayoutProps> = ({
             >
               Spell Checker
             </Link>
+            <Link
+              href="/changelog"
+              className="text-sm uppercase tracking-wider text-gray-500 hover:text-gray-900 font-medium transition-colors"
+            >
+              Changelog
+            </Link>
             {/* <Link
               href="/resources"
               className="text-sm uppercase tracking-wider text-gray-500 hover:text-gray-900 font-medium transition-colors"
