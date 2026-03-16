@@ -625,6 +625,59 @@ class TestPositionMappingWithZeroWidth:
         assert original[pos:pos + len("གཀར")] == "གཀར"
 
 
+class TestBugFix_HaCannotBePrefix:
+    """
+    Regression test: ཧ (ha) cannot be a prefix consonant.
+
+    Bug: ཧཧིབ་ was not triggering an error. The parser was silently dropping
+    the first ཧ when the char before the root was not a valid prefix --
+    it was not adding it to 'unparsed', so the validator never saw it.
+
+    Fix: _parse_with_vowel now adds any BASE consonant before the first
+    allocated position to result.unparsed.
+    """
+
+    def test_ha_as_fake_prefix_is_invalid(self):
+        """ཧཧིབ་ — ཧ cannot be a prefix; the leading ཧ should be flagged."""
+        from app.spellcheck.engine import TibetanSpellChecker
+        engine = TibetanSpellChecker()
+        result = engine.check_syllable("ཧཧིབ")
+        assert result is not None, (
+            "ཧཧིབ should be invalid: ཧ (ha) cannot be a prefix consonant, "
+            "but no error was raised"
+        )
+
+    def test_ha_as_solo_root_is_valid(self):
+        """ཧི — single ཧ as root with vowel is structurally valid."""
+        from app.spellcheck.engine import TibetanSpellChecker
+        engine = TibetanSpellChecker()
+        result = engine.check_syllable("ཧི")
+        assert result is None, f"ཧི should be valid (ཧ as root) but got: {result}"
+
+    def test_ha_with_suffix_as_solo_root_is_valid(self):
+        """ཧིབ་ — ཧ root + ི vowel + བ suffix is structurally valid."""
+        from app.spellcheck.engine import TibetanSpellChecker
+        engine = TibetanSpellChecker()
+        result = engine.check_syllable("ཧིབ")
+        assert result is None, f"ཧིབ should be valid (ཧ root + suffix) but got: {result}"
+
+    def test_valid_prefixes_still_work(self):
+        """Confirm valid prefix consonants are not broken by the fix."""
+        from app.spellcheck.engine import TibetanSpellChecker
+        engine = TibetanSpellChecker()
+        valid_cases = [
+            ("གཞི", "ག prefix"),
+            ("དངོས", "ད prefix"),
+            ("བོད", "no prefix"),
+            ("མཐོ", "མ prefix"),
+        ]
+        for syllable, description in valid_cases:
+            result = engine.check_syllable(syllable)
+            assert result is None, (
+                f"{syllable} ({description}) should be valid but got: {result}"
+            )
+
+
 class TestIntegration:
     """Integration tests combining all components"""
     

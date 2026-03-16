@@ -213,6 +213,11 @@ def _parse_with_vowel(
         # Last consonant before vowel is BASE -- that's the root
         result.root = chars[root_candidate_idx].base_form
 
+        # Track the earliest position we've allocated (prefix or root).
+        # Anything before this that is a BASE consonant has no valid structural
+        # role and must be flagged as unparsed.
+        first_allocated = root_candidate_idx
+
         # Check for prefix
         if root_candidate_idx > 0 and chars[root_candidate_idx - 1].type == CharType.BASE:
             if chars[root_candidate_idx - 1].base_form in VALID_PREFIXES:
@@ -220,6 +225,13 @@ def _parse_with_vowel(
                 has_more = (vowel_idx < len(chars) - 1) or len(consonants_before) > 2
                 if has_more or len(consonants_before) > 1:
                     result.prefix = chars[root_candidate_idx - 1].base_form
+                    first_allocated = root_candidate_idx - 1
+
+        # Any BASE consonants before first_allocated could not be assigned to a
+        # valid syllable position. Mark them unparsed so the validator catches them.
+        for j in range(first_allocated):
+            if chars[j].type == CharType.BASE:
+                result.unparsed.append(chars[j])
 
     # Collect vowel
     result.vowel = chars[vowel_idx].char
@@ -228,8 +240,9 @@ def _parse_with_vowel(
     # Collect suffix and post-suffix
     result.suffix, result.post_suffix, i = _collect_suffixes(chars, i)
 
-    # Anything remaining is unparsed
-    result.unparsed = chars[i:]
+    # Anything remaining is unparsed (extend, not assign -- we may have already
+    # added leading unassignable consonants above)
+    result.unparsed.extend(chars[i:])
 
     return result
 
