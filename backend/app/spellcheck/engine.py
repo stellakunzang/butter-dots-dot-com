@@ -20,6 +20,7 @@ from .validation import (
     check_syllable_patterns,
     check_syllable_structure_completeness,
 )
+from .rules.exceptions import is_excepted
 
 
 class TibetanSpellChecker:
@@ -53,6 +54,10 @@ class TibetanSpellChecker:
         # Normalize
         syllable = normalize_tibetan(syllable)
         if not syllable:
+            return None
+
+        # 0. Exception list — valid by grammatical convention, not structure
+        if is_excepted(syllable):
             return None
 
         # 1. Pattern checks (raw string, before parsing)

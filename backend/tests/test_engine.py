@@ -625,6 +625,46 @@ class TestPositionMappingWithZeroWidth:
         assert original[pos:pos + len("གཀར")] == "གཀར"
 
 
+class TestExceptedWords:
+    """
+    ནའང་ and ལའང་ are compound particles (locative + འང་ "even/also") that are
+    valid by grammatical convention but fail structural validation because ང
+    after suffix འ is not a valid post-suffix. They are explicitly excepted.
+    """
+
+    def test_na_ang_is_valid(self):
+        """ནའང་ should not be flagged."""
+        from app.spellcheck.engine import TibetanSpellChecker
+        engine = TibetanSpellChecker()
+        result = engine.check_syllable("ནའང")
+        assert result is None, f"ནའང should be excepted as valid but got: {result}"
+
+    def test_la_ang_is_valid(self):
+        """ལའང་ should not be flagged."""
+        from app.spellcheck.engine import TibetanSpellChecker
+        engine = TibetanSpellChecker()
+        result = engine.check_syllable("ལའང")
+        assert result is None, f"ལའང should be excepted as valid but got: {result}"
+
+    def test_excepted_words_in_running_text(self):
+        """ནའང་ and ལའང་ should not produce errors in running text."""
+        from app.spellcheck.engine import TibetanSpellChecker
+        engine = TibetanSpellChecker()
+        errors = engine.check_text("ནའང་ལའང་བོད་")
+        spelling_errors = [e for e in errors if e.get("severity") != "info"]
+        flagged = [e["word"] for e in spelling_errors]
+        assert "ནའང" not in flagged, f"ནའང should not be flagged in text. Errors: {errors}"
+        assert "ལའང" not in flagged, f"ལའང should not be flagged in text. Errors: {errors}"
+
+    def test_similar_invalid_structure_still_caught(self):
+        """Structurally invalid forms similar to the exceptions are still flagged."""
+        from app.spellcheck.engine import TibetanSpellChecker
+        engine = TibetanSpellChecker()
+        # ལའར: ལ root + འ suffix + ར (not a valid post-suffix)
+        result = engine.check_syllable("ལའར")
+        assert result is not None, "ལའར should be invalid (ར is not a valid post-suffix)"
+
+
 class TestBugFix_HaCannotBePrefix:
     """
     Regression test: ཧ (ha) cannot be a prefix consonant.
