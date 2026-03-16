@@ -89,6 +89,79 @@ class TestSingleSyllableChecking:
             assert result['severity'] == 'critical'
 
 
+class TestDoubleVowel:
+    """Double vowel marks are structurally impossible and should be flagged."""
+
+    def test_i_plus_e_vowel_flagged(self):
+        from app.spellcheck.engine import TibetanSpellChecker
+        engine = TibetanSpellChecker()
+        result = engine.check_syllable('ཀིེ')  # i + e on ka
+        assert result is not None
+        assert result['error_type'] == 'double_vowel'
+        assert result['severity'] == 'error'
+
+    def test_i_plus_o_vowel_flagged(self):
+        from app.spellcheck.engine import TibetanSpellChecker
+        engine = TibetanSpellChecker()
+        result = engine.check_syllable('ཀིོ')  # i + o on ka
+        assert result is not None
+        assert result['error_type'] == 'double_vowel'
+
+    def test_same_vowel_repeated_flagged(self):
+        from app.spellcheck.engine import TibetanSpellChecker
+        engine = TibetanSpellChecker()
+        result = engine.check_syllable('ཀེེ')  # double e on ka
+        assert result is not None
+        assert result['error_type'] == 'double_vowel'
+
+    def test_single_vowel_passes(self):
+        from app.spellcheck.engine import TibetanSpellChecker
+        engine = TibetanSpellChecker()
+        assert engine.check_syllable('ཀི') is None
+        assert engine.check_syllable('ཀེ') is None
+        assert engine.check_syllable('ཀོ') is None
+        assert engine.check_syllable('ཀུ') is None
+
+    def test_double_vowel_in_text(self):
+        from app.spellcheck.engine import TibetanSpellChecker
+        engine = TibetanSpellChecker()
+        errors = engine.check_text('བོད་ཀིེ་ཡིག་')
+        assert any(e.get('error_type') == 'double_vowel' for e in errors)
+        assert any(e.get('word') == 'ཀིེ' for e in errors)
+
+
+class TestEncodingErrors:
+    """Wrong Unicode codepoints should be caught as critical encoding errors."""
+
+    def test_wrong_a_vowel_flagged(self):
+        from app.spellcheck.engine import TibetanSpellChecker
+        engine = TibetanSpellChecker()
+        result = engine.check_syllable('ཀ\u0FB0')  # U+0FB0 instead of U+0F71
+        assert result is not None
+        assert result['error_type'] == 'encoding_error'
+        assert result['severity'] == 'critical'
+
+    def test_wrong_ra_flagged(self):
+        from app.spellcheck.engine import TibetanSpellChecker
+        engine = TibetanSpellChecker()
+        result = engine.check_syllable('\u0F6A\u0F72')  # U+0F6A instead of U+0F62
+        assert result is not None
+        assert result['error_type'] == 'encoding_error'
+        assert result['severity'] == 'critical'
+
+    def test_correct_ra_passes(self):
+        from app.spellcheck.engine import TibetanSpellChecker
+        engine = TibetanSpellChecker()
+        assert engine.check_syllable('རང') is None  # U+0F62 = correct ra
+
+    def test_encoding_error_in_text(self):
+        from app.spellcheck.engine import TibetanSpellChecker
+        engine = TibetanSpellChecker()
+        errors = engine.check_text('བོད་ཀ\u0FB0་')
+        assert any(e.get('error_type') == 'encoding_error' for e in errors)
+        assert any(e.get('severity') == 'critical' for e in errors)
+
+
 class TestFullTextChecking:
     """Test checking complete Tibetan text"""
     
