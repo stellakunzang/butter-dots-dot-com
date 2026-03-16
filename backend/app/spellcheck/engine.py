@@ -19,6 +19,7 @@ from .validation import (
     validate_syllable,
     check_syllable_patterns,
     check_syllable_structure_completeness,
+    check_particle_context,
 )
 from .rules.exceptions import is_excepted
 
@@ -119,18 +120,48 @@ class TibetanSpellChecker:
 
         # Check each syllable
         errors = []
+        prev_parsed = None   # parsed structure of the most recent valid Tibetan syllable
+        prev_had_error = False
+
         for item in syllables:
             syllable = item['syllable']
 
             if not any(is_tibetan_char(c) for c in syllable):
+                # Non-Tibetan content breaks particle context
+                prev_parsed = None
+                prev_had_error = False
                 continue
 
+            norm_pos = item['position']
+            mapped_pos = pos_map[norm_pos] if norm_pos < len(pos_map) else norm_pos
+
+            normalized_syl = normalize_tibetan(syllable)
+
+            # Single-syllable structural check
             error = self.check_syllable(syllable)
             if error:
-                # Map position from normalized text back to original text
-                norm_pos = item['position']
-                error['position'] = pos_map[norm_pos] if norm_pos < len(pos_map) else norm_pos
+                error['position'] = mapped_pos
                 errors.append(error)
+
+            # Particle context check (only when current syllable is structurally valid
+            # and the preceding syllable was also valid)
+            if error is None and prev_parsed is not None and not prev_had_error:
+                particle_error = check_particle_context(normalized_syl, prev_parsed)
+                if particle_error:
+                    particle_error['word'] = syllable
+                    particle_error['position'] = mapped_pos
+                    errors.append(particle_error)
+
+            # Parse this syllable's structure for the next iteration's particle check.
+            # check_syllable already normalizes internally, but we need the parsed
+            # model here too -- reuse normalized_syl to avoid a third normalization.
+            if error is None:
+                typed_chars = type_characters(normalized_syl)
+                prev_parsed = parse_syllable(typed_chars)
+            else:
+                prev_parsed = None
+
+            prev_had_error = error is not None
 
         # Informational note for non-Tibetan characters
         if non_tibetan_summary['has_non_tibetan']:

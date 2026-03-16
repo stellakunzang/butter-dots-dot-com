@@ -14,9 +14,11 @@ Re-exports:
 from .validator import validate_syllable
 from .pattern_checks import check_syllable_patterns
 from .completeness_checks import check_syllable_structure_completeness
+from .particle_checks import check_particle_context
 
 __all__ = [
     'validate_syllable',
     'check_syllable_patterns',
     'check_syllable_structure_completeness',
+    'check_particle_context',
 ]
