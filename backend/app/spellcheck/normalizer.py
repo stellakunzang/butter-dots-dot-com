@@ -112,6 +112,43 @@ def is_numeral_syllable(syllable: str) -> bool:
     return all(is_tibetan_numeral(c) for c in syllable)
 
 
+def _is_spellable_tibetan_char(char: str) -> bool:
+    """
+    Return True if this character is a spellable Tibetan character — i.e. a
+    base consonant, subjoined consonant, or vowel sign. Everything else in the
+    Tibetan block (punctuation, marks, yig mgo openers, decorative shads, etc.)
+    is non-spellable.
+
+    Spellable ranges:
+        U+0F40–U+0F6C  base consonants
+        U+0F71–U+0F84  vowel signs (including AA, I, U, E, O and extensions)
+        U+0F90–U+0FBC  subjoined consonants
+    """
+    code = ord(char)
+    return (
+        0x0F40 <= code <= 0x0F6C or
+        0x0F71 <= code <= 0x0F84 or
+        0x0F90 <= code <= 0x0FBC
+    )
+
+
+def is_punctuation_syllable(syllable: str) -> bool:
+    """
+    Return True if a syllable lies entirely within the Tibetan Unicode block
+    but contains no spellable characters (no consonants or vowel signs).
+
+    These are Tibetan punctuation and mark characters — yig mgo text openers
+    (༄ ༅), decorative shad variants (༑ ༒), gter tsheg (༔), astrological
+    marks, etc. — that appear in texts but carry no spelling content.
+    """
+    if not syllable:
+        return False
+    return (
+        all(is_tibetan_char(c) for c in syllable) and
+        not any(_is_spellable_tibetan_char(c) for c in syllable)
+    )
+
+
 def is_tibetan_char(char: str) -> bool:
     """
     Check if a character is in the Tibetan Unicode range.

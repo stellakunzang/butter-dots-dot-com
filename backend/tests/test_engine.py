@@ -625,6 +625,47 @@ class TestPositionMappingWithZeroWidth:
         assert original[pos:pos + len("གཀར")] == "གཀར"
 
 
+class TestTibetanPunctuation:
+    """
+    Tibetan punctuation and mark characters (yig mgo openers, decorative shads,
+    gter tsheg, etc.) should be silently skipped — no structural rules apply.
+    ། and ༎ were already handled by the splitter; this covers the rest.
+    """
+
+    def test_yig_mgo_opener_not_flagged(self):
+        from app.spellcheck.engine import TibetanSpellChecker
+        engine = TibetanSpellChecker()
+        errors = [e for e in engine.check_text("༄") if e.get('severity') != 'info']
+        assert errors == [], f"Yig mgo should not be flagged: {errors}"
+
+    def test_common_text_opener_sequence_not_flagged(self):
+        from app.spellcheck.engine import TibetanSpellChecker
+        engine = TibetanSpellChecker()
+        errors = [e for e in engine.check_text("༄༅།") if e.get('severity') != 'info']
+        assert errors == [], f"Text opener ༄༅། should not be flagged: {errors}"
+
+    def test_decorative_shad_variants_not_flagged(self):
+        from app.spellcheck.engine import TibetanSpellChecker
+        engine = TibetanSpellChecker()
+        for char, desc in [('༑', 'rin chen spungs shad'), ('༈', 'sbrul shad'), ('༔', 'gter tsheg')]:
+            errors = [e for e in engine.check_text(char) if e.get('severity') != 'info']
+            assert errors == [], f"{desc} ({repr(char)}) should not be flagged: {errors}"
+
+    def test_valid_text_after_punctuation_still_checked(self):
+        from app.spellcheck.engine import TibetanSpellChecker
+        engine = TibetanSpellChecker()
+        errors = engine.check_text("༄༅།  །གཀར་")
+        assert any(e.get('word') == 'གཀར' for e in errors), (
+            "Invalid syllable after punctuation opener should still be flagged"
+        )
+
+    def test_realistic_opener_with_valid_text(self):
+        from app.spellcheck.engine import TibetanSpellChecker
+        engine = TibetanSpellChecker()
+        errors = [e for e in engine.check_text("༄༄།  །བོད་ཡིག་") if e.get('severity') != 'info']
+        assert errors == [], f"Valid text after opener should produce no errors: {errors}"
+
+
 class TestNumerals:
     """
     Tibetan digits (U+0F20–U+0F33) appear in text as numbers and should be
