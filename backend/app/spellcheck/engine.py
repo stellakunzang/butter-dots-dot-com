@@ -11,7 +11,7 @@ Main spell checking engine that orchestrates the pipeline:
    d. Validate components against stacking rules
 """
 from typing import List, Dict, Optional
-from .normalizer import normalize_tibetan, normalize_tibetan_with_position_map, is_tibetan_char, validate_tibetan_text
+from .normalizer import normalize_tibetan, normalize_tibetan_with_position_map, is_tibetan_char, validate_tibetan_text, is_numeral_syllable
 from .splitter import split_syllables_with_position
 from .char_typing import type_characters
 from .parsing import parse_syllable
@@ -57,7 +57,11 @@ class TibetanSpellChecker:
         if not syllable:
             return None
 
-        # 0. Exception list — valid by grammatical convention, not structure
+        # 0a. Numeral syllables — skip silently, no structural rules apply
+        if is_numeral_syllable(syllable):
+            return None
+
+        # 0b. Exception list — valid by grammatical convention, not structure
         if is_excepted(syllable):
             return None
 
@@ -136,6 +140,12 @@ class TibetanSpellChecker:
             mapped_pos = pos_map[norm_pos] if norm_pos < len(pos_map) else norm_pos
 
             normalized_syl = normalize_tibetan(syllable)
+
+            # Numeral syllables are skipped and break particle context
+            if is_numeral_syllable(normalized_syl):
+                prev_parsed = None
+                prev_had_error = False
+                continue
 
             # Single-syllable structural check
             error = self.check_syllable(syllable)

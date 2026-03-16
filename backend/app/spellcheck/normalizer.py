@@ -84,6 +84,34 @@ def normalize_tibetan_with_position_map(text: str) -> tuple[str, list[int]]:
     return (''.join(result_chars), result_to_orig)
 
 
+def is_tibetan_numeral(char: str) -> bool:
+    """
+    Check if a character is a Tibetan digit or half-digit.
+
+    Tibetan digits:      U+0F20–U+0F29  (༠–༩)
+    Tibetan half-digits: U+0F2A–U+0F33  (༪–༳)
+
+    These appear in text as numbers and should not be treated as
+    spellable syllable content.
+    """
+    if not char:
+        return False
+    code = ord(char[0])
+    return 0x0F20 <= code <= 0x0F33
+
+
+def is_numeral_syllable(syllable: str) -> bool:
+    """
+    Return True if a syllable consists entirely of Tibetan numeral characters.
+
+    Such syllables represent numbers (years, ordinals, counts) and should be
+    skipped by the spellchecker without flagging an error.
+    """
+    if not syllable:
+        return False
+    return all(is_tibetan_numeral(c) for c in syllable)
+
+
 def is_tibetan_char(char: str) -> bool:
     """
     Check if a character is in the Tibetan Unicode range.

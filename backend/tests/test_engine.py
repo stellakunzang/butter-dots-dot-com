@@ -625,6 +625,60 @@ class TestPositionMappingWithZeroWidth:
         assert original[pos:pos + len("གཀར")] == "གཀར"
 
 
+class TestNumerals:
+    """
+    Tibetan digits (U+0F20–U+0F33) appear in text as numbers and should be
+    silently skipped -- no structural rules apply to numeric content.
+    """
+
+    def test_single_digit_not_flagged(self):
+        from app.spellcheck.engine import TibetanSpellChecker
+        engine = TibetanSpellChecker()
+        errors = [e for e in engine.check_text("༡") if e.get('severity') != 'info']
+        assert errors == [], f"Single digit should not be flagged: {errors}"
+
+    def test_multi_digit_year_not_flagged(self):
+        from app.spellcheck.engine import TibetanSpellChecker
+        engine = TibetanSpellChecker()
+        errors = [e for e in engine.check_text("༢༠༢༦") if e.get('severity') != 'info']
+        assert errors == [], f"Year digits should not be flagged: {errors}"
+
+    def test_number_embedded_in_text_not_flagged(self):
+        from app.spellcheck.engine import TibetanSpellChecker
+        engine = TibetanSpellChecker()
+        errors = engine.check_text("བོད་ལོ་༢༠༢༦")
+        number_errors = [e for e in errors if e.get('word', '').startswith('༢')]
+        assert number_errors == [], f"Number in text should not be flagged: {number_errors}"
+
+    def test_valid_text_after_number_still_checked(self):
+        """Structural errors in syllables after a number should still be caught."""
+        from app.spellcheck.engine import TibetanSpellChecker
+        engine = TibetanSpellChecker()
+        # གཀར is invalid regardless of what precedes it
+        errors = engine.check_text("༡་གཀར་")
+        assert any(e.get('word') == 'གཀར' for e in errors), (
+            "Invalid syllable after a number should still be flagged"
+        )
+
+    def test_particle_after_number_not_false_positive(self):
+        """A particle immediately after a number should not be flagged.
+        The number resets particle context, so there's no preceding suffix to check."""
+        from app.spellcheck.engine import TibetanSpellChecker
+        engine = TibetanSpellChecker()
+        errors = engine.check_text("བོད་༢༠༢༦་གི་")
+        particle_errors = [e for e in errors if e.get('error_type') == 'wrong_particle_form']
+        assert particle_errors == [], (
+            f"Particle after number should not be flagged (context reset): {particle_errors}"
+        )
+
+    def test_check_syllable_digit_returns_none(self):
+        """check_syllable on a digit string returns None (no error)."""
+        from app.spellcheck.engine import TibetanSpellChecker
+        engine = TibetanSpellChecker()
+        assert engine.check_syllable("༡") is None
+        assert engine.check_syllable("༢༠༢༦") is None
+
+
 class TestExceptedWords:
     """
     ནའང་ and ལའང་ are compound particles (locative + འང་ "even/also") that are
