@@ -33,10 +33,10 @@ _SUFFIX_LABELS: dict = {
 
 def _correct_form_for_suffix(category: str, suffix: Optional[str]) -> Optional[str]:
     """Return the expected particle form for this category and suffix."""
-    from ..rules.particles import GENITIVE, AGENTIVE, LOCATIVE, INDEFINITE
+    from ..rules.particles import RELATIONAL, AGENTIVE, LOCATIVE, INDEFINITE
 
     mapping = {
-        'genitive':   GENITIVE,
+        'relational': RELATIONAL,
         'agentive':   AGENTIVE,
         'locative':   LOCATIVE,
         'indefinite': INDEFINITE,

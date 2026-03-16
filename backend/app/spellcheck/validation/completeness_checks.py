@@ -41,7 +41,7 @@ def check_syllable_structure_completeness(syllable: str, parsed: Dict[str, any])
 
     # ERROR 1: Multiple separated vowels
     if len(vowels) > 1:
-        # Exception: འི genitive suffix
+        # Exception: འི relational suffix
         # When a syllable ends with འ + ི, the ི is a valid suffix vowel.
         # This creates exactly 2 vowel marks (root vowel + suffix ི) which
         # is legitimate and should not be flagged.

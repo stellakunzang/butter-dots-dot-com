@@ -38,7 +38,7 @@ def parse_syllable(typed_chars: List[TypedChar]) -> TibetanSyllable:
     if not typed_chars:
         return TibetanSyllable(raw=raw)
 
-    # Step 0: Check for འི genitive suffix pattern BEFORE normal parsing.
+    # Step 0: Check for འི relational suffix pattern BEFORE normal parsing.
     #
     # འི (achung + i-vowel) can be added to syllables with no suffix or
     # suffix འ. Without this early detection, the ི vowel causes the
@@ -342,12 +342,12 @@ def _parse_no_vowel(
 
 
 # ============================================================================
-# Step 3d: Parse with འི genitive suffix
+# Step 3d: Parse with འི relational suffix
 # ============================================================================
 
 def _detect_achung_i_suffix(chars: List[TypedChar]) -> Optional[int]:
     """
-    Check if the syllable ends with འི (achung + i-vowel) genitive suffix.
+    Check if the syllable ends with འི (achung + i-vowel) relational suffix.
 
     This pattern must be detected BEFORE normal vowel-based parsing,
     because ི would otherwise cause འ to be misidentified as the root.
@@ -379,13 +379,13 @@ def _parse_with_achung_i_suffix(
     raw: str,
 ) -> TibetanSyllable:
     """
-    Parse a syllable ending with འི genitive suffix.
+    Parse a syllable ending with འི relational suffix.
 
     Strategy:
     1. Split off the འ + ི ending
     2. Parse the body (everything before འ) to find prefix/superscript/root/subscripts/vowel
     3. If the body already has its own suffix (e.g., སྐད has suffix ད),
-       the འི is NOT a valid genitive -- fall back to normal parsing
+       the འི is NOT a valid relational -- fall back to normal parsing
     4. Otherwise, attach suffix=འ, suffix_vowel=ི
 
     The body should have NO suffix of its own -- the suffix is the འ from འི.
@@ -453,7 +453,7 @@ def _parse_normal(
     Run the normal parsing pipeline (without འི detection).
 
     Used as fallback when འི detection was triggered but the body
-    already has its own suffix, meaning འི is not a valid genitive.
+    already has its own suffix, meaning འི is not a valid relational.
     """
     super_idx, root_idx = _find_superscript(typed_chars)
     vowel_idx = _find_first_vowel(typed_chars)

@@ -33,10 +33,10 @@ def no_particle_errors(engine, text):
 
 
 # ============================================================================
-# Genitive particle (bdag gi sgra)
+# Relational particle (bdag gi sgra)
 # ============================================================================
 
-class TestGenitiveParticle:
+class TestRelationalParticle:
 
     def test_kyi_after_da_suffix_valid(self, engine):
         """བོད་ཀྱི་ — ད suffix → ཀྱི correct"""

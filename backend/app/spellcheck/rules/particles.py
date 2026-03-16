@@ -23,8 +23,8 @@ NO_SUFFIX = None
 # Particle → valid preceding suffixes
 # ============================================================================
 
-# Genitive (bdag gi sgra)
-GENITIVE: dict = {
+# Relational (bdag gi sgra)
+RELATIONAL: dict = {
     'ཀྱི': frozenset({'ད', 'བ', 'ས'}),
     'གི':  frozenset({'ག', 'ང'}),
     'གྱི': frozenset({'ན', 'མ', 'ར', 'ལ'}),
@@ -67,7 +67,7 @@ INDEFINITE: dict = {
 # Combined lookup: particle string → (category label, valid suffixes or sentinel)
 PARTICLE_RULES: dict = {}
 for _category, _rules in [
-    ('genitive',   GENITIVE),
+    ('relational', RELATIONAL),
     ('agentive',   AGENTIVE),
     ('locative',   LOCATIVE),
     ('indefinite', INDEFINITE),
@@ -89,7 +89,7 @@ def get_particle_rule(syllable: str) -> Optional[dict]:
     Return the rule dict for this particle, or None if not a particle.
 
     The returned dict has keys:
-        category (str): 'genitive' | 'agentive' | 'locative' | 'indefinite'
+        category (str): 'relational' | 'agentive' | 'locative' | 'indefinite'
         valid_suffixes: frozenset | True | None
     """
     return PARTICLE_RULES.get(syllable)

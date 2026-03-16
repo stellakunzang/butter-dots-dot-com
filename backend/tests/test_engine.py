@@ -449,15 +449,15 @@ class TestQAFindings_PrefixBugs_20260211:
 
 class TestAchungISuffixValidation:
     """
-    Test validation of འི (achung + i-vowel) as genitive suffix.
+    Test validation of འི (achung + i-vowel) as relational suffix.
 
-    In Tibetan grammar, འི is added to form the genitive case on words
+    In Tibetan grammar, འི is added to form the relational case on words
     that have EITHER:
     - No suffix (e.g., པ → པའི, ཡ → ཡའི)
     - Suffix འ/achung (e.g., དགའ → དགའི, བཀའ → བཀའི)
 
     This is a special exception to the single-vowel rule: when འི is
-    a valid genitive suffix, the ི on འ is allowed even if the root
+    a valid relational suffix, the ི on འ is allowed even if the root
     already carries a vowel (e.g., མཐོའི has both ོ and ི).
 
     འི CANNOT be added after any other suffix (ག, ང, ད, ན, བ, མ, ར, ལ, ས).
@@ -468,7 +468,7 @@ class TestAchungISuffixValidation:
     # ================================================================
 
     def test_ya_achung_i_valid_no_suffix(self):
-        """ཡའི (ya'i) - valid: ཡ has no suffix, འི added as genitive"""
+        """ཡའི (ya'i) - valid: ཡ has no suffix, འི added as relational"""
         from app.spellcheck.engine import TibetanSpellChecker
 
         engine = TibetanSpellChecker()
@@ -476,9 +476,9 @@ class TestAchungISuffixValidation:
         assert result is None, f"ཡའི should be valid but got: {result}"
 
     def test_pa_achung_i_valid_no_suffix(self):
-        """པའི (pa'i) - valid: པ has no suffix, འི added as genitive
+        """པའི (pa'i) - valid: པ has no suffix, འི added as relational
 
-        པའི is one of the most common genitive particles in Tibetan.
+        པའི is one of the most common relational particles in Tibetan.
         """
         from app.spellcheck.engine import TibetanSpellChecker
 
@@ -487,7 +487,7 @@ class TestAchungISuffixValidation:
         assert result is None, f"པའི should be valid but got: {result}"
 
     def test_la_achung_i_valid_no_suffix(self):
-        """ལའི (la'i) - valid: ལ has no suffix, འི added as genitive"""
+        """ལའི (la'i) - valid: ལ has no suffix, འི added as relational"""
         from app.spellcheck.engine import TibetanSpellChecker
 
         engine = TibetanSpellChecker()
@@ -495,7 +495,7 @@ class TestAchungISuffixValidation:
         assert result is None, f"ལའི should be valid but got: {result}"
 
     def test_ba_achung_i_valid_no_suffix(self):
-        """བའི (ba'i) - valid: བ has no suffix, འི added as genitive"""
+        """བའི (ba'i) - valid: བ has no suffix, འི added as relational"""
         from app.spellcheck.engine import TibetanSpellChecker
 
         engine = TibetanSpellChecker()
@@ -507,9 +507,9 @@ class TestAchungISuffixValidation:
     # ================================================================
 
     def test_dga_achung_i_valid_achung_suffix(self):
-        """དགའི (dga'i) - valid: དགའ has suffix འ, ི added for genitive
+        """དགའི (dga'i) - valid: དགའ has suffix འ, ི added for relational
 
-        དགའ (dga' = love/joy) already ends in འ. The genitive just
+        དགའ (dga' = love/joy) already ends in འ. The relational just
         adds ི to the existing achung.
         """
         from app.spellcheck.engine import TibetanSpellChecker
@@ -519,7 +519,7 @@ class TestAchungISuffixValidation:
         assert result is None, f"དགའི should be valid but got: {result}"
 
     def test_bka_achung_i_valid_achung_suffix(self):
-        """བཀའི (bka'i) - valid: བཀའ has suffix འ, ི added for genitive
+        """བཀའི (bka'i) - valid: བཀའ has suffix འ, ི added for relational
 
         བཀའ (bka' = decree/command) ends in འ.
         """
@@ -530,7 +530,7 @@ class TestAchungISuffixValidation:
         assert result is None, f"བཀའི should be valid but got: {result}"
 
     def test_mkha_achung_i_valid_achung_suffix(self):
-        """མཁའི (mkha'i) - valid: མཁའ has suffix འ, ི added for genitive
+        """མཁའི (mkha'i) - valid: མཁའ has suffix འ, ི added for relational
 
         མཁའ (mkha' = sky/space) ends in འ.
         """
@@ -562,7 +562,7 @@ class TestAchungISuffixValidation:
     # ================================================================
 
     def test_achung_i_in_running_text(self):
-        """འི genitive forms should not be flagged in running text"""
+        """འི relational forms should not be flagged in running text"""
         from app.spellcheck.engine import TibetanSpellChecker
 
         engine = TibetanSpellChecker()
@@ -580,7 +580,7 @@ class TestAchungISuffixValidation:
         """བོདའི - INVALID: བོད has suffix ད, འི cannot follow ད
 
         འི can only follow no suffix or suffix འ.
-        Suffix ད requires a different genitive particle.
+        Suffix ད requires a different relational particle.
         """
         from app.spellcheck.engine import TibetanSpellChecker
 
