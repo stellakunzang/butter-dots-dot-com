@@ -67,7 +67,7 @@ const SpellingRules: NextPage = () => {
                 <td className="px-4 py-3 text-gray-500 text-sm">before root</td>
                 <td className="px-4 py-3 text-gray-500 text-sm">above root</td>
                 <td className="px-4 py-3 text-gray-900 font-semibold text-sm bg-yellow-50">
-                  main letter
+                  root letter
                 </td>
                 <td className="px-4 py-3 text-gray-500 text-sm">below root</td>
                 <td className="px-4 py-3 text-gray-500 text-sm">
@@ -80,9 +80,9 @@ const SpellingRules: NextPage = () => {
                 <td className="px-4 py-3 text-2xl text-gray-700">བ</td>
                 <td className="px-4 py-3 text-2xl text-gray-700">ས</td>
                 <td className="px-4 py-3 text-3xl font-semibold text-gray-900 bg-yellow-50">
-                  གྲ
+                  ག
                 </td>
-                <td className="px-4 py-3 text-gray-400 text-sm">—</td>
+                <td className="px-4 py-3 text-gray-400 text-sm">ྲ</td>
                 <td className="px-4 py-3 text-gray-400 text-sm">—</td>
                 <td className="px-4 py-3 text-2xl text-gray-700">བ</td>
                 <td className="px-4 py-3 text-gray-400 text-sm">—</td>
@@ -289,8 +289,9 @@ const SpellingRules: NextPage = () => {
         </h3>
         <p className="mb-4">
           Marks the agent, instrument, reason, or source of an action — roughly
-          equivalent to &ldquo;by,&rdquo; &ldquo;with,&rdquo; or &ldquo;because of.&rdquo; The forms follow the same
-          suffix groupings as the relational particle:
+          equivalent to &ldquo;by,&rdquo; &ldquo;with,&rdquo; or &ldquo;because
+          of.&rdquo; The forms follow the same suffix groupings as the
+          relational particle:
         </p>
         <ParticleTable
           rows={[
