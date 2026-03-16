@@ -553,10 +553,10 @@ class TestParserRobustness:
 
 class TestAchungISuffixParsing:
     """
-    Test correct parsing of འི (achung + i-vowel) as genitive suffix.
+    Test correct parsing of འི (achung + i-vowel) as relational suffix.
 
     In Tibetan, འི can be added to words with no suffix or with suffix འ
-    (achung) to form the genitive case. This creates a special structure
+    (achung) to form the relational case. This creates a special structure
     where ི appears on the suffix འ, potentially creating a second vowel
     in the syllable.
 
@@ -584,7 +584,7 @@ class TestAchungISuffixParsing:
         """པའི (pa'i) - root must be པ, NOT འ
 
         Structure: པ (root) + འ (suffix) + ི (suffix vowel)
-        Common genitive particle.
+        Common relational particle.
         """
         parser = TibetanSyllableParser()
         parsed = parser.parse("པའི")
@@ -597,7 +597,7 @@ class TestAchungISuffixParsing:
         """ལའི (la'i) - root must be ལ, NOT འ
 
         Structure: ལ (root) + འ (suffix) + ི (suffix vowel)
-        Common genitive form of ལ (postposition/mountain pass).
+        Common relational form of ལ (postposition/mountain pass).
         """
         parser = TibetanSyllableParser()
         parsed = parser.parse("ལའི")
@@ -612,7 +612,7 @@ class TestAchungISuffixParsing:
         """དགའི (dga'i) - prefix ད, root ག, suffix འ
 
         Structure: ད (prefix) + ག (root) + འ (suffix) + ི (suffix vowel)
-        Genitive of དགའ (dga' = love/joy).
+        Relational of དགའ (dga' = love/joy).
         """
         parser = TibetanSyllableParser()
         parsed = parser.parse("དགའི")
@@ -627,7 +627,7 @@ class TestAchungISuffixParsing:
         """བཀའི (bka'i) - prefix བ, root ཀ, suffix འ
 
         Structure: བ (prefix) + ཀ (root) + འ (suffix) + ི (suffix vowel)
-        Genitive of བཀའ (bka' = decree/command).
+        Relational of བཀའ (bka' = decree/command).
         """
         parser = TibetanSyllableParser()
         parsed = parser.parse("བཀའི")
@@ -642,7 +642,7 @@ class TestAchungISuffixParsing:
         """མཁའི (mkha'i) - prefix མ, root ཁ, suffix འ
 
         Structure: མ (prefix) + ཁ (root) + འ (suffix) + ི (suffix vowel)
-        Genitive of མཁའ (mkha' = sky/space).
+        Relational of མཁའ (mkha' = sky/space).
         """
         parser = TibetanSyllableParser()
         parsed = parser.parse("མཁའི")
@@ -660,7 +660,7 @@ class TestAchungISuffixParsing:
 
         Structure: མ (prefix) + ཐ (root) + ོ (root vowel) + འ (suffix) + ི (suffix vowel)
         This syllable legitimately has TWO vowel marks: ོ on root and ི on suffix.
-        Genitive of མཐོ (mtho = high/tall).
+        Relational of མཐོ (mtho = high/tall).
         """
         parser = TibetanSyllableParser()
         parsed = parser.parse("མཐོའི")

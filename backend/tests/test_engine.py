@@ -89,6 +89,79 @@ class TestSingleSyllableChecking:
             assert result['severity'] == 'critical'
 
 
+class TestDoubleVowel:
+    """Double vowel marks are structurally impossible and should be flagged."""
+
+    def test_i_plus_e_vowel_flagged(self):
+        from app.spellcheck.engine import TibetanSpellChecker
+        engine = TibetanSpellChecker()
+        result = engine.check_syllable('ཀིེ')  # i + e on ka
+        assert result is not None
+        assert result['error_type'] == 'double_vowel'
+        assert result['severity'] == 'error'
+
+    def test_i_plus_o_vowel_flagged(self):
+        from app.spellcheck.engine import TibetanSpellChecker
+        engine = TibetanSpellChecker()
+        result = engine.check_syllable('ཀིོ')  # i + o on ka
+        assert result is not None
+        assert result['error_type'] == 'double_vowel'
+
+    def test_same_vowel_repeated_flagged(self):
+        from app.spellcheck.engine import TibetanSpellChecker
+        engine = TibetanSpellChecker()
+        result = engine.check_syllable('ཀེེ')  # double e on ka
+        assert result is not None
+        assert result['error_type'] == 'double_vowel'
+
+    def test_single_vowel_passes(self):
+        from app.spellcheck.engine import TibetanSpellChecker
+        engine = TibetanSpellChecker()
+        assert engine.check_syllable('ཀི') is None
+        assert engine.check_syllable('ཀེ') is None
+        assert engine.check_syllable('ཀོ') is None
+        assert engine.check_syllable('ཀུ') is None
+
+    def test_double_vowel_in_text(self):
+        from app.spellcheck.engine import TibetanSpellChecker
+        engine = TibetanSpellChecker()
+        errors = engine.check_text('བོད་ཀིེ་ཡིག་')
+        assert any(e.get('error_type') == 'double_vowel' for e in errors)
+        assert any(e.get('word') == 'ཀིེ' for e in errors)
+
+
+class TestEncodingErrors:
+    """Wrong Unicode codepoints should be caught as critical encoding errors."""
+
+    def test_wrong_a_vowel_flagged(self):
+        from app.spellcheck.engine import TibetanSpellChecker
+        engine = TibetanSpellChecker()
+        result = engine.check_syllable('ཀ\u0FB0')  # U+0FB0 instead of U+0F71
+        assert result is not None
+        assert result['error_type'] == 'encoding_error'
+        assert result['severity'] == 'critical'
+
+    def test_wrong_ra_flagged(self):
+        from app.spellcheck.engine import TibetanSpellChecker
+        engine = TibetanSpellChecker()
+        result = engine.check_syllable('\u0F6A\u0F72')  # U+0F6A instead of U+0F62
+        assert result is not None
+        assert result['error_type'] == 'encoding_error'
+        assert result['severity'] == 'critical'
+
+    def test_correct_ra_passes(self):
+        from app.spellcheck.engine import TibetanSpellChecker
+        engine = TibetanSpellChecker()
+        assert engine.check_syllable('རང') is None  # U+0F62 = correct ra
+
+    def test_encoding_error_in_text(self):
+        from app.spellcheck.engine import TibetanSpellChecker
+        engine = TibetanSpellChecker()
+        errors = engine.check_text('བོད་ཀ\u0FB0་')
+        assert any(e.get('error_type') == 'encoding_error' for e in errors)
+        assert any(e.get('severity') == 'critical' for e in errors)
+
+
 class TestFullTextChecking:
     """Test checking complete Tibetan text"""
     
@@ -376,15 +449,15 @@ class TestQAFindings_PrefixBugs_20260211:
 
 class TestAchungISuffixValidation:
     """
-    Test validation of འི (achung + i-vowel) as genitive suffix.
+    Test validation of འི (achung + i-vowel) as relational suffix.
 
-    In Tibetan grammar, འི is added to form the genitive case on words
+    In Tibetan grammar, འི is added to form the relational case on words
     that have EITHER:
     - No suffix (e.g., པ → པའི, ཡ → ཡའི)
     - Suffix འ/achung (e.g., དགའ → དགའི, བཀའ → བཀའི)
 
     This is a special exception to the single-vowel rule: when འི is
-    a valid genitive suffix, the ི on འ is allowed even if the root
+    a valid relational suffix, the ི on འ is allowed even if the root
     already carries a vowel (e.g., མཐོའི has both ོ and ི).
 
     འི CANNOT be added after any other suffix (ག, ང, ད, ན, བ, མ, ར, ལ, ས).
@@ -395,7 +468,7 @@ class TestAchungISuffixValidation:
     # ================================================================
 
     def test_ya_achung_i_valid_no_suffix(self):
-        """ཡའི (ya'i) - valid: ཡ has no suffix, འི added as genitive"""
+        """ཡའི (ya'i) - valid: ཡ has no suffix, འི added as relational"""
         from app.spellcheck.engine import TibetanSpellChecker
 
         engine = TibetanSpellChecker()
@@ -403,9 +476,9 @@ class TestAchungISuffixValidation:
         assert result is None, f"ཡའི should be valid but got: {result}"
 
     def test_pa_achung_i_valid_no_suffix(self):
-        """པའི (pa'i) - valid: པ has no suffix, འི added as genitive
+        """པའི (pa'i) - valid: པ has no suffix, འི added as relational
 
-        པའི is one of the most common genitive particles in Tibetan.
+        པའི is one of the most common relational particles in Tibetan.
         """
         from app.spellcheck.engine import TibetanSpellChecker
 
@@ -414,7 +487,7 @@ class TestAchungISuffixValidation:
         assert result is None, f"པའི should be valid but got: {result}"
 
     def test_la_achung_i_valid_no_suffix(self):
-        """ལའི (la'i) - valid: ལ has no suffix, འི added as genitive"""
+        """ལའི (la'i) - valid: ལ has no suffix, འི added as relational"""
         from app.spellcheck.engine import TibetanSpellChecker
 
         engine = TibetanSpellChecker()
@@ -422,7 +495,7 @@ class TestAchungISuffixValidation:
         assert result is None, f"ལའི should be valid but got: {result}"
 
     def test_ba_achung_i_valid_no_suffix(self):
-        """བའི (ba'i) - valid: བ has no suffix, འི added as genitive"""
+        """བའི (ba'i) - valid: བ has no suffix, འི added as relational"""
         from app.spellcheck.engine import TibetanSpellChecker
 
         engine = TibetanSpellChecker()
@@ -434,9 +507,9 @@ class TestAchungISuffixValidation:
     # ================================================================
 
     def test_dga_achung_i_valid_achung_suffix(self):
-        """དགའི (dga'i) - valid: དགའ has suffix འ, ི added for genitive
+        """དགའི (dga'i) - valid: དགའ has suffix འ, ི added for relational
 
-        དགའ (dga' = love/joy) already ends in འ. The genitive just
+        དགའ (dga' = love/joy) already ends in འ. The relational just
         adds ི to the existing achung.
         """
         from app.spellcheck.engine import TibetanSpellChecker
@@ -446,7 +519,7 @@ class TestAchungISuffixValidation:
         assert result is None, f"དགའི should be valid but got: {result}"
 
     def test_bka_achung_i_valid_achung_suffix(self):
-        """བཀའི (bka'i) - valid: བཀའ has suffix འ, ི added for genitive
+        """བཀའི (bka'i) - valid: བཀའ has suffix འ, ི added for relational
 
         བཀའ (bka' = decree/command) ends in འ.
         """
@@ -457,7 +530,7 @@ class TestAchungISuffixValidation:
         assert result is None, f"བཀའི should be valid but got: {result}"
 
     def test_mkha_achung_i_valid_achung_suffix(self):
-        """མཁའི (mkha'i) - valid: མཁའ has suffix འ, ི added for genitive
+        """མཁའི (mkha'i) - valid: མཁའ has suffix འ, ི added for relational
 
         མཁའ (mkha' = sky/space) ends in འ.
         """
@@ -489,7 +562,7 @@ class TestAchungISuffixValidation:
     # ================================================================
 
     def test_achung_i_in_running_text(self):
-        """འི genitive forms should not be flagged in running text"""
+        """འི relational forms should not be flagged in running text"""
         from app.spellcheck.engine import TibetanSpellChecker
 
         engine = TibetanSpellChecker()
@@ -507,7 +580,7 @@ class TestAchungISuffixValidation:
         """བོདའི - INVALID: བོད has suffix ད, འི cannot follow ད
 
         འི can only follow no suffix or suffix འ.
-        Suffix ད requires a different genitive particle.
+        Suffix ད requires a different relational particle.
         """
         from app.spellcheck.engine import TibetanSpellChecker
 
@@ -623,6 +696,194 @@ class TestPositionMappingWithZeroWidth:
         assert len(spelling_errors) == 1
         pos = spelling_errors[0]['position']
         assert original[pos:pos + len("གཀར")] == "གཀར"
+
+
+class TestTibetanPunctuation:
+    """
+    Tibetan punctuation and mark characters (yig mgo openers, decorative shads,
+    gter tsheg, etc.) should be silently skipped — no structural rules apply.
+    ། and ༎ were already handled by the splitter; this covers the rest.
+    """
+
+    def test_yig_mgo_opener_not_flagged(self):
+        from app.spellcheck.engine import TibetanSpellChecker
+        engine = TibetanSpellChecker()
+        errors = [e for e in engine.check_text("༄") if e.get('severity') != 'info']
+        assert errors == [], f"Yig mgo should not be flagged: {errors}"
+
+    def test_common_text_opener_sequence_not_flagged(self):
+        from app.spellcheck.engine import TibetanSpellChecker
+        engine = TibetanSpellChecker()
+        errors = [e for e in engine.check_text("༄༅།") if e.get('severity') != 'info']
+        assert errors == [], f"Text opener ༄༅། should not be flagged: {errors}"
+
+    def test_decorative_shad_variants_not_flagged(self):
+        from app.spellcheck.engine import TibetanSpellChecker
+        engine = TibetanSpellChecker()
+        for char, desc in [('༑', 'rin chen spungs shad'), ('༈', 'sbrul shad'), ('༔', 'gter tsheg')]:
+            errors = [e for e in engine.check_text(char) if e.get('severity') != 'info']
+            assert errors == [], f"{desc} ({repr(char)}) should not be flagged: {errors}"
+
+    def test_valid_text_after_punctuation_still_checked(self):
+        from app.spellcheck.engine import TibetanSpellChecker
+        engine = TibetanSpellChecker()
+        errors = engine.check_text("༄༅།  །གཀར་")
+        assert any(e.get('word') == 'གཀར' for e in errors), (
+            "Invalid syllable after punctuation opener should still be flagged"
+        )
+
+    def test_realistic_opener_with_valid_text(self):
+        from app.spellcheck.engine import TibetanSpellChecker
+        engine = TibetanSpellChecker()
+        errors = [e for e in engine.check_text("༄༄།  །བོད་ཡིག་") if e.get('severity') != 'info']
+        assert errors == [], f"Valid text after opener should produce no errors: {errors}"
+
+
+class TestNumerals:
+    """
+    Tibetan digits (U+0F20–U+0F33) appear in text as numbers and should be
+    silently skipped -- no structural rules apply to numeric content.
+    """
+
+    def test_single_digit_not_flagged(self):
+        from app.spellcheck.engine import TibetanSpellChecker
+        engine = TibetanSpellChecker()
+        errors = [e for e in engine.check_text("༡") if e.get('severity') != 'info']
+        assert errors == [], f"Single digit should not be flagged: {errors}"
+
+    def test_multi_digit_year_not_flagged(self):
+        from app.spellcheck.engine import TibetanSpellChecker
+        engine = TibetanSpellChecker()
+        errors = [e for e in engine.check_text("༢༠༢༦") if e.get('severity') != 'info']
+        assert errors == [], f"Year digits should not be flagged: {errors}"
+
+    def test_number_embedded_in_text_not_flagged(self):
+        from app.spellcheck.engine import TibetanSpellChecker
+        engine = TibetanSpellChecker()
+        errors = engine.check_text("བོད་ལོ་༢༠༢༦")
+        number_errors = [e for e in errors if e.get('word', '').startswith('༢')]
+        assert number_errors == [], f"Number in text should not be flagged: {number_errors}"
+
+    def test_valid_text_after_number_still_checked(self):
+        """Structural errors in syllables after a number should still be caught."""
+        from app.spellcheck.engine import TibetanSpellChecker
+        engine = TibetanSpellChecker()
+        # གཀར is invalid regardless of what precedes it
+        errors = engine.check_text("༡་གཀར་")
+        assert any(e.get('word') == 'གཀར' for e in errors), (
+            "Invalid syllable after a number should still be flagged"
+        )
+
+    def test_particle_after_number_not_false_positive(self):
+        """A particle immediately after a number should not be flagged.
+        The number resets particle context, so there's no preceding suffix to check."""
+        from app.spellcheck.engine import TibetanSpellChecker
+        engine = TibetanSpellChecker()
+        errors = engine.check_text("བོད་༢༠༢༦་གི་")
+        particle_errors = [e for e in errors if e.get('error_type') == 'wrong_particle_form']
+        assert particle_errors == [], (
+            f"Particle after number should not be flagged (context reset): {particle_errors}"
+        )
+
+    def test_check_syllable_digit_returns_none(self):
+        """check_syllable on a digit string returns None (no error)."""
+        from app.spellcheck.engine import TibetanSpellChecker
+        engine = TibetanSpellChecker()
+        assert engine.check_syllable("༡") is None
+        assert engine.check_syllable("༢༠༢༦") is None
+
+
+class TestExceptedWords:
+    """
+    ནའང་ and ལའང་ are compound particles (locative + འང་ "even/also") that are
+    valid by grammatical convention but fail structural validation because ང
+    after suffix འ is not a valid post-suffix. They are explicitly excepted.
+    """
+
+    def test_na_ang_is_valid(self):
+        """ནའང་ should not be flagged."""
+        from app.spellcheck.engine import TibetanSpellChecker
+        engine = TibetanSpellChecker()
+        result = engine.check_syllable("ནའང")
+        assert result is None, f"ནའང should be excepted as valid but got: {result}"
+
+    def test_la_ang_is_valid(self):
+        """ལའང་ should not be flagged."""
+        from app.spellcheck.engine import TibetanSpellChecker
+        engine = TibetanSpellChecker()
+        result = engine.check_syllable("ལའང")
+        assert result is None, f"ལའང should be excepted as valid but got: {result}"
+
+    def test_excepted_words_in_running_text(self):
+        """ནའང་ and ལའང་ should not produce errors in running text."""
+        from app.spellcheck.engine import TibetanSpellChecker
+        engine = TibetanSpellChecker()
+        errors = engine.check_text("ནའང་ལའང་བོད་")
+        spelling_errors = [e for e in errors if e.get("severity") != "info"]
+        flagged = [e["word"] for e in spelling_errors]
+        assert "ནའང" not in flagged, f"ནའང should not be flagged in text. Errors: {errors}"
+        assert "ལའང" not in flagged, f"ལའང should not be flagged in text. Errors: {errors}"
+
+    def test_similar_invalid_structure_still_caught(self):
+        """Structurally invalid forms similar to the exceptions are still flagged."""
+        from app.spellcheck.engine import TibetanSpellChecker
+        engine = TibetanSpellChecker()
+        # ལའར: ལ root + འ suffix + ར (not a valid post-suffix)
+        result = engine.check_syllable("ལའར")
+        assert result is not None, "ལའར should be invalid (ར is not a valid post-suffix)"
+
+
+class TestBugFix_HaCannotBePrefix:
+    """
+    Regression test: ཧ (ha) cannot be a prefix consonant.
+
+    Bug: ཧཧིབ་ was not triggering an error. The parser was silently dropping
+    the first ཧ when the char before the root was not a valid prefix --
+    it was not adding it to 'unparsed', so the validator never saw it.
+
+    Fix: _parse_with_vowel now adds any BASE consonant before the first
+    allocated position to result.unparsed.
+    """
+
+    def test_ha_as_fake_prefix_is_invalid(self):
+        """ཧཧིབ་ — ཧ cannot be a prefix; the leading ཧ should be flagged."""
+        from app.spellcheck.engine import TibetanSpellChecker
+        engine = TibetanSpellChecker()
+        result = engine.check_syllable("ཧཧིབ")
+        assert result is not None, (
+            "ཧཧིབ should be invalid: ཧ (ha) cannot be a prefix consonant, "
+            "but no error was raised"
+        )
+
+    def test_ha_as_solo_root_is_valid(self):
+        """ཧི — single ཧ as root with vowel is structurally valid."""
+        from app.spellcheck.engine import TibetanSpellChecker
+        engine = TibetanSpellChecker()
+        result = engine.check_syllable("ཧི")
+        assert result is None, f"ཧི should be valid (ཧ as root) but got: {result}"
+
+    def test_ha_with_suffix_as_solo_root_is_valid(self):
+        """ཧིབ་ — ཧ root + ི vowel + བ suffix is structurally valid."""
+        from app.spellcheck.engine import TibetanSpellChecker
+        engine = TibetanSpellChecker()
+        result = engine.check_syllable("ཧིབ")
+        assert result is None, f"ཧིབ should be valid (ཧ root + suffix) but got: {result}"
+
+    def test_valid_prefixes_still_work(self):
+        """Confirm valid prefix consonants are not broken by the fix."""
+        from app.spellcheck.engine import TibetanSpellChecker
+        engine = TibetanSpellChecker()
+        valid_cases = [
+            ("གཞི", "ག prefix"),
+            ("དངོས", "ད prefix"),
+            ("བོད", "no prefix"),
+            ("མཐོ", "མ prefix"),
+        ]
+        for syllable, description in valid_cases:
+            result = engine.check_syllable(syllable)
+            assert result is None, (
+                f"{syllable} ({description}) should be valid but got: {result}"
+            )
 
 
 class TestIntegration:

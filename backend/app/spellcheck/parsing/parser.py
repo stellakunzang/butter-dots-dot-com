@@ -38,7 +38,7 @@ def parse_syllable(typed_chars: List[TypedChar]) -> TibetanSyllable:
     if not typed_chars:
         return TibetanSyllable(raw=raw)
 
-    # Step 0: Check for འི genitive suffix pattern BEFORE normal parsing.
+    # Step 0: Check for འི relational suffix pattern BEFORE normal parsing.
     #
     # འི (achung + i-vowel) can be added to syllables with no suffix or
     # suffix འ. Without this early detection, the ི vowel causes the
@@ -213,6 +213,11 @@ def _parse_with_vowel(
         # Last consonant before vowel is BASE -- that's the root
         result.root = chars[root_candidate_idx].base_form
 
+        # Track the earliest position we've allocated (prefix or root).
+        # Anything before this that is a BASE consonant has no valid structural
+        # role and must be flagged as unparsed.
+        first_allocated = root_candidate_idx
+
         # Check for prefix
         if root_candidate_idx > 0 and chars[root_candidate_idx - 1].type == CharType.BASE:
             if chars[root_candidate_idx - 1].base_form in VALID_PREFIXES:
@@ -220,6 +225,13 @@ def _parse_with_vowel(
                 has_more = (vowel_idx < len(chars) - 1) or len(consonants_before) > 2
                 if has_more or len(consonants_before) > 1:
                     result.prefix = chars[root_candidate_idx - 1].base_form
+                    first_allocated = root_candidate_idx - 1
+
+        # Any BASE consonants before first_allocated could not be assigned to a
+        # valid syllable position. Mark them unparsed so the validator catches them.
+        for j in range(first_allocated):
+            if chars[j].type == CharType.BASE:
+                result.unparsed.append(chars[j])
 
     # Collect vowel
     result.vowel = chars[vowel_idx].char
@@ -228,8 +240,9 @@ def _parse_with_vowel(
     # Collect suffix and post-suffix
     result.suffix, result.post_suffix, i = _collect_suffixes(chars, i)
 
-    # Anything remaining is unparsed
-    result.unparsed = chars[i:]
+    # Anything remaining is unparsed (extend, not assign -- we may have already
+    # added leading unassignable consonants above)
+    result.unparsed.extend(chars[i:])
 
     return result
 
@@ -329,12 +342,12 @@ def _parse_no_vowel(
 
 
 # ============================================================================
-# Step 3d: Parse with འི genitive suffix
+# Step 3d: Parse with འི relational suffix
 # ============================================================================
 
 def _detect_achung_i_suffix(chars: List[TypedChar]) -> Optional[int]:
     """
-    Check if the syllable ends with འི (achung + i-vowel) genitive suffix.
+    Check if the syllable ends with འི (achung + i-vowel) relational suffix.
 
     This pattern must be detected BEFORE normal vowel-based parsing,
     because ི would otherwise cause འ to be misidentified as the root.
@@ -366,13 +379,13 @@ def _parse_with_achung_i_suffix(
     raw: str,
 ) -> TibetanSyllable:
     """
-    Parse a syllable ending with འི genitive suffix.
+    Parse a syllable ending with འི relational suffix.
 
     Strategy:
     1. Split off the འ + ི ending
     2. Parse the body (everything before འ) to find prefix/superscript/root/subscripts/vowel
     3. If the body already has its own suffix (e.g., སྐད has suffix ད),
-       the འི is NOT a valid genitive -- fall back to normal parsing
+       the འི is NOT a valid relational -- fall back to normal parsing
     4. Otherwise, attach suffix=འ, suffix_vowel=ི
 
     The body should have NO suffix of its own -- the suffix is the འ from འི.
@@ -440,7 +453,7 @@ def _parse_normal(
     Run the normal parsing pipeline (without འི detection).
 
     Used as fallback when འི detection was triggered but the body
-    already has its own suffix, meaning འི is not a valid genitive.
+    already has its own suffix, meaning འི is not a valid relational.
     """
     super_idx, root_idx = _find_superscript(typed_chars)
     vowel_idx = _find_first_vowel(typed_chars)
