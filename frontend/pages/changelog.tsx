@@ -1,5 +1,5 @@
 import type {GetStaticProps, NextPage} from 'next'
-import {Layout} from '../components'
+import {Layout, PageTitle} from '../components'
 import {parseChangelog, VersionEntry, ChangeCategory} from '../lib/changelog'
 
 interface Props {
@@ -31,9 +31,7 @@ const Changelog: NextPage<Props> = ({entries}) => {
             Release History
           </span>
         </div>
-        <h1 className="text-5xl md:text-6xl font-serif text-gray-900 mb-4 tracking-tight">
-          Changelog
-        </h1>
+        <PageTitle>Changelog</PageTitle>
         <p className="text-xl text-gray-600 font-light leading-relaxed">
           A record of improvements, fixes, and new features — newest first.
         </p>
@@ -61,7 +59,7 @@ function VersionBlock({entry}: {entry: VersionEntry}) {
     <div>
       <div className="flex items-baseline gap-4 mb-6 pb-3 border-b border-gray-200">
         <h2 className="text-3xl font-serif text-gray-900">
-          {entry.isUnreleased ? 'Unreleased' : `v${entry.version}`}
+          {entry.isUnreleased ? 'Unreleased' : entry.version}
         </h2>
         {entry.date && (
           <span className="text-sm text-gray-400 tabular-nums">{entry.date}</span>
