@@ -1,24 +1,27 @@
 FROM python:3.11-slim
 
-# Install system dependencies (including Tesseract for OCR)
+# poppler-utils: required by pdf2image for PDF → image conversion
+# libgomp1: required by onnxruntime
 RUN apt-get update && apt-get install -y \
-    tesseract-ocr \
-    tesseract-ocr-bod \
     poppler-utils \
+    libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Install Python dependencies
+# Install Python dependencies first (layer cached unless requirements change)
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY . .
 
+# Download BDRC OCR models at build time
+# Models are saved to /app/OCRModels/ and /app/Models/Lines|Layout/
+RUN python scripts/download_models.py
+
 # Default port (Render injects PORT=10000; falls back to 8000 locally)
 ENV PORT=8000
 EXPOSE ${PORT}
 
-# Use shell form so $PORT is expanded at runtime
 CMD uvicorn app.main:app --host 0.0.0.0 --port $PORT
