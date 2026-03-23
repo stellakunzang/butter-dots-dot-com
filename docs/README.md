@@ -20,6 +20,7 @@ Technical guides for developers working on this project.
 ### `/planning` - Project Planning
 Planning documents, feature roadmaps, and TODO lists.
 
+- `BACKLOG.md` - Unscheduled feature candidates
 - `WORD_CORPUS_PLAN.md` - Strategy for building the Tibetan word corpus
 
 ### `/archive` - Historical/Completed
@@ -41,4 +42,5 @@ Research materials, reference implementations, and third-party resources.
 **Just getting started?** → `/guides/ARCHITECTURE.md`  
 **Working on spellchecker?** → `/adr/SPELLCHECKER_DECISIONS.md`  
 **Working on frontend?** → `/guides/COMPONENTS.md` + `/guides/TAILWIND_GUIDE.md`  
-**Understanding Tibetan rules?** → `/research/SCRIPT_ANALYSIS.md`
+**Understanding Tibetan rules?** → `/research/SCRIPT_ANALYSIS.md`  
+**OCR attribution?** → See `Acknowledgments` in the root `README.md`
