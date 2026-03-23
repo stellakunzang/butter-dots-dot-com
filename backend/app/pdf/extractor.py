@@ -107,9 +107,11 @@ def extract_scanned(pdf_bytes: bytes) -> list[PageContent]:
         raise RuntimeError(f"OCR engine unavailable: {engine.error}")
 
     pil_pages = convert_from_bytes(pdf_bytes, dpi=300)
+    total_pages = len(pil_pages)
     pages: list[PageContent] = []
 
     for i, pil_img in enumerate(pil_pages):
+        logger.info("OCR: processing page %d of %d", i + 1, total_pages)
         # Convert PIL → BGR numpy array for BDRC pipeline
         img_rgb = np.array(pil_img)
         img_bgr = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR)
