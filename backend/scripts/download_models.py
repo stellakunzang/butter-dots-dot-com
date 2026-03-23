@@ -92,7 +92,7 @@ def main():
     download_file(LINE_MODEL_URL, LINES_DIR / "PhotiLines.onnx", "PhotiLines.onnx")
     download_file(LAYOUT_MODEL_URL, LAYOUT_DIR / "photi.onnx", "photi.onnx")
 
-    print("\n2. OCR models (Uchen, Woodblock, Ume, Dunhuang)")
+    print("\n2. OCR models (Woodblock, Woodblock-Stacks, Modern, Ume_Druma, Ume_Petsuk)")
     download_and_extract_zip(OCR_MODELS_URL, OCR_MODELS_DIR, "bdrc_ocr_models_1.0.zip")
 
     # List available OCR models
@@ -100,7 +100,7 @@ def main():
         models = [d.name for d in OCR_MODELS_DIR.iterdir() if d.is_dir()]
         if models:
             print(f"\nAvailable OCR models: {', '.join(models)}")
-            print("Set OCR_MODEL_NAME in .env to choose (default: Uchen)")
+            print("Set OCR_MODEL_NAME in .env to choose (default: Woodblock)")
 
     print("\nAll models ready.")
 
