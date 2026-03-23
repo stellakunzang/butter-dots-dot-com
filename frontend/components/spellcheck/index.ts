@@ -1,2 +1,5 @@
 export { TextInput } from './TextInput'
 export { ErrorDisplay } from './ErrorDisplay'
+export { PDFUpload } from './PDFUpload'
+export { EmailCapture } from './EmailCapture'
+export { JobStatus } from './JobStatus'
