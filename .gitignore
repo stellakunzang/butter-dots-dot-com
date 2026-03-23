@@ -37,6 +37,11 @@ postgres_data/
 uploads/
 results/
 
+# BDRC OCR model files (downloaded via scripts/download_models.py — too large for git)
+backend/OCRModels/
+backend/Models/Lines/*.onnx
+backend/Models/Layout/*.onnx
+
 # IDE
 .vscode/
 .idea/
