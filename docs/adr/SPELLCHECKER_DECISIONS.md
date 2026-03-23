@@ -1493,6 +1493,80 @@ Regression tests:
 
 ---
 
+### ADR-015: Broken Font CMap Detection and OCR Fallback
+
+**Date**: 2026-03-23  
+**Status**: ✅ Decided — OCR fallback when broken CMap detected
+
+**Context**:
+
+Real-world Tibetan PDFs generated from Microsoft Word frequently use the
+**Microsoft Himalaya** font. This font's embedded ToUnicode CMap is incomplete:
+it maps only base consonants to Tibetan Unicode (U+0F00–U+0FFF) and omits
+entries for all stacked consonant glyphs. Both pdfplumber and PyMuPDF fall back
+to treating unmapped glyph byte values as raw Unicode codepoints — which land in
+the printable ASCII range (`)`, `3`, `4`, `8`, `<`, `>`, etc.).
+
+Specifically: the CMap in the PDF has 38 `bfrange` entries out of ~140 total
+glyphs (FirstChar 33 / LastChar 172). Every stacked combination (`རྟ`, `གྱ`,
+`སྙ`, `བཞོན`, etc.) is an unmapped glyph.
+
+**Discovery**: Uploading "Bodhisattva Vow Downfalls.pdf" (Word-generated, pure
+Tibetan) through the spellcheck pipeline produced hundreds of false positives
+caused by the ASCII bleed. Inspecting `page.get_text('rawdict')` in PyMuPDF
+revealed the font name (`MicrosoftHimalaya`) and the CMap stream confirmed only
+38 mappings.
+
+**Options Considered**:
+
+1. **Switch from pdfplumber to PyMuPDF** ❌  
+   Tested: PyMuPDF produces identical ASCII artifacts. The broken encoding is
+   in the PDF's font object, not a library limitation.
+
+2. **Build a hand-coded Microsoft Himalaya glyph → Unicode table** ❌  
+   Possible but brittle: only fixes this one font, requires reverse-engineering
+   ~100 glyph IDs, and breaks if the font is re-encoded in a future Word export.
+
+3. **Detect broken CMap and re-route through BDRC OCR** ✅ CHOSEN  
+   Render each page as a 300 DPI image via pdf2image and run BDRC OCR — the
+   same path already used for scanned PDFs. General solution: works for any font
+   with an incomplete CMap, not just Microsoft Himalaya.
+
+**Decision**: Option 3 — broken-CMap detection + OCR fallback.
+
+**Implementation**:
+
+- `_has_broken_cmap(pages)` in `app/pdf/extractor.py`: if more than 5% of
+  non-whitespace characters in pdfplumber output fall outside U+0F00–U+0FFF,
+  the PDF is re-routed through `extract_scanned()`.
+- `extract_pdf()` runs `extract_digital()` first, then checks the heuristic
+  before deciding which result to return.
+- Threshold constant `BROKEN_CMAP_THRESHOLD = 0.05` is the main tuning knob.
+
+**Trade-offs**:
+
+- ✅ General: catches any font with an incomplete CMap, not font-name-specific
+- ✅ No new dependencies — pdf2image and BDRC OCR already in the stack
+- ✅ Minimal code change: ~35 lines in extractor.py
+- ❌ Slower: OCR on a digital PDF is unnecessary work if the font were clean
+- ❌ Double extraction: pdfplumber runs first, then OCR if heuristic fires
+- ❌ OCR accuracy is lower than perfect CMap extraction (but far better than
+  ASCII garbage)
+
+**QA Tests**:
+
+`backend/tests/test_pdf_extraction.py` covers:
+1. `test_raw_pdfplumber_has_latin_artifacts` — confirms the problem exists
+2. `test_broken_cmap_detected` — confirms the heuristic fires
+3. `test_no_latin_characters` — OCR output has zero ASCII chars
+4. `test_has_tibetan_content` — OCR output has actual Tibetan Unicode
+5. `test_no_non_tibetan_skipped_errors` — end-to-end spellcheck sees zero
+   non-Tibetan tokens
+
+Fixture: `backend/tests/fixtures/bodhisattva_vow.pdf`
+
+---
+
 ## Notes
 
 - Keep this document updated as decisions are made
