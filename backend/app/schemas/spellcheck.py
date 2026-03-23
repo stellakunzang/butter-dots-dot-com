@@ -1,8 +1,8 @@
 """
 Pydantic schemas for spell check API requests and responses.
 """
-from typing import List
-from pydantic import BaseModel, Field
+from typing import List, Optional
+from pydantic import BaseModel, Field, EmailStr
 
 
 class SpellCheckRequest(BaseModel):
@@ -74,3 +74,48 @@ class SpellCheckResponse(BaseModel):
                 "errors": []
             }
         }
+
+
+# --- PDF upload schemas ---
+
+class PDFErrorResponse(BaseModel):
+    """A spell error found in an uploaded PDF."""
+    word: str
+    page: int = Field(..., description="1-based page number", ge=1)
+    error_type: str
+    severity: str
+    message: Optional[str] = None
+    component: Optional[str] = None
+
+
+class PDFUploadSyncResponse(BaseModel):
+    """Response for small PDFs processed synchronously."""
+    job_id: str
+    page_count: int
+    error_count: int
+    errors: List[PDFErrorResponse]
+    is_scanned: bool
+    pdf_url: str   # /api/v1/spellcheck/result/{job_id}/pdf
+    docx_url: str  # /api/v1/spellcheck/result/{job_id}/docx
+    json_url: str  # /api/v1/spellcheck/result/{job_id}/json
+
+
+class PDFUploadAsyncResponse(BaseModel):
+    """Response for large PDFs queued for async processing."""
+    job_id: str
+    page_count: int
+    status: str = "pending"
+    message: str
+
+
+class JobStatusResponse(BaseModel):
+    """Polling response for async job status."""
+    job_id: str
+    status: str          # pending | processing | completed | failed
+    progress: int        # 0–100
+    page_count: int
+    error_count: Optional[int] = None
+    error_message: Optional[str] = None
+    pdf_url: Optional[str] = None
+    docx_url: Optional[str] = None
+    json_url: Optional[str] = None

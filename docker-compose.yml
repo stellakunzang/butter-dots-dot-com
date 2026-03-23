@@ -15,7 +15,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U tibetan']
+      test: ['CMD-SHELL', 'pg_isready -U tibetan -d tibetan_spellcheck']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -49,6 +49,7 @@ services:
       NEXT_PUBLIC_API_URL: http://localhost:8000
     volumes:
       - ./frontend:/app
+      - ./CHANGELOG.md:/CHANGELOG.md
       - /app/node_modules
       - /app/.next
     depends_on:
