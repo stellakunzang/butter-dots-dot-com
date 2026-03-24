@@ -2,8 +2,15 @@
 PDF text extractor.
 
 Two paths:
-  - Digital PDFs (Unicode text embedded): pdfplumber extracts text + word positions.
+  - Digital PDFs (Unicode text embedded): fitz (PyMuPDF) extracts text + word positions.
+    If the extracted text contains a high ratio of Private Use Area characters (a sign
+    of a broken ToUnicode CMap, common in MS Himalaya and some older Tibetan fonts),
+    the pipeline falls back to the OCR path.
   - Scanned PDFs (image-only): pdf2image renders pages → BDRC OCR runs → line positions.
+
+fitz is used throughout the digital path instead of pdfplumber because fitz handles
+Tibetan font ToUnicode CMap tables more reliably — in particular, fonts like Jomolhari
+that pdfplumber cannot decode correctly.
 
 Returns a list of PageContent objects that the rest of the pipeline operates on,
 regardless of which path was taken.
@@ -44,50 +51,63 @@ class PageContent:
 def is_scanned_pdf(pdf_bytes: bytes) -> bool:
     """
     Heuristic: if the first few pages have almost no embedded text, treat as scanned.
+    Uses fitz for consistency with extract_digital().
     """
-    import pdfplumber
-    import io
+    import fitz
 
-    with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
-        sample_pages = pdf.pages[:3]
-        total_chars = sum(len(p.extract_text() or "") for p in sample_pages)
-        return total_chars < DIGITAL_TEXT_THRESHOLD * len(sample_pages)
+    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    sample_pages = [doc[i] for i in range(min(3, len(doc)))]
+    total_chars = sum(len(page.get_text()) for page in sample_pages)
+    doc.close()
+    return total_chars < DIGITAL_TEXT_THRESHOLD * max(len(sample_pages), 1)
 
 
 def extract_digital(pdf_bytes: bytes) -> list[PageContent]:
-    """Extract text and word positions from a digital PDF using pdfplumber."""
-    import pdfplumber
-    import io
+    """
+    Extract text and word positions from a digital PDF using fitz (PyMuPDF).
 
+    fitz is preferred over pdfplumber for Tibetan PDFs because it correctly
+    resolves ToUnicode CMap entries for fonts like Jomolhari that pdfplumber
+    fails to decode, returning PUA garbage instead of proper Unicode.
+
+    Word positions come from fitz's 'words' extraction mode, which returns
+    whitespace-delimited token bboxes in PDF points — suitable for
+    annotator.py's search_for() approach.
+    """
+    import fitz
+
+    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
     pages: list[PageContent] = []
 
-    with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
-        for i, page in enumerate(pdf.pages):
-            text = page.extract_text() or ""
-            raw_words = page.extract_words() or []
+    for i, page in enumerate(doc):
+        text = page.get_text("text")
 
-            words = [
-                WordPosition(
-                    text=w["text"],
-                    x0=w["x0"],
-                    y0=w["top"],
-                    x1=w["x1"],
-                    y1=w["bottom"],
-                )
-                for w in raw_words
-            ]
-
-            pages.append(
-                PageContent(
-                    page_number=i + 1,
-                    text=text,
-                    words=words,
-                    is_scanned=False,
-                    width=float(page.width),
-                    height=float(page.height),
-                )
+        # fitz 'words' returns (x0, y0, x1, y1, word, block_no, line_no, word_no)
+        raw_words = page.get_text("words")
+        words = [
+            WordPosition(
+                text=w[4],
+                x0=w[0],
+                y0=w[1],
+                x1=w[2],
+                y1=w[3],
             )
+            for w in raw_words
+            if w[4].strip()
+        ]
 
+        pages.append(
+            PageContent(
+                page_number=i + 1,
+                text=text,
+                words=words,
+                is_scanned=False,
+                width=float(page.rect.width),
+                height=float(page.rect.height),
+            )
+        )
+
+    doc.close()
     return pages
 
 
@@ -149,37 +169,51 @@ def extract_scanned(pdf_bytes: bytes) -> list[PageContent]:
     return pages
 
 
-# If more than this fraction of non-whitespace characters are outside the
-# Tibetan Unicode block (U+0F00–U+0FFF), the PDF likely has a broken CMap
-# (e.g. Microsoft Himalaya stacked glyphs with no ToUnicode entries).
+# If more than this fraction of non-whitespace characters are Private Use Area
+# codepoints (U+E000–U+F8FF), the PDF has a broken ToUnicode CMap.
+# PUA characters appear when a font's CMap doesn't cover a glyph and the PDF
+# renderer falls back to raw glyph IDs, which land in the PUA for many Tibetan
+# fonts (e.g. Microsoft Himalaya stacked consonants).
+#
+# Deliberately NOT checking for "non-Tibetan" characters: mixed Tibetan/English
+# documents legitimately contain ASCII, and flagging that as broken would send
+# all mixed-script PDFs through OCR unnecessarily.
 BROKEN_CMAP_THRESHOLD = 0.05
 
 
 def _has_broken_cmap(pages: list[PageContent]) -> bool:
     """
-    Heuristic: scan extracted text for non-Tibetan, non-whitespace characters.
+    Heuristic: scan fitz-extracted text for Private Use Area (PUA) codepoints.
 
-    Some Word-generated PDFs use fonts (e.g. Microsoft Himalaya) whose ToUnicode
-    CMap covers only base consonants, leaving stacked glyphs unmapped. Both
-    pdfplumber and PyMuPDF fall back to raw glyph byte values for unmapped
-    glyphs, which land in the ASCII range. A high ratio of such characters
-    signals that pdfplumber extraction is unreliable for this PDF.
+    When a font's ToUnicode CMap is absent or incomplete (common with MS Himalaya
+    stacked glyphs), fitz returns raw glyph IDs instead of mapped Unicode. For
+    Tibetan fonts these typically land in U+E000–U+F8FF (the PUA).
+
+    ASCII printable characters are not counted as suspicious because documents
+    can legitimately mix Tibetan and English/Latin script.
     """
     total = 0
-    non_tibetan = 0
+    pua = 0
     for page in pages:
         for ch in page.text:
             if ch.isspace():
                 continue
             total += 1
-            if not (0x0F00 <= ord(ch) <= 0x0FFF):
-                non_tibetan += 1
+            cp = ord(ch)
+            if 0xE000 <= cp <= 0xF8FF:
+                pua += 1
     if total == 0:
         return False
-    ratio = non_tibetan / total
+    ratio = pua / total
+    logger.info(
+        "CMap check: %.1f%% PUA chars out of %d total (threshold %.1f%%)",
+        ratio * 100,
+        total,
+        BROKEN_CMAP_THRESHOLD * 100,
+    )
     if ratio > BROKEN_CMAP_THRESHOLD:
         logger.warning(
-            "Broken CMap suspected: %.1f%% non-Tibetan chars in extracted text "
+            "Broken CMap suspected: %.1f%% PUA codepoints in fitz-extracted text "
             "(threshold %.1f%%) — falling back to OCR",
             ratio * 100,
             BROKEN_CMAP_THRESHOLD * 100,
@@ -205,7 +239,7 @@ def extract_pdf(pdf_bytes: bytes) -> tuple[list[PageContent], bool]:
         logger.info("PDF detected as scanned — using BDRC OCR pipeline")
         return extract_scanned(pdf_bytes), True
 
-    logger.info("PDF detected as digital — using pdfplumber text extraction")
+    logger.info("PDF detected as digital — using fitz text extraction")
     pages = extract_digital(pdf_bytes)
 
     if _has_broken_cmap(pages):
