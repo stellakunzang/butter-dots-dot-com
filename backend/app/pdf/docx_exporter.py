@@ -9,6 +9,7 @@ Future: two-column layout (Tibetan | translation space), definition sidebars.
 """
 import io
 import logging
+import re
 from typing import Any
 
 from docx import Document
@@ -68,36 +69,30 @@ def build_docx(
 
 def _add_line_with_errors(para: Any, line: str, error_words: set[str]) -> None:
     """
-    Split a line into tokens and add each as a run.
-    Error words get red underline + yellow highlight.
-    """
-    # Tibetan text is syllable-delimited by ་ (tsheg, U+0F0B) and spaces.
-    # We split on spaces to get rough tokens for markup.
-    # The spell checker works at syllable level; errors are reported as syllables.
-    tokens = line.split(" ")
+    Split a line into individual syllables and delimiters, adding each as its
+    own run. Only the specific syllables matching an error get error styling.
 
-    for i, token in enumerate(tokens):
-        if not token:
-            if i < len(tokens) - 1:
-                para.add_run(" ")
+    Splitting on tshegs (་, U+0F0B) and spaces gives syllable-level granularity.
+    Delimiters are emitted as unstyled runs so the text renders identically.
+    """
+    # Split on tsheg or space, keeping the delimiter as its own element.
+    parts = re.split(r"(་| )", line)
+
+    for part in parts:
+        if not part:
             continue
 
-        # Check if this token (or any tsheg-delimited syllable within it) is an error
-        is_error = token in error_words or any(
-            syl in error_words for syl in token.split("\u0F0B") if syl
-        )
-
-        run = para.add_run(token)
+        run = para.add_run(part)
         run.font.size = Pt(14)  # Tibetan script needs a larger size to be readable
 
-        if is_error:
+        # Delimiters (tshegs, spaces) are never error syllables
+        if part in ("་", " "):
+            continue
+
+        if part in error_words:
             run.font.color.rgb = RGBColor(0xCC, 0x00, 0x00)  # dark red
             run.font.underline = True
             _set_highlight(run, WD_COLOR_INDEX.YELLOW)
-
-        # Space between tokens
-        if i < len(tokens) - 1:
-            para.add_run(" ")
 
 
 def _set_highlight(run: Any, color: Any) -> None:
