@@ -340,6 +340,7 @@ async def download_json(job_id: str):
     from fastapi.responses import JSONResponse
 
     job = _get_completed_job(job_id)
+    stem = Path(job.original_filename).stem
     return JSONResponse(
         content={
             "job_id": job_id,
@@ -347,7 +348,8 @@ async def download_json(job_id: str):
             "page_count": job.page_count,
             "error_count": len(job.errors or []),
             "errors": job.errors or [],
-        }
+        },
+        headers={"Content-Disposition": f'attachment; filename="spellcheck_{stem}.json"'},
     )
 
 
