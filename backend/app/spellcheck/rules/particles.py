@@ -37,7 +37,7 @@ AGENTIVE: dict = {
     'ཀྱིས': frozenset({'ད', 'བ', 'ས'}),
     'གིས':  frozenset({'ག', 'ང'}),
     'གྱིས': frozenset({'ན', 'མ', 'ར', 'ལ'}),
-    'ས':    frozenset({'འ', NO_SUFFIX}),
+    'ས':    None,  # lenient: ས is too ambiguous (also a standalone word meaning "from/with")
     'ཡིས':  None,  # lenient variant of ས -- always accepted
 }
 
@@ -48,7 +48,7 @@ LOCATIVE: dict = {
     'ལ':  True,
     'སུ': frozenset({'ས'}),
     'ཏུ': frozenset({'ག', 'བ'}),   # also valid after post-suffix ད (handled separately)
-    'ར':  frozenset({'འ'}),
+    'ར':  None,   # lenient: ར appears as a word-final syllable in many compounds
     'རུ': frozenset({'འ', NO_SUFFIX}),
     'དུ': frozenset({'ང', 'ད', 'ན', 'མ', 'ར', 'ལ'}),
 }
@@ -59,9 +59,9 @@ LOCATIVE: dict = {
 _INDEF_ZHIG_VALID = frozenset({'ང', 'ན', 'མ', 'འ', 'ར', 'ལ', NO_SUFFIX})
 
 INDEFINITE: dict = {
-    'ཅིག': frozenset({'ག', 'ད', 'བ'}),
+    'ཅིག': None,   # lenient: ཅིག appears inside compound words (e.g. ཅིག་ཤོས)
     'ཤིག': frozenset({'ས'}),
-    'ཞིག': _INDEF_ZHIG_VALID,
+    'ཞིག': None,   # lenient: ཞིག appears in non-particle contexts (e.g. ཞིག་པ་)
 }
 
 # Combined lookup: particle string → (category label, valid suffixes or sentinel)
