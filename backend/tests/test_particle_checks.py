@@ -204,24 +204,17 @@ class TestIndefiniteArticle:
         """ཁྱི་ཞིག་ — no suffix → ཞིག correct"""
         assert no_particle_errors(engine, "ཁྱི་ཞིག་")
 
-    def test_zhig_after_da_suffix_invalid(self, engine):
-        """བོད་ཞིག་ — ད suffix needs ཅིག, not ཞིག"""
-        errors = particle_errors(engine, "བོད་ཞིག་")
-        assert len(errors) == 1
-        assert errors[0]['word'] == 'ཞིག'
-        assert 'ཅིག' in errors[0]['message']
+    def test_zhig_after_da_suffix_no_longer_flagged(self, engine):
+        """བོད་ཞིག་ — ཞིག is lenient (appears in words like ཞིག་པ་), so no error even after ད."""
+        assert no_particle_errors(engine, "བོད་ཞིག་")
 
-    def test_zhig_after_sa_suffix_invalid(self, engine):
-        """ཤེས་ཞིག་ — ས suffix needs ཤིག, not ཞིག"""
-        errors = particle_errors(engine, "ཤེས་ཞིག་")
-        assert len(errors) == 1
-        assert errors[0]['word'] == 'ཞིག'
+    def test_zhig_after_sa_suffix_no_longer_flagged(self, engine):
+        """ཤེས་ཞིག་ — ཞིག is lenient, no error raised."""
+        assert no_particle_errors(engine, "ཤེས་ཞིག་")
 
-    def test_cig_after_nga_suffix_invalid(self, engine):
-        """ཤིང་ཅིག་ — ང suffix needs ཞིག, not ཅིག"""
-        errors = particle_errors(engine, "ཤིང་ཅིག་")
-        assert len(errors) == 1
-        assert errors[0]['word'] == 'ཅིག'
+    def test_cig_after_nga_suffix_no_longer_flagged(self, engine):
+        """ཤིང་ཅིག་ — ཅིག is lenient (appears inside compounds), no error raised."""
+        assert no_particle_errors(engine, "ཤིང་ཅིག་")
 
 
 # ============================================================================
@@ -269,3 +262,44 @@ class TestParticleEdgeCases:
         assert 'severity' in err
         assert 'message' in err
         assert err['severity'] == 'error'
+
+
+# ============================================================================
+# Lenient particle regression tests (false-positive fixes)
+# These syllables appear in non-particle roles and must not generate errors.
+# ============================================================================
+
+class TestLenientParticleNoFalsePositives:
+    """
+    ས, ར, ཞིག, and ཅིག are marked lenient because they appear as standalone
+    words or inside compound words where they are not particles. Verify they
+    never fire wrong_particle_form regardless of the preceding suffix.
+    """
+
+    def test_sa_not_flagged_after_ga_suffix(self, engine):
+        """ས་ as word (e.g. ས་ཆ་ 'land') following suffix-ག word."""
+        assert no_particle_errors(engine, "ཤིང་ས་")
+
+    def test_sa_not_flagged_after_da_suffix(self, engine):
+        """ས་ following བོད་ (ད suffix) must not be flagged."""
+        assert no_particle_errors(engine, "བོད་ས་")
+
+    def test_sa_not_flagged_after_la_suffix(self, engine):
+        """ས་ following suffix-ལ word must not be flagged."""
+        assert no_particle_errors(engine, "ཡུལ་ས་")
+
+    def test_ra_not_flagged_after_da_suffix(self, engine):
+        """ར་ following བོད་ (ད suffix) must not be flagged."""
+        assert no_particle_errors(engine, "བོད་ར་")
+
+    def test_ra_not_flagged_after_nga_suffix(self, engine):
+        """ར་ following suffix-ང word must not be flagged."""
+        assert no_particle_errors(engine, "ཤིང་ར་")
+
+    def test_zhig_not_flagged_as_word_component(self, engine):
+        """ཞིག་ in non-article role (ཞིག་པ་-style context) must not be flagged."""
+        assert no_particle_errors(engine, "བོད་ཞིག་")
+
+    def test_cig_not_flagged_after_nga_suffix(self, engine):
+        """ཅིག་ following suffix-ང word must not be flagged."""
+        assert no_particle_errors(engine, "ཤིང་ཅིག་")

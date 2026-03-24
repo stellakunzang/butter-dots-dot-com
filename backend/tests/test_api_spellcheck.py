@@ -218,3 +218,54 @@ class TestAPIDocumentation:
         """Swagger UI should be accessible"""
         response = client.get("/docs")
         assert response.status_code == 200
+
+
+class TestJSONDownload:
+    """Tests for the /spellcheck/result/{job_id}/json endpoint."""
+
+    def _make_completed_job(self, filename: str = "test.pdf") -> str:
+        """Inject a completed job directly into the in-memory store and return its id."""
+        from app import jobs as job_store
+        from pathlib import Path
+
+        job = job_store.create_job(filename, page_count=2)
+        # mark_completed requires real paths; bypass it by updating fields directly
+        job_store.update_job(
+            job.id,
+            status=job_store.JobStatus.COMPLETED,
+            progress=100,
+            pdf_result_path=Path("/tmp/fake.pdf"),
+            docx_result_path=Path("/tmp/fake.docx"),
+            errors=[{"word": "གཀར", "page": 1, "error_type": "invalid_prefix_combination",
+                     "severity": "error", "message": "bad", "component": None}],
+        )
+        return job.id
+
+    def test_json_download_returns_200(self):
+        job_id = self._make_completed_job()
+        response = client.get(f"/api/v1/spellcheck/result/{job_id}/json")
+        assert response.status_code == 200
+
+    def test_json_download_content_disposition_attachment(self):
+        """Response must include Content-Disposition: attachment so browsers download rather than navigate."""
+        job_id = self._make_completed_job("my_text.pdf")
+        response = client.get(f"/api/v1/spellcheck/result/{job_id}/json")
+        assert response.status_code == 200
+        cd = response.headers.get("content-disposition", "")
+        assert "attachment" in cd
+        assert "spellcheck_my_text.json" in cd
+
+    def test_json_download_body_structure(self):
+        job_id = self._make_completed_job()
+        response = client.get(f"/api/v1/spellcheck/result/{job_id}/json")
+        data = response.json()
+        assert "job_id" in data
+        assert "filename" in data
+        assert "page_count" in data
+        assert "error_count" in data
+        assert "errors" in data
+        assert data["error_count"] == len(data["errors"])
+
+    def test_json_download_unknown_job_returns_404(self):
+        response = client.get("/api/v1/spellcheck/result/nonexistent-id/json")
+        assert response.status_code == 404
