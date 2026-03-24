@@ -89,6 +89,9 @@ export function PDFUpload({onFileSelect, loading, disabled}: PDFUploadProps) {
             />
           </svg>
           <p className="text-sm text-gray-500">Processing…</p>
+          <p className="text-xs text-gray-400 mt-1">
+            Processing may take 1–3 minutes for longer documents
+          </p>
         </>
       ) : selectedFile ? (
         <>

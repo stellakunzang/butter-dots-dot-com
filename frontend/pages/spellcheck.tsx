@@ -179,17 +179,9 @@ export default function SpellCheckPage() {
           <div className="max-w-xl">
             <h2 className="text-xl font-semibold text-gray-900 mb-2">Upload a PDF</h2>
             <p className="text-sm text-gray-600 mb-6">
-              Supports scanned documents (OCR powered by{' '}
-              <a
-                href="https://github.com/buda-base/tibetan-ocr-app"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-amber-600 underline"
-              >
-                BDRC Tibetan OCR
-              </a>
-              ) and digital PDFs. PDFs up to 15 pages are processed instantly;
-              larger documents are emailed to you.
+              Supports digital PDFs and scanned documents. Most PDFs process in
+              seconds. Scanned pages and PDFs with unsupported font encoding may
+              take 1–3 minutes.
             </p>
 
             {pdfState.phase === 'idle' || pdfState.phase === 'file_selected' ? (
@@ -340,7 +332,7 @@ function PDFSyncResults({
         </p>
         {result.is_scanned && (
           <p className="text-xs text-green-700 mt-1">
-            Scanned document — text extracted via BDRC Tibetan OCR.
+            Scanned document — results may vary based on image quality.
           </p>
         )}
       </div>

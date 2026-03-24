@@ -238,6 +238,26 @@ long-running jobs the user might watch)
 
 ---
 
+## "Prepare" — document conversion & style guide
+
+**Summary**: Upload a PDF, DOCX, or RTF and receive a properly styled,
+editable DOCX that applies the community's typography conventions (named
+paragraph styles for Tibetan Body, English Transliteration, Tibetan Title,
+etc.) ready to open in Pages, Word, or Google Docs.
+
+**Motivation**: Community members regularly need to update sadhana texts but
+only have PDFs or poorly-formatted source files. The current workflow is fully
+manual. This feature automates the conversion step while preserving fonts,
+sizes, and colors.
+
+**Full plan**: `docs/planning/PREPARE_FEATURE.md`
+
+**Needs before starting**:
+- The final Pages-exported reference PDF (source of truth for style calibration)
+- Decision on whether RTF input is in scope for v1 (adds LibreOffice to Docker)
+
+---
+
 ## Phase 3 — advanced features (longer horizon)
 
 Items that were explicitly scoped out of the current development arc and require
