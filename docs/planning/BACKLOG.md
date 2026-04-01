@@ -1,4 +1,8 @@
-# Feature Backlog
+# Feature Backlog (Archived)
+
+> **This file is archived.** The live backlog is now tracked in
+> [GitHub Projects — Butter Roadmap](https://github.com/users/stellakunzang/projects/3).
+> This file is kept for reference only and is no longer updated.
 
 Unscheduled ideas and future feature candidates. Items here have been identified
 as worth building but have not yet been prioritized or planned. Items that were

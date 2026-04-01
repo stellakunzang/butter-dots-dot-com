@@ -47,7 +47,7 @@ LOCATIVE: dict = {
     'ན':  True,
     'ལ':  True,
     'སུ': frozenset({'ས'}),
-    'ཏུ': frozenset({'ག', 'བ'}),   # also valid after post-suffix ད (handled separately)
+    'ཏུ': None,   # lenient: ཏུ appears in compound words (e.g. ཀུན་ཏུ); revisit when dictionary is available
     'ར':  None,   # lenient: ར appears as a word-final syllable in many compounds
     'རུ': frozenset({'འ', NO_SUFFIX}),
     'དུ': frozenset({'ང', 'ད', 'ན', 'མ', 'ར', 'ལ'}),
@@ -123,8 +123,9 @@ def is_valid_particle_context(
     if valid is True:
         return True   # Unrestricted particle -- always valid
 
-    # Special case: ཏུ is also valid after post-suffix ད
-    if particle == 'ཏུ' and prev_post_suffix == 'ད':
+    # When a post-suffix is present, the particle may follow its rules
+    # (e.g., ཚོགས has suffix ག + post-suffix ས; particles follow ས rules)
+    if prev_post_suffix is not None and prev_post_suffix in valid:
         return True
 
     return prev_suffix in valid

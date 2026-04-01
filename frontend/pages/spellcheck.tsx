@@ -321,44 +321,29 @@ function PDFSyncResults({
   onReset: () => void
 }) {
   const urls = getResultURLs(result.job_id)
+  const hasErrors = result.error_count > 0
 
   return (
     <div className="space-y-5">
-      <div className="rounded-lg border border-green-200 bg-green-50 p-4">
-        <p className="text-sm font-semibold text-green-800">
-          {result.error_count === 0
-            ? 'No spelling errors found.'
-            : `${result.error_count} spelling error${result.error_count === 1 ? '' : 's'} found across ${result.page_count} page${result.page_count === 1 ? '' : 's'}.`}
+      <div className={`rounded-lg border p-4 ${hasErrors ? 'border-red-200 bg-red-50' : 'border-green-200 bg-green-50'}`}>
+        <p className={`text-sm font-semibold ${hasErrors ? 'text-red-800' : 'text-green-800'}`}>
+          {hasErrors
+            ? `${result.error_count} spelling error${result.error_count === 1 ? '' : 's'} found across ${result.page_count} page${result.page_count === 1 ? '' : 's'}.`
+            : 'No spelling errors found.'}
         </p>
         {result.is_scanned && (
-          <p className="text-xs text-green-700 mt-1">
+          <p className={`text-xs mt-1 ${hasErrors ? 'text-red-700' : 'text-green-700'}`}>
             Scanned document — results may vary based on image quality.
           </p>
         )}
       </div>
 
-      <div>
-        <p className="text-sm font-medium text-gray-700 mb-2">Download results</p>
-        <div className="flex flex-wrap gap-2">
-          <ResultLink href={urls.pdf} label="Annotated PDF" colorClass="bg-red-100 text-red-700 hover:bg-red-200" />
-          <ResultLink href={urls.docx} label="Editable Word doc" colorClass="bg-blue-100 text-blue-700 hover:bg-blue-200" />
-          <ResultLink href={urls.json} label="Errors (JSON)" colorClass="bg-gray-100 text-gray-700 hover:bg-gray-200" />
-        </div>
-      </div>
-
-      {result.errors.length > 0 && (
+      {hasErrors && (
         <div>
-          <p className="text-sm font-medium text-gray-700 mb-2">Errors by page</p>
-          <div className="rounded-lg border border-gray-200 divide-y divide-gray-100 text-sm max-h-64 overflow-y-auto">
-            {result.errors.map((e, i) => (
-              <div key={i} className="flex items-start gap-3 px-4 py-2">
-                <span className="text-xs text-gray-400 mt-0.5 w-14 flex-shrink-0">
-                  p.{e.page}
-                </span>
-                <span className="font-tibetan text-base">{e.word}</span>
-                <span className="text-xs text-gray-500 ml-auto">{e.error_type.replace(/_/g, ' ')}</span>
-              </div>
-            ))}
+          <p className="text-sm font-medium text-gray-700 mb-2">Download results</p>
+          <div className="flex flex-wrap gap-2">
+            <ResultLink href={urls.pdf} label="Annotated PDF" colorClass="bg-green-100 text-green-700 hover:bg-green-200" />
+            <ResultLink href={urls.docx} label="Editable Word doc" colorClass="bg-blue-100 text-blue-700 hover:bg-blue-200" />
           </div>
         </div>
       )}
@@ -411,22 +396,24 @@ function PDFAsyncDone({
   onReset: () => void
 }) {
   const urls = getResultURLs(jobId)
+  const hasErrors = errorCount > 0
 
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border border-green-200 bg-green-50 p-4">
-        <p className="text-sm font-semibold text-green-800">Processing complete</p>
-        <p className="text-sm text-green-700">
-          {errorCount === 0
-            ? 'No spelling errors found.'
-            : `${errorCount} spelling error${errorCount === 1 ? '' : 's'} found.`}
+      <div className={`rounded-lg border p-4 ${hasErrors ? 'border-red-200 bg-red-50' : 'border-green-200 bg-green-50'}`}>
+        <p className={`text-sm font-semibold ${hasErrors ? 'text-red-800' : 'text-green-800'}`}>Processing complete</p>
+        <p className={`text-sm ${hasErrors ? 'text-red-700' : 'text-green-700'}`}>
+          {hasErrors
+            ? `${errorCount} spelling error${errorCount === 1 ? '' : 's'} found.`
+            : 'No spelling errors found.'}
         </p>
       </div>
-      <div className="flex flex-wrap gap-2">
-        <ResultLink href={urls.pdf} label="Annotated PDF" colorClass="bg-red-100 text-red-700 hover:bg-red-200" />
-        <ResultLink href={urls.docx} label="Editable Word doc" colorClass="bg-blue-100 text-blue-700 hover:bg-blue-200" />
-        <ResultLink href={urls.json} label="Errors (JSON)" colorClass="bg-gray-100 text-gray-700 hover:bg-gray-200" />
-      </div>
+      {hasErrors && (
+        <div className="flex flex-wrap gap-2">
+          <ResultLink href={urls.pdf} label="Annotated PDF" colorClass="bg-green-100 text-green-700 hover:bg-green-200" />
+          <ResultLink href={urls.docx} label="Editable Word doc" colorClass="bg-blue-100 text-blue-700 hover:bg-blue-200" />
+        </div>
+      )}
       <button onClick={onReset} className="text-sm text-amber-600 underline">
         Upload another PDF
       </button>

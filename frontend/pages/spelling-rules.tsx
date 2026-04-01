@@ -81,7 +81,7 @@ const SpellingRules: NextPage = () => {
                   ག
                 </td>
                 <td className="px-4 py-3 text-gray-400 text-sm">ྲ</td>
-                <td className="px-4 py-3 text-gray-400 text-sm">—</td>
+                <td className="px-4 py-3 text-2xl text-gray-700">ུ</td>
                 <td className="px-4 py-3 text-2xl text-gray-700">བ</td>
                 <td className="px-4 py-3 text-gray-400 text-sm">—</td>
               </tr>

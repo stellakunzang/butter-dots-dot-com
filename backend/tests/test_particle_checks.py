@@ -85,6 +85,10 @@ class TestRelationalParticle:
         assert len(errors) == 1
         assert errors[0]['word'] == 'གྱི'
 
+    def test_kyi_after_post_suffix_sa_valid(self, engine):
+        """ཚོགས་ཀྱི་ — suffix ག + post-suffix ས → particle follows ས rules, ཀྱི correct"""
+        assert no_particle_errors(engine, "ཚོགས་ཀྱི་")
+
     def test_yi_after_da_suffix_valid_lenient(self, engine):
         """བོད་ཡི་ — ད suffix would need ཀྱི, but ཡི is always accepted"""
         assert no_particle_errors(engine, "བོད་ཡི་")
@@ -167,11 +171,9 @@ class TestLocativeParticle:
         """ཕྱག་ཏུ་ — ག suffix → ཏུ correct"""
         assert no_particle_errors(engine, "ཕྱག་ཏུ་")
 
-    def test_tu_after_la_suffix_invalid(self, engine):
-        """ཡུལ་ཏུ་ — ལ suffix needs དུ, not ཏུ"""
-        errors = particle_errors(engine, "ཡུལ་ཏུ་")
-        assert len(errors) == 1
-        assert errors[0]['word'] == 'ཏུ'
+    def test_tu_lenient_after_la_suffix(self, engine):
+        """ཡུལ་ཏུ་ — ཏུ is lenient (appears in compound words), no error raised"""
+        assert no_particle_errors(engine, "ཡུལ་ཏུ་")
 
 
 # ============================================================================
@@ -263,6 +265,13 @@ class TestParticleEdgeCases:
         assert 'message' in err
         assert err['severity'] == 'error'
 
+    def test_locative_suggestion_prefers_ra_after_no_suffix(self, engine):
+        """Wrong locative after no-suffix word should suggest ར, not རུ."""
+        errors = particle_errors(engine, "ཁྱི་དུ་")
+        assert len(errors) == 1
+        assert 'ར' in errors[0]['message']
+        assert 'རུ' not in errors[0]['message']
+
 
 # ============================================================================
 # Lenient particle regression tests (false-positive fixes)
@@ -271,7 +280,7 @@ class TestParticleEdgeCases:
 
 class TestLenientParticleNoFalsePositives:
     """
-    ས, ར, ཞིག, and ཅིག are marked lenient because they appear as standalone
+    ས, ར, ཏུ, ཞིག, and ཅིག are marked lenient because they appear as standalone
     words or inside compound words where they are not particles. Verify they
     never fire wrong_particle_form regardless of the preceding suffix.
     """
@@ -287,6 +296,14 @@ class TestLenientParticleNoFalsePositives:
     def test_sa_not_flagged_after_la_suffix(self, engine):
         """ས་ following suffix-ལ word must not be flagged."""
         assert no_particle_errors(engine, "ཡུལ་ས་")
+
+    def test_tu_not_flagged_after_na_suffix(self, engine):
+        """ཀུན་ཏུ་ — ཏུ is lenient (compound word), must not be flagged."""
+        assert no_particle_errors(engine, "ཀུན་ཏུ་")
+
+    def test_tu_not_flagged_after_la_suffix(self, engine):
+        """ཡུལ་ཏུ་ — ཏུ is lenient, must not be flagged."""
+        assert no_particle_errors(engine, "ཡུལ་ཏུ་")
 
     def test_ra_not_flagged_after_da_suffix(self, engine):
         """ར་ following བོད་ (ད suffix) must not be flagged."""

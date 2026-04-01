@@ -129,10 +129,9 @@ export function PDFUpload({onFileSelect, loading, disabled}: PDFUploadProps) {
             />
           </svg>
           <p className="text-sm font-medium text-gray-700">
-            Drop a PDF here, or{' '}
+            Drop a PDF here or{' '}
             <span className="text-amber-600 underline">browse</span>
           </p>
-          <p className="text-xs text-gray-500 mt-1">PDF files only</p>
         </>
       )}
     </div>

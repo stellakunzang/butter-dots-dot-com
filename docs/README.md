@@ -18,9 +18,10 @@ Technical guides for developers working on this project.
 - `TAILWIND_GUIDE.md` - Tailwind CSS usage and conventions
 
 ### `/planning` - Project Planning
-Planning documents, feature roadmaps, and TODO lists.
+Planning documents and feature specifications. The live backlog is tracked in
+[GitHub Projects — Butter Roadmap](https://github.com/users/stellakunzang/projects/3).
 
-- `BACKLOG.md` - Unscheduled feature candidates
+- `BACKLOG.md` - Archived feature backlog (superseded by GitHub Projects)
 - `WORD_CORPUS_PLAN.md` - Strategy for building the Tibetan word corpus
 
 ### `/archive` - Historical/Completed
