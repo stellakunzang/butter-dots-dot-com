@@ -17,11 +17,7 @@ describe('SpellCheckPage', () => {
     render(<SpellCheckPage />)
 
     expect(screen.getByText('Tibetan Spell Checker')).toBeInTheDocument()
-    expect(
-      screen.getByText(
-        /paste tibetan text below to check for spelling errors/i,
-      ),
-    ).toBeInTheDocument()
+    expect(screen.getByText(/Check Tibetan text or upload a PDF/i)).toBeInTheDocument()
     expect(screen.getByLabelText('Tibetan text input')).toBeInTheDocument()
   })
 

@@ -34,9 +34,13 @@ database together with a single command.
 
 ### Install Docker Desktop
 
-- **macOS**: [docker.com/products/docker-desktop](https://www.docker.com/products/docker-desktop/) — choose "Mac with Apple chip" (M1/M2/M3) or "Mac with Intel chip"
+- **macOS**:
+  [docker.com/products/docker-desktop](https://www.docker.com/products/docker-desktop/)
+  — choose "Mac with Apple chip" (M1/M2/M3) or "Mac with Intel chip"
 - **Windows**: Same link → run installer → enable WSL 2 if prompted → restart
-- **Linux**: `curl -fsSL https://get.docker.com | sh && sudo usermod -aG docker $USER` (log out and back in after)
+- **Linux**:
+  `curl -fsSL https://get.docker.com | sh && sudo usermod -aG docker $USER` (log
+  out and back in after)
 
 Verify it's running: `docker --version`
 
@@ -74,7 +78,7 @@ Verify it's running: `docker --version`
    ```
 
 4. Open in your browser:
-   - **App**: http://localhost:3000
+   - **App**: http://localpyteshost:3000
    - **API**: http://localhost:8000
    - **API docs** (Swagger UI): http://localhost:8000/docs
 
@@ -94,36 +98,32 @@ docker compose logs -f frontend # stream frontend logs only
 
 ## Troubleshooting
 
-**`docker: command not found`**
-Docker Desktop isn't installed or isn't running. Check the menu bar (Mac) or
-system tray (Windows) for the Docker whale icon.
+**`docker: command not found`** Docker Desktop isn't installed or isn't running.
+Check the menu bar (Mac) or system tray (Windows) for the Docker whale icon.
 
-**`Cannot connect to the Docker daemon`**
-Docker Desktop is installed but not running. Open it and wait for the green
-"running" indicator before retrying.
+**`Cannot connect to the Docker daemon`** Docker Desktop is installed but not
+running. Open it and wait for the green "running" indicator before retrying.
 
-**`port is already allocated`**
-Something else is using port 3000, 8000, or 5432. Stop the conflicting process,
-then:
+**`port is already allocated`** Something else is using port 3000, 8000,
+or 5432. Stop the conflicting process, then:
 
 ```bash
 docker compose down
 docker compose up
 ```
 
-**`python: command not found` (or similar)**
-Use `python3` instead of `python` — macOS and Linux don't include a bare
-`python` command.
+**`python: command not found` (or similar)** Use `python3` instead of `python` —
+macOS and Linux don't include a bare `python` command.
 
-**Changes not showing up**
-Both frontend and backend have hot reload. If it's still stale:
+**Changes not showing up** Both frontend and backend have hot reload. If it's
+still stale:
 
 ```bash
 docker compose restart backend   # or: frontend
 ```
 
-**App is slow or using too much memory**
-Docker Desktop → Settings → Resources → increase memory and CPU allocation.
+**App is slow or using too much memory** Docker Desktop → Settings → Resources →
+increase memory and CPU allocation.
 
 **Reset the database**
 
@@ -132,8 +132,7 @@ docker compose down -v  # -v removes the database volume
 docker compose up
 ```
 
-**Windows**
-Use PowerShell instead of Terminal. Everything else is the same.
+**Windows** Use PowerShell instead of Terminal. Everything else is the same.
 
 ## Alternative: Run Without Docker
 
@@ -141,7 +140,8 @@ If you prefer to run services manually, you'll need:
 
 - Node.js 20.x — [nodejs.org](https://nodejs.org)
 - Python 3.11+ — [python.org](https://python.org)
-- PostgreSQL 15+ — `brew install postgresql@15` (macOS) or [postgresql.org](https://postgresql.org)
+- PostgreSQL 15+ — `brew install postgresql@15` (macOS) or
+  [postgresql.org](https://postgresql.org)
 - Yarn — `npm install -g yarn`
 
 **1. Set up the database** (macOS):
@@ -156,12 +156,18 @@ psql tibetan_spellcheck < database/schema.sql
 
 ```bash
 cd backend
-python3 -m venv venv
+python3.11 -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
+pip install 'setuptools<70' wheel
+pip install --no-build-isolation pyewts==0.2.0
 pip install -r requirements.txt
 python3 scripts/download_models.py  # one-time
 uvicorn app.main:app --reload
 ```
+
+> **Why the extra pip steps?** The `pyewts` package uses a legacy `setup.py`
+> that imports `pkg_resources`, which was removed in `setuptools` 70+. Pinning
+> an older `setuptools` and disabling build isolation lets it build correctly.
 
 **3. Start the frontend** (in another terminal):
 
@@ -191,18 +197,19 @@ GitHub Actions runs all tests automatically on push and pull request.
 - **Frontend**: Next.js, React, TypeScript, Tailwind CSS
 - **Backend**: Python, FastAPI, SQLAlchemy
 - **Database**: PostgreSQL
-- **OCR**: [BDRC Tibetan OCR](https://github.com/buda-base/tibetan-ocr-app) (onnxruntime, MIT licensed)
+- **OCR**: [BDRC Tibetan OCR](https://github.com/buda-base/tibetan-ocr-app)
+  (onnxruntime, MIT licensed)
 - **CI/CD**: GitHub Actions → Netlify (frontend) + Render (backend)
 
 Quick navigation:
 
-| What you want to change | Where to look |
-| ----------------------- | ------------- |
-| Page content / UI       | `frontend/pages/` |
-| Reusable components     | `frontend/components/` |
+| What you want to change | Where to look                 |
+| ----------------------- | ----------------------------- |
+| Page content / UI       | `frontend/pages/`             |
+| Reusable components     | `frontend/components/`        |
 | Colors / design tokens  | `frontend/tailwind.config.js` |
-| API endpoints           | `backend/app/api/` |
-| Database schema         | `database/schema.sql` |
+| API endpoints           | `backend/app/api/`            |
+| Database schema         | `database/schema.sql`         |
 
 See [docs/guides/ARCHITECTURE.md](./docs/guides/ARCHITECTURE.md) for more
 detail.
@@ -218,8 +225,8 @@ reconfigured.
 
 ### Frontend: Netlify
 
-1. Go to [app.netlify.com](https://app.netlify.com) → **Add new site → Import
-   an existing project**
+1. Go to [app.netlify.com](https://app.netlify.com) → **Add new site → Import an
+   existing project**
 2. Connect your GitHub repository
 3. Set the following build settings:
    - **Base directory**: `frontend`
@@ -273,5 +280,7 @@ The OCR models were trained on transcriptions from BDRC,
 publicly available OCR system with strong support for classical Tibetan scripts
 (Uchen, Woodblock, Ume, and Dunhuang).
 
-- GitHub: [buda-base/tibetan-ocr-app](https://github.com/buda-base/tibetan-ocr-app)
-- Models: [HuggingFace / BDRC](https://huggingface.co/BDRC) and [OpenPecha](https://huggingface.co/openpecha)
+- GitHub:
+  [buda-base/tibetan-ocr-app](https://github.com/buda-base/tibetan-ocr-app)
+- Models: [HuggingFace / BDRC](https://huggingface.co/BDRC) and
+  [OpenPecha](https://huggingface.co/openpecha)
