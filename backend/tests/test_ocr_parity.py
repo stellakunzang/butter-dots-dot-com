@@ -40,8 +40,10 @@ import pytest
 PARITY_DIR = Path(__file__).parent / "fixtures" / "parity"
 
 # Tolerated absolute difference in genuine error counts between copy-paste and
-# OCR paths. Raise this per-fixture if the scan quality is lower.
-OCR_ERROR_COUNT_TOLERANCE = 2
+# OCR paths. Currently 0 because all fixtures are clean digital PDFs (fitz
+# extraction is deterministic). When adding a scanned fixture, move this to a
+# per-fixture dict rather than raising the global.
+OCR_ERROR_COUNT_TOLERANCE = 0
 
 # Module-level cache so PDF extraction runs exactly once per PDF per test session.
 _pdf_cache: dict[Path, list] = {}
@@ -104,18 +106,14 @@ class TestNoFixturesYet:
             "See .cursor/skills/spellcheck-ocr-parity/SKILL.md for instructions."
         )
 
-    def test_at_least_one_fixture_when_ci(self):
-        """
-        When the parity/ directory exists but is empty, just skip rather than
-        fail, so CI passes until the first fixture is added.
-        """
+    def test_at_least_one_fixture_exists(self):
+        """At least one .txt/.pdf fixture pair must be present in the parity/ directory."""
         cases = _load_fixture_cases()
-        if not cases:
-            pytest.skip(
-                "No parity fixtures found yet. "
-                "Add .txt + .pdf pairs to backend/tests/fixtures/parity/ to enable "
-                "parity testing. See .cursor/skills/spellcheck-ocr-parity/SKILL.md."
-            )
+        assert cases, (
+            "No parity fixtures found. "
+            "Add .txt + .pdf pairs to backend/tests/fixtures/parity/ to enable "
+            "parity testing. See .cursor/skills/spellcheck-ocr-parity/SKILL.md."
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -184,11 +182,10 @@ class TestPDFPipelineFixtures:
         diff = abs(pdf_count - copy_count)
         assert diff <= OCR_ERROR_COUNT_TOLERANCE, (
             f"[{txt_path.stem}] Genuine error count differs by {diff} "
-            f"(tolerance: {OCR_ERROR_COUNT_TOLERANCE}):\n"
-            f"  Copy-paste: {copy_count} error(s)\n"
-            f"  PDF:        {pdf_count} error(s)\n"
-            "Increase OCR_ERROR_COUNT_TOLERANCE at the top of this file if the "
-            "scan quality for this fixture is lower than average."
+            f"(copy-paste: {copy_count}, PDF: {pdf_count}).\n"
+            "For a digital PDF this should be zero — check for a fitz extraction "
+            "regression. For a scanned fixture, introduce a per-fixture tolerance "
+            "dict rather than raising OCR_ERROR_COUNT_TOLERANCE globally."
         )
 
     @pytest.mark.parametrize("txt_path,pdf_path", _FIXTURE_CASES)
@@ -219,6 +216,12 @@ class TestParityAPIEndpoints:
     Same parity check but through the FastAPI HTTP layer using TestClient.
     Slower than TestOCRParityFixtures but exercises request validation,
     response serialisation, and the full PDF processing pipeline.
+
+    Note: these tests assume /spellcheck/upload always returns a synchronous
+    PDFUploadSyncResponse with an "errors" key. That holds because the async
+    routing is currently disabled (all PDFs go through _process_sync). If the
+    page-count threshold is re-enabled, large fixture PDFs would return a
+    PDFUploadAsyncResponse (no "errors" key) and these tests would need updating.
     """
 
     @pytest.fixture(scope="class")
@@ -249,6 +252,10 @@ class TestParityAPIEndpoints:
         assert upload_resp.status_code == 200, (
             f"Upload endpoint returned {upload_resp.status_code}: {upload_resp.text}"
         )
+        assert "errors" in upload_resp.json(), (
+            "Upload response is missing 'errors' key — got an async response instead of sync. "
+            "Check that the fixture PDF is within the sync page limit."
+        )
         ocr_types = _error_types(upload_resp.json()["errors"])
 
         ocr_only_types = ocr_types - copy_types - TOLERATED_OCR_ONLY_TYPES
@@ -274,11 +281,17 @@ class TestParityAPIEndpoints:
             files={"file": (pdf_path.name, io.BytesIO(pdf_bytes), "application/pdf")},
         )
         assert upload_resp.status_code == 200
+        assert "errors" in upload_resp.json(), (
+            "Upload response is missing 'errors' key — got an async response instead of sync. "
+            "Check that the fixture PDF is within the sync page limit."
+        )
         ocr_count = _genuine_error_count(upload_resp.json()["errors"])
 
         diff = abs(ocr_count - copy_count)
         assert diff <= OCR_ERROR_COUNT_TOLERANCE, (
             f"[{txt_path.stem}] API: error count differs by {diff} "
-            f"(tolerance: {OCR_ERROR_COUNT_TOLERANCE}) — "
-            f"copy-paste: {copy_count}, OCR: {ocr_count}"
+            f"(copy-paste: {copy_count}, PDF: {ocr_count}).\n"
+            "For a digital PDF this should be zero — check for a fitz extraction "
+            "regression. For a scanned fixture, introduce a per-fixture tolerance "
+            "dict rather than raising OCR_ERROR_COUNT_TOLERANCE globally."
         )
