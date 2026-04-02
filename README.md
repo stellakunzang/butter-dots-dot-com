@@ -1,7 +1,7 @@
 # Butter Dots Dot Com
 
-A website that started out as a joke but now houses resources for the Orgyen
-Khandroling Sangha
+A website that started out as a joke but now houses Tibetan language resources
+for the Orgyen Khandroling Sangha
 
 ## Documentation
 
@@ -24,263 +24,152 @@ This is a monorepo containing:
 - **`database/`** - PostgreSQL schema and migrations
 - **`docs/`** - All project documentation
 
-See [ARCHITECTURE_SIMPLE.md](./ARCHITECTURE_SIMPLE.md) for a beginner-friendly
-overview, or
-[docs/guides/PROJECT_STRUCTURE.md](./docs/guides/PROJECT_STRUCTURE.md) for
+See [docs/guides/PROJECT_STRUCTURE.md](./docs/guides/PROJECT_STRUCTURE.md) for
 detailed architecture.
 
-## Getting Started (Complete Setup from Scratch)
+## Running Locally
 
-This guide assumes you're starting with nothing installed. Follow these steps in
-order.
+Docker Desktop is the only prerequisite — it runs the frontend, backend, and
+database together with a single command.
 
-### Step 1: Install Docker Desktop
+### Install Docker Desktop
 
-> **First time using Docker?** Think of Docker like a virtual computer that runs
-> your app. Instead of installing Python, Node.js, and PostgreSQL separately on
-> your machine, Docker creates an isolated environment with everything
-> pre-configured. You just click "start" and it works.
+- **macOS**:
+  [docker.com/products/docker-desktop](https://www.docker.com/products/docker-desktop/)
+  — choose "Mac with Apple chip" (M1/M2/M3) or "Mac with Intel chip"
+- **Windows**: Same link → run installer → enable WSL 2 if prompted → restart
+- **Linux**:
+  `curl -fsSL https://get.docker.com | sh && sudo usermod -aG docker $USER` (log
+  out and back in after)
 
-**Why Docker?**
+Verify it's running: `docker --version`
 
-- ✅ Run the entire application (frontend, backend, database) with one command
-- ✅ No need to install Node.js, Python, PostgreSQL separately
-- ✅ Everyone on the team has the exact same setup
-- ✅ Easy to start fresh if something breaks
+### Start the App
 
-#### macOS Installation:
-
-1. **Download Docker Desktop**:
-   - Visit https://www.docker.com/products/docker-desktop/
-   - Click "Download for Mac"
-   - Choose the right version:
-     - **Apple Silicon (M1/M2/M3)**: Download "Mac with Apple chip"
-     - **Intel Mac**: Download "Mac with Intel chip"
-2. **Install**:
-   - Open the downloaded `.dmg` file
-   - Drag Docker to your Applications folder
-   - Open Docker from Applications
-   - Follow the setup wizard (accept terms, allow permissions)
-3. **Verify Docker is running**:
-   - You should see a Docker whale icon in your menu bar
-   - Open Terminal and run:
-     ```bash
-     docker --version
-     ```
-   - Should show something like: `Docker version 24.0.x`
-
-#### Windows Installation:
-
-1. Download from https://www.docker.com/products/docker-desktop/
-2. Run the installer
-3. Enable WSL 2 if prompted
-4. Restart your computer
-5. Open Docker Desktop from Start menu
-6. Verify with: `docker --version` in PowerShell
-
-#### Linux Installation:
-
-```bash
-# Ubuntu/Debian
-curl -fsSL https://get.docker.com -o get-docker.sh
-sudo sh get-docker.sh
-sudo usermod -aG docker $USER
-# Log out and back in
-
-# Verify
-docker --version
-```
-
-### Step 2: Clone and Run the Project
-
-1. **Clone the repository**:
+1. Clone the repository:
 
    ```bash
    git clone <your-repo-url>
    cd butter-dots-dot-com
    ```
 
-2. **Start everything with one command**:
+2. Download the OCR models (one-time setup, ~300 MB):
+
+   ```bash
+   cd backend
+   python3 scripts/download_models.py
+   cd ..
+   ```
+
+   Models are saved to `backend/OCRModels/` and `backend/Models/` (gitignored).
+   You only need to do this once.
+
+3. Start everything:
 
    ```bash
    docker compose up
    ```
 
-   **Note**: Use `docker compose` (with a space), not `docker-compose` (with a
-   hyphen). Docker Compose V2 is built into Docker Desktop.
-
-3. **Wait for everything to start** (first time takes 2-5 minutes):
-
-   You'll see output like:
-
-   ```
-   [+] Running 3/3
-   ✔ Container tibetan_db       Started
-   ✔ Container tibetan_backend  Started
-   ✔ Container tibetan_frontend Started
-   ```
-
-4. **Open your browser and verify everything works**:
-   - **Frontend** (http://localhost:3000):
-     - You should see "Butter Dots Dot Com" header
-     - Dictionary-style entry for "butter dots"
-     - Navigation link to "Language Tools"
-   - **Backend API** (http://localhost:8000):
-     - Should show: `{"status":"healthy","service":"tibetan-spellchecker"}`
-   - **API Docs** (http://localhost:8000/docs):
-     - Interactive Swagger UI
-     - See all available API endpoints
-     - Can test endpoints directly in browser
-
-5. **What you'll see in the terminal**:
+   First run takes 2–5 minutes to build. You'll know it's ready when you see:
 
    ```
    tibetan_backend   | INFO:     Application startup complete.
-   tibetan_backend   | INFO:     Uvicorn running on http://0.0.0.0:8000
-   tibetan_frontend  | ▲ Next.js 14.2.0
    tibetan_frontend  | - Local:        http://localhost:3000
    ```
 
-6. **Stop everything** (when done):
-   - Press `Ctrl+C` in the terminal
-   - Or run: `docker compose down`
+4. Open in your browser:
+   - **App**: http://localhost:3000
+   - **API**: http://localhost:8000
+   - **API docs** (Swagger UI): http://localhost:8000/docs
 
-### Troubleshooting
-
-**"docker: command not found"**
-
-- Docker Desktop isn't installed or not running
-- Check the menu bar (Mac) or system tray (Windows) for the Docker icon
-- Make sure Docker Desktop is open and running
-
-**"Cannot connect to the Docker daemon"**
-
-- Docker Desktop isn't running
-- Open Docker Desktop and wait for it to fully start (green icon)
-
-**"port is already allocated"**
-
-- Another service is using ports 3000, 8000, or 5432
-- Stop other applications using those ports, or:
-  ```bash
-  docker compose down
-  docker compose up
-  ```
-
-**"Error response from daemon: pull access denied"**
-
-- No internet connection, or Docker Hub is down
-- Wait a moment and try again
-
-**Changes not showing up**
-
-- For backend changes: Docker watches automatically, no restart needed
-- For frontend changes: Docker watches automatically, no restart needed
-- If still not working, restart: `docker compose restart backend` or `frontend`
+5. To stop: press `Ctrl+C`, or run `docker compose down` from another terminal.
 
 ## Quick Reference
 
-**Start the app**:
-
 ```bash
-docker compose up
+docker compose up               # start everything
+docker compose up -d            # start in background
+docker compose down             # stop everything
+docker compose up --build       # rebuild after changing dependencies
+docker compose logs -f          # stream all logs
+docker compose logs -f backend  # stream backend logs only
+docker compose logs -f frontend # stream frontend logs only
 ```
 
-**Start in background** (daemon mode):
+## Troubleshooting
 
-```bash
-docker compose up -d
-```
+**`docker: command not found`** Docker Desktop isn't installed or isn't running.
+Check the menu bar (Mac) or system tray (Windows) for the Docker whale icon.
 
-**View logs**:
+**`Cannot connect to the Docker daemon`** Docker Desktop is installed but not
+running. Open it and wait for the green "running" indicator before retrying.
 
-```bash
-docker compose logs -f          # All services
-docker compose logs -f backend  # Just backend
-docker compose logs -f frontend # Just frontend
-```
-
-**Stop the app**:
+**`port is already allocated`** Something else is using port 3000, 8000,
+or 5432. Stop the conflicting process, then:
 
 ```bash
 docker compose down
+docker compose up
 ```
 
-**Rebuild after changing dependencies**:
+**`python: command not found` (or similar)** Use `python3` instead of `python` —
+macOS and Linux don't include a bare `python` command.
+
+**Changes not showing up** Both frontend and backend have hot reload. If it's
+still stale:
 
 ```bash
-docker compose up --build
+docker compose restart backend   # or: frontend
 ```
 
-**Access database directly**:
+**App is slow or using too much memory** Docker Desktop → Settings → Resources →
+increase memory and CPU allocation.
+
+**Reset the database**
 
 ```bash
-docker compose exec postgres psql -U tibetan -d tibetan_spellcheck
+docker compose down -v  # -v removes the database volume
+docker compose up
 ```
 
-## Alternative: Run Without Docker (Manual Setup)
+**Windows** Use PowerShell instead of Terminal. Everything else is the same.
 
-Start all services (Postgres + Backend + Frontend):
+## Alternative: Run Without Docker
 
-```bash
-docker-compose up
-```
+If you prefer to run services manually, you'll need:
 
-Access:
+- Node.js 20.x — [nodejs.org](https://nodejs.org)
+- Python 3.11+ — [python.org](https://python.org)
+- PostgreSQL 15+ — `brew install postgresql@15` (macOS) or
+  [postgresql.org](https://postgresql.org)
+- Yarn — `npm install -g yarn`
 
-- **Frontend**: http://localhost:3000
-- **Backend API**: http://localhost:8000
-- **API Docs**: http://localhost:8000/docs
-
-View logs:
+**1. Set up the database** (macOS):
 
 ```bash
-docker-compose logs -f backend
-docker-compose logs -f frontend
-```
-
-Stop everything:
-
-```bash
-docker-compose down
-```
-
-## Alternative: Run Without Docker (Manual Setup)
-
-If you prefer not to use Docker, you can run each service manually.
-
-### Prerequisites (Without Docker):
-
-- Node.js 20.x (from https://nodejs.org)
-- Python 3.11+ (from https://python.org)
-- PostgreSQL 15+ (from https://postgresql.org or `brew install postgresql@15`)
-- Yarn (`npm install -g yarn`)
-
-### Setup Steps:
-
-**1. Install PostgreSQL and create database**:
-
-```bash
-# macOS
-brew install postgresql@15
 brew services start postgresql@15
 createdb tibetan_spellcheck
 psql tibetan_spellcheck < database/schema.sql
 ```
 
-**2. Start Backend** (in one terminal):
+**2. Start the backend** (in one terminal):
 
 ```bash
 cd backend
-python -m venv venv
+python3.11 -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
+pip install 'setuptools<70' wheel
+pip install --no-build-isolation pyewts==0.2.0
 pip install -r requirements.txt
+python3 scripts/download_models.py  # one-time
 uvicorn app.main:app --reload
 ```
 
-Backend runs at http://localhost:8000
+> **Why the extra pip steps?** The `pyewts` package uses a legacy `setup.py`
+> that imports `pkg_resources`, which was removed in `setuptools` 70+. Pinning
+> an older `setuptools` and disabling build isolation lets it build correctly.
 
-**3. Start Frontend** (in another terminal):
+**3. Start the frontend** (in another terminal):
 
 ```bash
 cd frontend
@@ -288,265 +177,110 @@ yarn install
 yarn dev
 ```
 
-Frontend runs at http://localhost:3000
-
-**Note**: You'll need 3 terminals open (Postgres, Backend, Frontend) vs Docker's
-single command.
-
 ## Testing
 
-### Backend Tests
-
 ```bash
-cd backend
-pytest
-```
+# Backend
+cd backend && pytest
 
-### Frontend Tests
+# Frontend
+cd frontend && yarn test
 
-```bash
-cd frontend
-yarn test
-```
-
-### Run All Tests (CI Mode)
-
-```bash
+# Both (CI mode)
 cd backend && pytest && cd ../frontend && yarn test:ci
 ```
 
-GitHub Actions automatically runs all tests on push/PR.
-
-### Building for Production
-
-**Frontend**:
-
-```bash
-cd frontend
-yarn build
-yarn start
-```
-
-**Backend**:
-
-```bash
-cd backend
-uvicorn app.main:app --host 0.0.0.0 --port 8000
-```
-
-**Docker Production Build**:
-
-```bash
-docker-compose -f docker-compose.prod.yml up -d
-```
+GitHub Actions runs all tests automatically on push and pull request.
 
 ## Architecture
-
-This is a full-stack application with:
 
 - **Frontend**: Next.js, React, TypeScript, Tailwind CSS
 - **Backend**: Python, FastAPI, SQLAlchemy
 - **Database**: PostgreSQL
-- **Testing**: pytest (backend), Jest (frontend)
-- **CI/CD**: GitHub Actions
+- **OCR**: [BDRC Tibetan OCR](https://github.com/buda-base/tibetan-ocr-app)
+  (onnxruntime, MIT licensed)
+- **CI/CD**: GitHub Actions → Netlify (frontend) + Render (backend)
 
-See [docs/guides/ARCHITECTURE.md](./docs/guides/ARCHITECTURE.md) for detailed
-architecture documentation.
+Quick navigation:
 
-### Key Principles
+| What you want to change | Where to look                 |
+| ----------------------- | ----------------------------- |
+| Page content / UI       | `frontend/pages/`             |
+| Reusable components     | `frontend/components/`        |
+| Colors / design tokens  | `frontend/tailwind.config.js` |
+| API endpoints           | `backend/app/api/`            |
+| Database schema         | `database/schema.sql`         |
 
-- **TDD**: Test-Driven Development with pragmatic coverage
-- **Monorepo**: Frontend and backend in one repository
-- **Containerization**: Docker Compose for consistent environments
-- **Type Safety**: TypeScript (frontend) + Pydantic (backend)
-- **Component-Based**: Reusable UI components with Tailwind CSS
-
-### Quick Reference
-
-- **Frontend**: `frontend/` directory (Next.js, React, Tailwind)
-- **Backend**: `backend/` directory (FastAPI, SQLAlchemy)
-- **Database**: `database/` directory (PostgreSQL schema)
-- **Docs**: `docs/` directory (ADRs, guides, planning)
-- **Change colors/design**: Edit `frontend/tailwind.config.js`
-- **Add API endpoint**: Create in `backend/app/api/`
-- **Add page**: Create in `frontend/pages/`, use `Layout` component
-
-## Pages
-
-### Home (`/`)
-
-The main landing page featuring the iconic butter dots image and description.
-
-### Resources (`/resources`)
-
-A comprehensive guide for installing Tibetan fonts and keyboards, including:
-
-- Automated installation script for macOS
-- Manual installation instructions for macOS, Windows, and Linux
-- Recommended Tibetan fonts (Tibetan Machine Uni, Jomolhari, Monlam Uni, DDC
-  Uchen)
-- Keyboard installation guides for all major platforms
-- Wylie transliteration guide and examples
-- Links to additional Tibetan language resources
+See [docs/guides/ARCHITECTURE.md](./docs/guides/ARCHITECTURE.md) for more
+detail.
 
 ## Deployment
 
-### Deploying to Vercel (Recommended)
+The frontend is hosted on **Netlify** and the backend is hosted on **Render**.
+Both are connected to this GitHub repository — pushing to `main` triggers an
+automatic redeployment of both services. No manual steps needed.
 
-Vercel is the easiest way to deploy Next.js apps and is created by the Next.js
-team.
+The sections below document the initial setup in case anything needs to be
+reconfigured.
 
-#### Option 1: Deploy via Git Integration (Recommended)
+### Frontend: Netlify
 
-1. Push your code to GitHub, GitLab, or Bitbucket
-2. Go to [vercel.com](https://vercel.com/new)
-3. Import your repository
-4. Vercel will automatically detect Next.js and configure build settings
-5. Click "Deploy"
+1. Go to [app.netlify.com](https://app.netlify.com) → **Add new site → Import an
+   existing project**
+2. Connect your GitHub repository
+3. Set the following build settings:
+   - **Base directory**: `frontend`
+   - **Build command**: `yarn build`
+   - **Publish directory**: `frontend/.next`
+4. Click **Deploy site**
 
-**Automatic deployments**: After initial setup, every push to your main branch
-automatically deploys to production, and every pull request gets a preview URL.
+Netlify installs the Next.js runtime plugin automatically on the first build.
 
-#### Option 2: Deploy via Vercel CLI
+### Backend: Render
 
-1. Install Vercel CLI:
+1. Go to [render.com](https://render.com) → **New → Web Service**
+2. Connect your GitHub repository
+3. Set the following:
+   - **Root directory**: `backend`
+   - **Runtime**: Docker
+   - **Branch**: `main`
+4. Add these environment variables:
 
-```bash
-npm i -g vercel
-```
+| Variable          | Value                        | Notes                                         |
+| ----------------- | ---------------------------- | --------------------------------------------- |
+| `ALLOWED_ORIGINS` | `https://butterdots.com`     | Your Netlify frontend URL                     |
+| `PUBLIC_BASE_URL` | `https://api.butterdots.com` | Used in email result links                    |
+| `OCR_MODEL_NAME`  | `Uchen`                      | OCR model: Uchen, Woodblock, Ume, or Dunhuang |
 
-2. Run deployment command from your project directory:
+5. Click **Create Web Service**
 
-```bash
-vercel
-```
+The first Docker build takes ~5 minutes because the OCR models (~300 MB) are
+downloaded during the build. Subsequent deploys use the cached Docker layer and
+are much faster.
 
-3. Follow the prompts to link your project
+## Acknowledgments
 
-4. For production deployment:
+The syllable validation rules are based on **Paul G. Hackett's Tibetan
+Spell-checker v1.0** (Columbia University, 2011), originally written in VBA for
+Microsoft Word and released under GNU GPL v3. The core "exclusive pattern"
+approach — defining _invalid_ syllable constructions rather than enumerating all
+valid ones — was ported to Python and extended with structured error reporting
+and position tracking. See
+[`docs/research/SCRIPT_ANALYSIS.md`](docs/research/SCRIPT_ANALYSIS.md) for the
+full analysis.
 
-```bash
-vercel --prod
-```
+The PDF OCR feature uses the **BDRC Tibetan OCR** engine, developed by
+[Eric Werner](https://github.com/buda-base) for the
+[Buddhist Digital Resource Center](https://www.bdrc.io/) in partnership with the
+[Monlam AI](https://monlam.ai/) team. It is released under the MIT license.
 
-### Deploying Changes
+The OCR models were trained on transcriptions from BDRC,
+[Asian Legacy Library](https://asianlegacylibrary.org/),
+[Adarsha](https://adarshah.org/), and NorbuKetaka, and represent the first
+publicly available OCR system with strong support for classical Tibetan scripts
+(Uchen, Woodblock, Ume, and Dunhuang).
 
-Once set up with git integration:
-
-1. Make your changes locally
-2. Test locally with `yarn dev`
-3. Commit your changes:
-
-```bash
-git add .
-git commit -m "Description of your changes"
-```
-
-4. Push to your repository:
-
-```bash
-git push origin main
-```
-
-5. Vercel automatically builds and deploys your changes (usually takes 30-60
-   seconds)
-6. You'll receive a deployment URL in your Vercel dashboard
-
-### Other Deployment Options
-
-- **Netlify**: Connect your git repository at [netlify.com](https://netlify.com)
-- **AWS Amplify**: Use the Amplify Console to deploy from git
-- **Self-hosted**: Build with `yarn build` and serve the `.next` folder with
-  `yarn start`
-
-## Image Optimization
-
-The butter dots image is optimized for web:
-
-- Resized to 900×1200px (maintains 3:4 aspect ratio)
-- Compressed to ~331KB for fast loading
-- Uses Next.js Image component for automatic optimization
-
-To optimize new images:
-
-```bash
-# Install ImageMagick or use sips (macOS)
-sips -Z 1200 --setProperty format jpeg --setProperty formatOptions 80 input.jpg --out output.jpg
-```
-
-## Frequently Asked Questions
-
-### Do I need to know Docker to use this?
-
-No! Just install Docker Desktop and run `docker compose up`. That's it. You
-don't need to understand how Docker works.
-
-### What if I don't want to use Docker?
-
-See the "Alternative: Run Without Docker" section above. You'll need to install
-Node.js, Python, and PostgreSQL manually.
-
-### How do I make changes to the code?
-
-1. Edit files in `frontend/` for website changes
-2. Edit files in `backend/` for API changes
-3. Docker automatically reloads when you save files
-4. Refresh your browser to see changes
-
-### Where is the database stored?
-
-Docker stores it in a volume (isolated from your machine). To reset the
-database:
-
-```bash
-docker compose down -v  # -v removes volumes
-docker compose up       # Fresh database
-```
-
-### Can I use this on Windows?
-
-Yes! Install Docker Desktop for Windows and follow the same instructions. Use
-PowerShell instead of Terminal.
-
-### How do I stop the app from running in the background?
-
-```bash
-docker compose down
-```
-
-### The app is slow or using too much memory?
-
-Docker Desktop → Settings → Resources → Increase memory/CPU allocation
-
-### How do I update dependencies?
-
-**Frontend**:
-
-```bash
-cd frontend
-yarn add package-name
-docker compose up --build
-```
-
-**Backend**:
-
-```bash
-cd backend
-# Add to requirements.txt
-docker compose up --build
-```
-
-## Learn More
-
-- [Next.js Documentation](https://nextjs.org/docs)
-- [Docker Getting Started](https://docs.docker.com/get-started/)
-- [FastAPI Documentation](https://fastapi.tiangolo.com/)
-- [PostgreSQL Documentation](https://www.postgresql.org/docs/)
-
-## Support
-
-For issues or questions:
-
-1. Check the FAQ above
-2. Check [SETUP_COMPLETE.md](./SETUP_COMPLETE.md) for verification steps
-3. Open an issue in the repository
+- GitHub:
+  [buda-base/tibetan-ocr-app](https://github.com/buda-base/tibetan-ocr-app)
+- Models: [HuggingFace / BDRC](https://huggingface.co/BDRC) and
+  [OpenPecha](https://huggingface.co/openpecha)

@@ -18,8 +18,10 @@ Technical guides for developers working on this project.
 - `TAILWIND_GUIDE.md` - Tailwind CSS usage and conventions
 
 ### `/planning` - Project Planning
-Planning documents, feature roadmaps, and TODO lists.
+Planning documents and feature specifications. The live backlog is tracked in
+[GitHub Projects — Butter Roadmap](https://github.com/users/stellakunzang/projects/3).
 
+- `BACKLOG.md` - Archived feature backlog (superseded by GitHub Projects)
 - `WORD_CORPUS_PLAN.md` - Strategy for building the Tibetan word corpus
 
 ### `/archive` - Historical/Completed
@@ -41,4 +43,5 @@ Research materials, reference implementations, and third-party resources.
 **Just getting started?** → `/guides/ARCHITECTURE.md`  
 **Working on spellchecker?** → `/adr/SPELLCHECKER_DECISIONS.md`  
 **Working on frontend?** → `/guides/COMPONENTS.md` + `/guides/TAILWIND_GUIDE.md`  
-**Understanding Tibetan rules?** → `/research/SCRIPT_ANALYSIS.md`
+**Understanding Tibetan rules?** → `/research/SCRIPT_ANALYSIS.md`  
+**OCR attribution?** → See `Acknowledgments` in the root `README.md`

@@ -27,12 +27,19 @@ _SUFFIX_LABELS: dict = {
     None: 'no suffix',
 }
 
-# Which particle to suggest instead, keyed by (wrong_particle, prev_suffix)
-# where prev_suffix=None means no suffix.
-# Rather than a large lookup, we derive the suggestion from the rules at runtime.
+# Preferred suggestions where the algorithmic lookup gives the wrong answer.
+# Keyed by (category, suffix) — checked before the rule-based derivation.
+_PREFERRED_SUGGESTIONS: dict = {
+    ('locative', None): 'ར',
+    ('locative', 'འ'): 'ར',
+}
 
 def _correct_form_for_suffix(category: str, suffix: Optional[str]) -> Optional[str]:
     """Return the expected particle form for this category and suffix."""
+    override = _PREFERRED_SUGGESTIONS.get((category, suffix))
+    if override is not None:
+        return override
+
     from ..rules.particles import RELATIONAL, AGENTIVE, LOCATIVE, INDEFINITE
 
     mapping = {

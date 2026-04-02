@@ -1,5 +1,5 @@
 import type {NextPage} from 'next'
-import {Layout, Section, Card} from '../components'
+import {Layout, Section, Card, PageTitle, SectionHeading} from '../components'
 
 const SpellingRules: NextPage = () => {
   return (
@@ -14,9 +14,7 @@ const SpellingRules: NextPage = () => {
             Reference Guide
           </span>
         </div>
-        <h1 className="text-5xl md:text-6xl font-serif text-gray-900 mb-4 tracking-tight">
-          Tibetan Spelling Rules
-        </h1>
+        <PageTitle>Tibetan Spelling Rules</PageTitle>
         <p className="text-xl text-gray-600 font-light leading-relaxed">
           Tibetan syllables follow strict structural rules. This guide explains
           the components of a syllable and the rules the spellchecker enforces.
@@ -83,7 +81,7 @@ const SpellingRules: NextPage = () => {
                   ག
                 </td>
                 <td className="px-4 py-3 text-gray-400 text-sm">ྲ</td>
-                <td className="px-4 py-3 text-gray-400 text-sm">—</td>
+                <td className="px-4 py-3 text-2xl text-gray-700">ུ</td>
                 <td className="px-4 py-3 text-2xl text-gray-700">བ</td>
                 <td className="px-4 py-3 text-gray-400 text-sm">—</td>
               </tr>
@@ -238,10 +236,10 @@ const SpellingRules: NextPage = () => {
         </p>
 
         {/* Relational */}
-        <h3 className="text-2xl font-serif text-gray-900 mt-8 mb-4">
+        <SectionHeading as="h3">
           Relational Particle{' '}
           <span className="text-gray-500 font-light">(of, &apos;s)</span>
-        </h3>
+        </SectionHeading>
         <p className="mb-4">
           Marks possession or association. The correct form depends on the
           preceding word&apos;s suffix:
@@ -283,10 +281,10 @@ const SpellingRules: NextPage = () => {
         />
 
         {/* Agentive */}
-        <h3 className="text-2xl font-serif text-gray-900 mt-10 mb-4">
+        <SectionHeading as="h3" className="mt-10">
           Agentive Particle{' '}
           <span className="text-gray-500 font-light">(by, with)</span>
-        </h3>
+        </SectionHeading>
         <p className="mb-4">
           Marks the agent, instrument, reason, or source of an action — roughly
           equivalent to &ldquo;by,&rdquo; &ldquo;with,&rdquo; or &ldquo;because
@@ -330,10 +328,10 @@ const SpellingRules: NextPage = () => {
         />
 
         {/* Locative */}
-        <h3 className="text-2xl font-serif text-gray-900 mt-10 mb-4">
+        <SectionHeading as="h3" className="mt-10">
           Locative Particle{' '}
           <span className="text-gray-500 font-light">(in, at, to)</span>
-        </h3>
+        </SectionHeading>
         <p className="mb-4">
           Marks location or direction. The locative has more forms than the
           other particles:
@@ -386,10 +384,10 @@ const SpellingRules: NextPage = () => {
         />
 
         {/* Indefinite */}
-        <h3 className="text-2xl font-serif text-gray-900 mt-10 mb-4">
+        <SectionHeading as="h3" className="mt-10">
           Indefinite Article{' '}
           <span className="text-gray-500 font-light">(a, one)</span>
-        </h3>
+        </SectionHeading>
         <p className="mb-4">
           The indefinite article / number one. Three forms based on the
           preceding suffix:

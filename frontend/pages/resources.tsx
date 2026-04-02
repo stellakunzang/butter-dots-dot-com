@@ -1,5 +1,5 @@
 import type {NextPage} from 'next'
-import {Layout, Section, Button, Card, CodeBlock} from '../components'
+import {Layout, Section, Button, Card, CodeBlock, PageTitle, SectionHeading} from '../components'
 
 const Resources: NextPage = () => {
   return (
@@ -14,9 +14,7 @@ const Resources: NextPage = () => {
             Language Tools & Resources
           </span>
         </div>
-        <h1 className="text-5xl md:text-6xl font-serif text-gray-900 mb-4 tracking-tight">
-          Tibetan Language Resources
-        </h1>
+        <PageTitle>Tibetan Language Resources</PageTitle>
         <p className="text-xl text-gray-600 font-light leading-relaxed">
           A comprehensive collection of fonts, keyboard layouts, and tools for working with the Tibetan script and language.
         </p>
@@ -173,9 +171,9 @@ chmod +x install-tibetan-fonts.sh
       </Section>
 
       <Section title="Using Tibetan Keyboards">
-        <h3 className="text-gray-900 mt-6 mb-4 text-2xl font-serif">
+        <SectionHeading as="h3" className="mt-6">
           Wylie Transliteration
-        </h3>
+        </SectionHeading>
         <p className="text-lg mb-6">
           The Wylie system is the most popular method for typing Tibetan.
           Type phonetically and the text converts to Tibetan script:
@@ -194,9 +192,9 @@ chmod +x install-tibetan-fonts.sh
           </div>
         </div>
 
-        <h3 className="text-gray-900 mt-8 mb-4 text-2xl font-serif">
+        <SectionHeading as="h3">
           Common Wylie Conventions
-        </h3>
+        </SectionHeading>
         <ul>
           <li>Use <CodeBlock inline>tsheg</CodeBlock> (space) between syllables: type space for ་</li>
           <li>Stacked consonants: type letters consecutively (e.g., <CodeBlock inline>bkra</CodeBlock> → བཀྲ)</li>
