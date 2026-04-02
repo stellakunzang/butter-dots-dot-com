@@ -78,7 +78,7 @@ Verify it's running: `docker --version`
    ```
 
 4. Open in your browser:
-   - **App**: http://localpyteshost:3000
+   - **App**: http://localhost:3000
    - **API**: http://localhost:8000
    - **API docs** (Swagger UI): http://localhost:8000/docs
 
