@@ -116,7 +116,6 @@ export interface PDFSpellError {
 export interface PDFResultURLs {
   pdf: string
   docx: string
-  json: string
 }
 
 export interface PDFUploadSyncResponse {
@@ -127,7 +126,6 @@ export interface PDFUploadSyncResponse {
   is_scanned: boolean
   pdf_url: string
   docx_url: string
-  json_url: string
 }
 
 export interface PDFUploadAsyncResponse {
@@ -154,7 +152,6 @@ export interface JobStatusResponse {
   error_message?: string
   pdf_url?: string
   docx_url?: string
-  json_url?: string
 }
 
 /**
@@ -226,6 +223,5 @@ export function getResultURLs(jobId: string): PDFResultURLs {
   return {
     pdf: `${API_URL}/api/v1/spellcheck/result/${jobId}/pdf`,
     docx: `${API_URL}/api/v1/spellcheck/result/${jobId}/docx`,
-    json: `${API_URL}/api/v1/spellcheck/result/${jobId}/json`,
   }
 }

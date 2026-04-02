@@ -95,9 +95,8 @@ class PDFUploadSyncResponse(BaseModel):
     error_count: int
     errors: List[PDFErrorResponse]
     is_scanned: bool
-    pdf_url: str   # /api/v1/spellcheck/result/{job_id}/pdf
-    docx_url: str  # /api/v1/spellcheck/result/{job_id}/docx
-    json_url: str  # /api/v1/spellcheck/result/{job_id}/json
+    pdf_url: str
+    docx_url: str
 
 
 class PDFUploadAsyncResponse(BaseModel):
@@ -118,4 +117,3 @@ class JobStatusResponse(BaseModel):
     error_message: Optional[str] = None
     pdf_url: Optional[str] = None
     docx_url: Optional[str] = None
-    json_url: Optional[str] = None

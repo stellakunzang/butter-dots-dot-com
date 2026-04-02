@@ -143,7 +143,6 @@ async def _process_sync(pdf_bytes: bytes, filename: str, page_count: int):
             is_scanned=is_scanned,
             pdf_url=f"/api/v1/spellcheck/result/{job.id}/pdf",
             docx_url=f"/api/v1/spellcheck/result/{job.id}/docx",
-            json_url=f"/api/v1/spellcheck/result/{job.id}/json",
         )
 
     except Exception as e:
@@ -298,7 +297,6 @@ async def get_job_status(job_id: str):
     if job.status == job_store.JobStatus.COMPLETED:
         response.pdf_url = f"/api/v1/spellcheck/result/{job_id}/pdf"
         response.docx_url = f"/api/v1/spellcheck/result/{job_id}/docx"
-        response.json_url = f"/api/v1/spellcheck/result/{job_id}/json"
 
     return response
 
@@ -331,25 +329,6 @@ async def download_docx(job_id: str):
         path=str(job.docx_result_path),
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         filename=f"spellcheck_{stem}.docx",
-    )
-
-
-@router.get("/spellcheck/result/{job_id}/json")
-async def download_json(job_id: str):
-    """Return the structured spell errors JSON for a completed job."""
-    from fastapi.responses import JSONResponse
-
-    job = _get_completed_job(job_id)
-    stem = Path(job.original_filename).stem
-    return JSONResponse(
-        content={
-            "job_id": job_id,
-            "filename": job.original_filename,
-            "page_count": job.page_count,
-            "error_count": len(job.errors or []),
-            "errors": job.errors or [],
-        },
-        headers={"Content-Disposition": f'attachment; filename="spellcheck_{stem}.json"'},
     )
 
 
