@@ -63,7 +63,11 @@ export function JobStatus({jobId, email, onCompleted}: JobStatusProps) {
             stroke="currentColor"
             strokeWidth="4"
           />
-          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+          <path
+            className="opacity-75"
+            fill="currentColor"
+            d="M4 12a8 8 0 018-8v8H4z"
+          />
         </svg>
         Checking status…
       </div>
@@ -73,8 +77,12 @@ export function JobStatus({jobId, email, onCompleted}: JobStatusProps) {
   if (status.status === 'failed') {
     return (
       <div className="rounded-lg border border-red-200 bg-red-50 p-4">
-        <p className="text-sm font-semibold text-red-800 mb-1">Processing failed</p>
-        <p className="text-sm text-red-700">{status.error_message || 'An unknown error occurred.'}</p>
+        <p className="text-sm font-semibold text-red-800 mb-1">
+          Processing failed
+        </p>
+        <p className="text-sm text-red-700">
+          {status.error_message || 'An unknown error occurred.'}
+        </p>
       </div>
     )
   }
@@ -83,8 +91,8 @@ export function JobStatus({jobId, email, onCompleted}: JobStatusProps) {
     status.status === 'pending'
       ? 'Queued'
       : status.status === 'processing'
-      ? `Processing… ${status.progress}%`
-      : 'Complete'
+        ? `Processing… ${status.progress}%`
+        : 'Complete'
 
   return (
     <div className="rounded-lg border border-gray-200 bg-gray-50 p-5 space-y-4">
@@ -102,8 +110,8 @@ export function JobStatus({jobId, email, onCompleted}: JobStatusProps) {
       </div>
 
       <p className="text-xs text-gray-500">
-        Results will be sent to <strong>{email}</strong> when ready.
-        This page will update automatically.
+        Results will be sent to <strong>{email}</strong> when ready. This page
+        will update automatically.
       </p>
 
       {status.status === 'completed' && (
@@ -113,7 +121,13 @@ export function JobStatus({jobId, email, onCompleted}: JobStatusProps) {
   )
 }
 
-function PDFResultLinks({jobId, errorCount}: {jobId: string; errorCount: number}) {
+function PDFResultLinks({
+  jobId,
+  errorCount,
+}: {
+  jobId: string
+  errorCount: number
+}) {
   const urls = getResultURLs(jobId)
 
   return (
@@ -125,8 +139,11 @@ function PDFResultLinks({jobId, errorCount}: {jobId: string; errorCount: number}
       </p>
       <div className="flex flex-wrap gap-2">
         <DownloadButton href={urls.pdf} label="Annotated PDF" icon="pdf" />
-        <DownloadButton href={urls.docx} label="Editable Word doc" icon="docx" />
-        <DownloadButton href={urls.json} label="View errors (JSON)" icon="json" />
+        <DownloadButton
+          href={urls.docx}
+          label="Editable Word doc"
+          icon="docx"
+        />
       </div>
     </div>
   )
@@ -139,12 +156,11 @@ function DownloadButton({
 }: {
   href: string
   label: string
-  icon: 'pdf' | 'docx' | 'json'
+  icon: 'pdf' | 'docx'
 }) {
   const colors = {
     pdf: 'bg-red-100 text-red-700 hover:bg-red-200',
     docx: 'bg-blue-100 text-blue-700 hover:bg-blue-200',
-    json: 'bg-gray-100 text-gray-700 hover:bg-gray-200',
   }
 
   return (
@@ -156,7 +172,12 @@ function DownloadButton({
         colors[icon],
       ].join(' ')}
     >
-      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <svg
+        className="w-3.5 h-3.5"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
         <path
           strokeLinecap="round"
           strokeLinejoin="round"
