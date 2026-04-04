@@ -10,3 +10,14 @@ services:
         value: https://www.butterdots.com,https://butterdots.com
       - key: DEBUG
         value: "false"
+      # Uncomment and set to enable Phase 2 dictionary lookup in production.
+      # Provision a Render PostgreSQL database first, then paste its Internal
+      # Database URL here (or set it as a secret in the Render dashboard).
+      # - key: DATABASE_URL
+      #   value: postgresql://...
+
+# Uncomment to provision a managed PostgreSQL database on Render.
+# Note: the free plan does not include a database — this will incur a charge.
+# databases:
+#   - name: tibetan-spellcheck-db
+#     plan: starter
