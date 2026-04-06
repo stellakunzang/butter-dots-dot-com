@@ -29,6 +29,13 @@ and this project uses
 - Structured JSON logging on every spell check (`spellcheck_result` tag) with
   aggregate counts for analysis via `grep | jq`
 - `GET /api/v1/corpus/stats` endpoint
+
+---
+
+## [0.3.0] - 2026-04-01
+
+### Added
+
 - PDF spellcheck pipeline — upload a Tibetan PDF, get back an annotated DOCX with
   each structurally invalid syllable marked; supports both digital PDFs and
   scanned documents via OCR fallback
