@@ -105,9 +105,14 @@ class TibetanSpellChecker:
         # 4. Component validation (stacking rules)
         errors = validate_syllable(parsed_model)
         if errors:
-            # Return the first error as a dict for backwards compatibility
             error_dict = errors[0].to_dict()
             error_dict['word'] = syllable
+            # Even though Phase 1 flagged this syllable, check whether it
+            # exists in the corpus.  corpus_hit=True on a structural error
+            # is a signal that the Phase 1 rule may be producing a false
+            # positive on a real word — useful data for future tuning.
+            in_corpus = self._dictionary.is_valid_syllable(syllable)
+            error_dict['corpus_hit'] = None if in_corpus is None else bool(in_corpus)
             return error_dict
 
         # 5. Dictionary lookup (Phase 2) — only runs when corpus is loaded.
@@ -125,6 +130,7 @@ class TibetanSpellChecker:
                     "have yet."
                 ),
                 'component': None,
+                'corpus_hit': False,
             }
 
         # No errors found
