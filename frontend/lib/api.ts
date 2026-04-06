@@ -11,6 +11,7 @@ export interface SpellCheckError {
   severity: string
   message?: string
   component?: string
+  corpus_hit?: boolean | null
 }
 
 export interface SpellCheckResponse {
@@ -111,6 +112,7 @@ export interface PDFSpellError {
   severity: string
   message?: string
   component?: string
+  corpus_hit?: boolean | null
 }
 
 export interface PDFResultURLs {
