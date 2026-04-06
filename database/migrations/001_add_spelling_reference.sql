@@ -20,7 +20,6 @@ CREATE TABLE IF NOT EXISTS spelling_reference (
     word_normalized TEXT NOT NULL,
     source_count INTEGER NOT NULL DEFAULT 1,
     sources JSONB NOT NULL DEFAULT '[]',
-    confidence_score DECIMAL(3,2),
     first_seen_in VARCHAR(50),
     times_seen INTEGER NOT NULL DEFAULT 0,
     dialect VARCHAR(20),

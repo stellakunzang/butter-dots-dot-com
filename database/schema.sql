@@ -45,7 +45,6 @@ CREATE TABLE spelling_reference (
     word_normalized TEXT NOT NULL,       -- NFC-normalized form, used for dedup
     source_count INTEGER NOT NULL DEFAULT 1,
     sources JSONB NOT NULL DEFAULT '[]', -- e.g. ["thdl", "rangjung_yeshe"]
-    confidence_score DECIMAL(3,2),       -- 0.40–1.00 derived from source_count
     first_seen_in VARCHAR(50),           -- which source contributed it first
     times_seen INTEGER NOT NULL DEFAULT 0, -- incremented when found in checked docs
     dialect VARCHAR(20),                 -- 'amdo', 'u_tsang', NULL = pan-dialectal
