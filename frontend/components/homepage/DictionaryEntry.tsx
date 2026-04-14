@@ -1,5 +1,4 @@
 import Image from 'next/image'
-import {Button} from '../'
 
 export const DictionaryEntry = () => {
   return (
@@ -77,24 +76,6 @@ export const DictionaryEntry = () => {
         </div>
       </div>
 
-      {/* Language Resources Section
-      <div className="mt-16 pt-12 border-t-2 border-gray-200">
-        <div className="bg-gradient-to-br from-gray-50 to-white p-8 md:p-10 rounded-xl border border-gray-200">
-          <div className="max-w-2xl">
-            <h2 className="text-3xl font-serif text-gray-900 mb-3">
-              Language Resources
-            </h2>
-            <p className="text-lg text-gray-600 mb-6 leading-relaxed">
-              Explore our comprehensive tools and guides for Tibetan language
-              study, including fonts, keyboard layouts, and transliteration
-              systems.
-            </p>
-            <Button href="/resources" variant="primary" size="large">
-              View Tibetan Resources →
-            </Button>
-          </div>
-        </div>
-      </div> */}
     </div>
   )
 }
