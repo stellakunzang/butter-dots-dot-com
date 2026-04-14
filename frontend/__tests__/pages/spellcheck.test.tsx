@@ -147,7 +147,7 @@ describe('SpellCheckPage', () => {
       const words = screen.getAllByText('གཀར')
       expect(words.length).toBeGreaterThan(0)
       expect(screen.getByText('Invalid Prefix Combination')).toBeInTheDocument()
-      expect(screen.getByText(/1 spelling error found/i)).toBeInTheDocument()
+      expect(screen.getByText(/1 error/i)).toBeInTheDocument()
     })
   })
 
@@ -249,7 +249,7 @@ describe('SpellCheckPage', () => {
     await waitFor(() => {
       const words = screen.getAllByText('གཀར')
       expect(words.length).toBeGreaterThan(0)
-      expect(screen.getByText(/1 spelling error found/i)).toBeInTheDocument()
+      expect(screen.getByText(/1 error/i)).toBeInTheDocument()
     })
 
     expect(mockedApi.checkText).toHaveBeenCalledTimes(2)

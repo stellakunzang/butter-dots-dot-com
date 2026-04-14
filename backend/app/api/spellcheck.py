@@ -1,6 +1,7 @@
 """
 Spell check API endpoints — text and PDF upload.
 """
+import json
 import logging
 from pathlib import Path
 
@@ -58,9 +59,16 @@ async def check_text(request: SpellCheckRequest):
                 severity=error.get("severity", "error"),
                 message=error.get("message"),
                 component=error.get("component"),
+                corpus_hit=error.get("corpus_hit"),
             )
             for error in raw_errors
         ]
+
+        _log_spellcheck_result(
+            source="text",
+            text_length=len(request.text),
+            errors=raw_errors,
+        )
 
         return SpellCheckResponse(
             text=request.text,
@@ -134,6 +142,12 @@ async def _process_sync(pdf_bytes: bytes, filename: str, page_count: int):
         docx_path.write_bytes(docx_bytes)
 
         job_store.mark_completed(job.id, pdf_path, docx_path, all_errors)
+
+        _log_spellcheck_result(
+            source="pdf",
+            text_length=sum(len(p.text) for p in pages),
+            errors=all_errors,
+        )
 
         return PDFUploadSyncResponse(
             job_id=job.id,
@@ -235,6 +249,43 @@ def _background_process(job_id: str, upload_path: Path, filename: str, email: st
             pass
 
 
+def _log_spellcheck_result(source: str, text_length: int, errors: list[dict]) -> None:
+    """
+    Emit a structured log line for every spell check result.
+
+    Each line starts with 'spellcheck_result' so it can be isolated with:
+        grep spellcheck_result <logfile>
+        grep spellcheck_result <logfile> | jq '.corpus_hits'
+
+    Fields:
+        source        — "text" or "pdf"
+        text_length   — character count of input
+        error_count   — total errors returned
+        phase1_errors — structural errors (severity != warning and != info)
+        unknown_words — syllables flagged by Phase 2 dictionary lookup
+        corpus_hits   — Phase 1 errors where the syllable WAS in the corpus
+                        (potential false positives; key metric for tuning)
+        dict_active   — whether the dictionary was loaded for this check
+    """
+    phase1 = [e for e in errors if e.get("severity") not in ("warning", "info")]
+    unknown = [e for e in errors if e.get("error_type") == "unknown_word"]
+    corpus_hits = [e for e in phase1 if e.get("corpus_hit") is True]
+    dict_active = any(e.get("corpus_hit") is not None for e in errors)
+
+    logger.info(
+        "spellcheck_result %s",
+        json.dumps({
+            "source": source,
+            "text_length": text_length,
+            "error_count": len(errors),
+            "phase1_errors": len(phase1),
+            "unknown_words": len(unknown),
+            "corpus_hits": len(corpus_hits),
+            "dict_active": dict_active,
+        }),
+    )
+
+
 def _run_spellcheck(pages) -> tuple[dict[int, list[str]], list[dict]]:
     """
     Run the spell checker over all extracted page text.
@@ -266,6 +317,7 @@ def _run_spellcheck(pages) -> tuple[dict[int, list[str]], list[dict]]:
                     "severity": e.get("severity", "error"),
                     "message": e.get("message"),
                     "component": e.get("component"),
+                    "corpus_hit": e.get("corpus_hit"),
                 }
             )
 

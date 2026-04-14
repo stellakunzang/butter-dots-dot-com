@@ -34,6 +34,11 @@ const SeverityBadge: React.FC<{ severity: string }> = ({ severity }) => {
   )
 }
 
+const errorUnderlineClass = (severity: string): string => {
+  if (severity === 'warning') return 'border-b-2 border-yellow-400 text-yellow-700 cursor-pointer'
+  return 'border-b-2 border-red-500 text-red-700 cursor-pointer'
+}
+
 const AnnotatedText: React.FC<{ text: string; errors: SpellCheckError[] }> = ({
   text,
   errors,
@@ -57,13 +62,12 @@ const AnnotatedText: React.FC<{ text: string; errors: SpellCheckError[] }> = ({
   // Create a map of error positions for quick lookup
   const errorMap = new Map<number, SpellCheckError>()
   spellingErrors.forEach((error) => {
-    // Mark the entire word as having an error
     for (let i = 0; i < error.word.length; i++) {
       errorMap.set(error.position + i, error)
     }
   })
 
-  // Render text with errors underlined
+  // Render text with errors underlined (red = structural, yellow = unknown word)
   const chars = Array.from(text)
   const elements: React.ReactNode[] = []
   let currentErrorStart = -1
@@ -73,20 +77,18 @@ const AnnotatedText: React.FC<{ text: string; errors: SpellCheckError[] }> = ({
     const error = errorMap.get(i)
 
     if (error && currentError !== error) {
-      // Start of a new error
       if (currentErrorStart >= 0 && currentError) {
-        // Close previous error span
         elements.push(
           <span
             key={`error-${currentErrorStart}`}
             className="relative inline-block group"
           >
-            <span className="border-b-2 border-red-500 text-red-700 cursor-pointer">
+            <span className={errorUnderlineClass(currentError.severity)}>
               {chars.slice(currentErrorStart, i).join('')}
             </span>
             <span className="invisible group-hover:visible absolute z-10 bottom-full left-0 mb-2 px-3 py-2 text-xs bg-gray-900 text-white rounded shadow-lg whitespace-nowrap">
               {formatErrorType(currentError.error_type)}
-              {currentError.message && ` - ${currentError.message}`}
+              {currentError.message && ` — ${currentError.message}`}
             </span>
           </span>
         )
@@ -94,18 +96,17 @@ const AnnotatedText: React.FC<{ text: string; errors: SpellCheckError[] }> = ({
       currentErrorStart = i
       currentError = error
     } else if (!error && currentErrorStart >= 0 && currentError) {
-      // End of error, render error span
       elements.push(
         <span
           key={`error-${currentErrorStart}`}
           className="relative inline-block group"
         >
-          <span className="border-b-2 border-red-500 text-red-700 cursor-pointer">
+          <span className={errorUnderlineClass(currentError.severity)}>
             {chars.slice(currentErrorStart, i).join('')}
           </span>
           <span className="invisible group-hover:visible absolute z-10 bottom-full left-0 mb-2 px-3 py-2 text-xs bg-gray-900 text-white rounded shadow-lg whitespace-nowrap">
             {formatErrorType(currentError.error_type)}
-            {currentError.message && ` - ${currentError.message}`}
+            {currentError.message && ` — ${currentError.message}`}
           </span>
         </span>
       )
@@ -114,41 +115,49 @@ const AnnotatedText: React.FC<{ text: string; errors: SpellCheckError[] }> = ({
     }
 
     if (!error) {
-      // Regular character
       if (chars[i] === '\n') {
         elements.push(<br key={`br-${i}`} />)
       } else {
-        elements.push(
-          <span key={`char-${i}`}>{chars[i]}</span>
-        )
+        elements.push(<span key={`char-${i}`}>{chars[i]}</span>)
       }
     }
   }
 
-  // Handle any remaining error at the end
   if (currentErrorStart >= 0 && currentError) {
     elements.push(
       <span
         key={`error-${currentErrorStart}`}
         className="relative inline-block group"
       >
-        <span className="border-b-2 border-red-500 text-red-700 cursor-pointer">
+        <span className={errorUnderlineClass(currentError.severity)}>
           {chars.slice(currentErrorStart).join('')}
         </span>
         <span className="invisible group-hover:visible absolute z-10 bottom-full left-0 mb-2 px-3 py-2 text-xs bg-gray-900 text-white rounded shadow-lg whitespace-nowrap">
           {formatErrorType(currentError.error_type)}
-          {currentError.message && ` - ${currentError.message}`}
+          {currentError.message && ` — ${currentError.message}`}
         </span>
       </span>
     )
   }
 
   return (
-    <div
-      className="text-2xl leading-loose p-6 bg-white rounded-lg border border-gray-200"
-      style={{ fontFamily: 'Jomolhari, serif' }}
-    >
-      {elements}
+    <div className="space-y-3">
+      <div
+        className="text-2xl leading-loose p-6 bg-white rounded-lg border border-gray-200"
+        style={{ fontFamily: 'Jomolhari, serif' }}
+      >
+        {elements}
+      </div>
+      <div className="flex gap-4 text-xs text-gray-500">
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block w-4 border-b-2 border-red-500" />
+          Structural error
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block w-4 border-b-2 border-yellow-400" />
+          Not found in word corpus
+        </span>
+      </div>
     </div>
   )
 }
@@ -156,10 +165,12 @@ const AnnotatedText: React.FC<{ text: string; errors: SpellCheckError[] }> = ({
 export const ErrorDisplay: React.FC<ErrorDisplayProps> = ({ response }) => {
   const { text, errors } = response
 
-  // Separate spelling errors from info messages
+  // Separate structural errors, unknown-word warnings, and info messages
   const spellingErrors = errors.filter(
     (e) => e.severity !== 'info' && e.position >= 0
   )
+  const structuralErrors = spellingErrors.filter((e) => e.severity !== 'warning')
+  const unknownWordWarnings = spellingErrors.filter((e) => e.severity === 'warning')
   const infoMessages = errors.filter((e) => e.severity === 'info')
 
   // Success state: no spelling errors
@@ -221,11 +232,21 @@ export const ErrorDisplay: React.FC<ErrorDisplayProps> = ({ response }) => {
       <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold text-gray-900">
-            {spellingErrors.length}{' '}
-            {spellingErrors.length === 1
-              ? 'spelling error'
-              : 'spelling errors'}{' '}
-            found
+            {structuralErrors.length > 0 && (
+              <span className="text-red-700">
+                {structuralErrors.length}{' '}
+                {structuralErrors.length === 1 ? 'error' : 'errors'}
+              </span>
+            )}
+            {structuralErrors.length > 0 && unknownWordWarnings.length > 0 && (
+              <span className="text-gray-400 mx-2">/</span>
+            )}
+            {unknownWordWarnings.length > 0 && (
+              <span className="text-yellow-700">
+                {unknownWordWarnings.length}{' '}
+                {unknownWordWarnings.length === 1 ? 'unknown word' : 'unknown words'}
+              </span>
+            )}
           </h3>
           <span className="text-xs text-gray-500">
             Hover over underlined text for details
@@ -262,7 +283,7 @@ export const ErrorDisplay: React.FC<ErrorDisplayProps> = ({ response }) => {
           <Card
             key={`${error.position}-${index}`}
             variant="bordered"
-            className="my-0"
+            className={`my-0 border-l-4 ${error.severity === 'warning' ? 'border-l-yellow-400' : 'border-l-red-400'}`}
           >
             <div className="flex flex-col gap-3">
               <div className="flex items-start justify-between">

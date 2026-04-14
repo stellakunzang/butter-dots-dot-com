@@ -25,6 +25,11 @@ class Settings(BaseSettings):
     # Requires models to be downloaded first: python scripts/download_models.py
     ocr_model_name: str = "Woodblock"
 
+    # Database URL for the spelling reference / word corpus.
+    # When unset, dictionary lookup is silently skipped and only structural
+    # (Phase 1) validation runs.  Set to a postgres:// DSN for full Phase 2 support.
+    database_url: str | None = None
+
     model_config = {
         "env_file": ".env",
         "env_file_encoding": "utf-8",

@@ -10,6 +10,59 @@ and this project uses
 
 ## [Unreleased]
 
+### Added
+
+- Dictionary-based word lookup (Phase 2) — structurally valid syllables are now
+  checked against a corpus of attested Tibetan words and flagged as `unknown_word`
+  if absent, surfaced as yellow warnings distinct from red structural errors
+- `spelling_reference` database table with normalized lookup, source tracking,
+  dialect and Sanskrit flags, and four indexes for fast access
+- `DictionaryService` — loads corpus at startup, extracts every valid syllable
+  from multi-syllable entries, O(1) frozenset lookup; degrades silently when no
+  database is configured
+- Corpus build scripts: `build_corpus.py` with scaffolded extractors for THDL,
+  Rangjung Yeshe, and Monlam; `seed_corpus.py` with ~55 hand-verified words for
+  pipeline testing
+- `corpus_hit` field on Phase 1 structural errors — flags when a flagged syllable
+  is nonetheless attested in the corpus, useful for monitoring potential false
+  positives over time
+- Structured JSON logging on every spell check (`spellcheck_result` tag) with
+  aggregate counts for analysis via `grep | jq`
+- `GET /api/v1/corpus/stats` endpoint
+
+---
+
+## [0.3.0] - 2026-04-01
+
+### Added
+
+- PDF spellcheck pipeline — upload a Tibetan PDF, get back an annotated DOCX with
+  each structurally invalid syllable marked; supports both digital PDFs and
+  scanned documents via OCR fallback
+- Async job support for PDF processing — upload returns a job ID; frontend polls
+  until complete
+- BDRC ONNX OCR engine for scanned PDFs, replacing Tesseract; model files
+  excluded from version control
+- Broken-CMap detection for digital PDFs — automatically falls back to OCR when
+  the PDF's character map is corrupt or missing (ADR-015)
+- OCR/copy-paste parity tests — fixture-based regression tests verifying that the
+  OCR and digital extraction paths produce equivalent spellcheck results
+- PDF spell check UI — upload form, job progress polling, email capture, results
+  display
+- Shared `PageTitle` and `SectionHeading` typography components adopted across
+  static pages
+
+### Changed
+
+- Particle validation tightened: ས, ར, ཞིག, and ཅིག marked as lenient to reduce
+  false positives; ཏུ handling improved; locative suggestions refined
+- PDF annotation and DOCX export refactored to syllable granularity
+- Digital PDF extraction migrated from pdfplumber to fitz for better CMap support
+
+### Removed
+
+- JSON download endpoint removed from PDF spellcheck pipeline
+
 ---
 
 ## [0.2.0] - 2026-03-12

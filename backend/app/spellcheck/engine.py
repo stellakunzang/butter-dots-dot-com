@@ -22,6 +22,7 @@ from .validation import (
     check_particle_context,
 )
 from .rules.exceptions import is_excepted
+from .dictionary import DictionaryService
 
 
 class TibetanSpellChecker:
@@ -30,11 +31,24 @@ class TibetanSpellChecker:
 
     Integrates Unicode normalization, syllable parsing, and validation
     to check Tibetan text for spelling errors.
+
+    Phase 1: structural/grammatical validation (always active)
+    Phase 2: dictionary lookup against the word corpus (active when a database
+             is configured and the spelling_reference table has been populated)
     """
 
-    def __init__(self):
-        """Initialize the spell checker."""
-        pass
+    def __init__(self, dictionary: DictionaryService | None = None):
+        """
+        Initialize the spell checker.
+
+        Args:
+            dictionary: A pre-built DictionaryService instance.  When None
+                        (the default) a new instance is created, which
+                        attempts to connect to the database.  Pass an explicit
+                        instance to share one service across multiple checker
+                        instances (e.g. in tests).
+        """
+        self._dictionary = dictionary if dictionary is not None else DictionaryService()
 
     def check_syllable(self, syllable: str) -> Optional[Dict]:
         """
@@ -91,10 +105,33 @@ class TibetanSpellChecker:
         # 4. Component validation (stacking rules)
         errors = validate_syllable(parsed_model)
         if errors:
-            # Return the first error as a dict for backwards compatibility
             error_dict = errors[0].to_dict()
             error_dict['word'] = syllable
+            # Even though Phase 1 flagged this syllable, check whether it
+            # exists in the corpus.  corpus_hit=True on a structural error
+            # is a signal that the Phase 1 rule may be producing a false
+            # positive on a real word — useful data for future tuning.
+            in_corpus = self._dictionary.is_valid_syllable(syllable)
+            error_dict['corpus_hit'] = None if in_corpus is None else bool(in_corpus)
             return error_dict
+
+        # 5. Dictionary lookup (Phase 2) — only runs when corpus is loaded.
+        # is_valid_syllable returns None when the corpus is unavailable, in
+        # which case we skip rather than flag everything as unknown.
+        in_corpus = self._dictionary.is_valid_syllable(syllable)
+        if in_corpus is False:
+            return {
+                'word': syllable,
+                'error_type': 'unknown_word',
+                'severity': 'warning',
+                'message': (
+                    f"'{syllable}' is structurally valid but not found in the "
+                    "word corpus. It may be a spelling error or a word we don't "
+                    "have yet."
+                ),
+                'component': None,
+                'corpus_hit': False,
+            }
 
         # No errors found
         return None

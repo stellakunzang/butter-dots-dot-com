@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api import health, spellcheck
+from app.api import corpus, health, spellcheck
 from app.config import settings
 
 app = FastAPI(
@@ -21,3 +21,4 @@ app.add_middleware(
 # Include routers
 app.include_router(health.router, prefix="/api/v1", tags=["health"])
 app.include_router(spellcheck.router, prefix="/api/v1", tags=["spellcheck"])
+app.include_router(corpus.router, prefix="/api/v1", tags=["corpus"])

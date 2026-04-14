@@ -36,6 +36,12 @@ jobs:
           pip install --no-build-isolation pyewts==0.2.0
           pip install -r requirements.txt
 
+      - name: Apply database schema
+        env:
+          PGPASSWORD: test_pass
+        run: |
+          psql -h localhost -U test_user -d test_db -f database/schema.sql
+
       - name: Run tests
         working-directory: ./backend
         env:

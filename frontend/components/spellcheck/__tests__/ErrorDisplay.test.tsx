@@ -45,7 +45,7 @@ describe('ErrorDisplay', () => {
   it('displays error count', () => {
     render(<ErrorDisplay response={mockResponse} />)
 
-    expect(screen.getByText(/2 spelling errors found/i)).toBeInTheDocument()
+    expect(screen.getByText(/2 errors/i)).toBeInTheDocument()
   })
 
   it('displays singular error count', () => {
@@ -56,7 +56,7 @@ describe('ErrorDisplay', () => {
     }
     render(<ErrorDisplay response={singleErrorResponse} />)
 
-    expect(screen.getByText(/1 spelling error found/i)).toBeInTheDocument()
+    expect(screen.getByText(/1 error/i)).toBeInTheDocument()
   })
 
   it('renders each error with details', () => {
@@ -178,7 +178,7 @@ describe('ErrorDisplay', () => {
     render(<ErrorDisplay response={withInfoResponse} />)
 
     // Should show info message but not count it as spelling error
-    expect(screen.getByText(/1 spelling error found/i)).toBeInTheDocument()
+    expect(screen.getByText(/1 error/i)).toBeInTheDocument()
     expect(screen.getByText(/skipped/i)).toBeInTheDocument()
   })
 })

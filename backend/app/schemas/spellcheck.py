@@ -31,12 +31,12 @@ class ErrorResponse(BaseModel):
     error_type: str = Field(
         ...,
         description="Type of spelling error detected",
-        examples=["invalid_prefix_combination", "invalid_suffix", "encoding_error"]
+        examples=["invalid_prefix_combination", "invalid_suffix", "encoding_error", "unknown_word"]
     )
     severity: str = Field(
         ...,
         description="Severity level of the error",
-        examples=["critical", "error", "info"]
+        examples=["critical", "error", "warning", "info"]
     )
     message: str | None = Field(
         None,
@@ -46,6 +46,14 @@ class ErrorResponse(BaseModel):
         None,
         description="Which syllable component has the error",
         examples=["prefix", "suffix", "superscript", "subscript"]
+    )
+    corpus_hit: bool | None = Field(
+        None,
+        description=(
+            "Whether this syllable was found in the word corpus. "
+            "True on a structural error means the Phase 1 rule may be a false positive. "
+            "None means the corpus was not loaded."
+        )
     )
 
 
@@ -86,6 +94,7 @@ class PDFErrorResponse(BaseModel):
     severity: str
     message: Optional[str] = None
     component: Optional[str] = None
+    corpus_hit: Optional[bool] = None
 
 
 class PDFUploadSyncResponse(BaseModel):
@@ -117,3 +126,21 @@ class JobStatusResponse(BaseModel):
     error_message: Optional[str] = None
     pdf_url: Optional[str] = None
     docx_url: Optional[str] = None
+
+
+class CorpusStatsResponse(BaseModel):
+    """Statistics about the loaded word corpus."""
+    available: bool = Field(
+        ...,
+        description="True if the word corpus is loaded and dictionary lookup is active"
+    )
+    word_count: int = Field(
+        ...,
+        description="Number of entries in the spelling_reference table",
+        ge=0
+    )
+    syllable_count: int = Field(
+        ...,
+        description="Number of unique syllables extracted from all corpus entries",
+        ge=0
+    )
