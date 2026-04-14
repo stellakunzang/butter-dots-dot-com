@@ -2,7 +2,7 @@
 Pydantic schemas for spell check API requests and responses.
 """
 from typing import List, Optional
-from pydantic import BaseModel, Field, EmailStr
+from pydantic import BaseModel, Field
 
 
 class SpellCheckRequest(BaseModel):
@@ -12,6 +12,7 @@ class SpellCheckRequest(BaseModel):
         ...,
         description="Tibetan text to check for spelling errors",
         min_length=1,
+        max_length=100_000,
         examples=["བོད་ཡིག་གི་སྐད་ཡིག"]
     )
 

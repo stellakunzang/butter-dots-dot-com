@@ -1,6 +1,7 @@
 """
 Spell check API endpoints — text and PDF upload.
 """
+import asyncio
 import json
 import logging
 from pathlib import Path
@@ -23,11 +24,16 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+MAX_UPLOAD_BYTES = 50 * 1024 * 1024  # 50 MB
+SYNC_PAGE_LIMIT = 15
 
 RESULTS_DIR = Path(__file__).parent.parent.parent / "results"
 UPLOADS_DIR = Path(__file__).parent.parent.parent / "uploads"
 RESULTS_DIR.mkdir(exist_ok=True)
 UPLOADS_DIR.mkdir(exist_ok=True)
+
+# Shared checker instance — loads DictionaryService (and DB connection) once at startup.
+_checker = TibetanSpellChecker()
 
 
 # ---------------------------------------------------------------------------
@@ -48,8 +54,7 @@ async def check_text(request: SpellCheckRequest):
     - Syllable structure
     """
     try:
-        checker = TibetanSpellChecker()
-        raw_errors = checker.check_text(request.text)
+        raw_errors = await asyncio.to_thread(_checker.check_text, request.text)
 
         errors = [
             ErrorResponse(
@@ -106,6 +111,8 @@ async def upload_pdf(
     pdf_bytes = await file.read()
     if not pdf_bytes:
         raise HTTPException(status_code=400, detail="Empty file")
+    if len(pdf_bytes) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="File too large. Maximum size is 50 MB.")
 
     # Quick page count check before committing to full processing
     try:
@@ -117,7 +124,9 @@ async def upload_pdf(
     except Exception as e:
         raise HTTPException(status_code=422, detail=f"Could not read PDF: {e}")
 
-    return await _process_sync(pdf_bytes, file.filename, page_count)
+    if page_count <= SYNC_PAGE_LIMIT:
+        return await _process_sync(pdf_bytes, file.filename, page_count)
+    return await _queue_async_job(pdf_bytes, file.filename, page_count, email, background_tasks)
 
 
 async def _process_sync(pdf_bytes: bytes, filename: str, page_count: int):
@@ -130,11 +139,11 @@ async def _process_sync(pdf_bytes: bytes, filename: str, page_count: int):
     job = job_store.create_job(filename, page_count)
 
     try:
-        pages, is_scanned = extract_pdf(pdf_bytes)
-        errors_by_page, all_errors = _run_spellcheck(pages)
+        pages, is_scanned = await asyncio.to_thread(extract_pdf, pdf_bytes)
+        errors_by_page, all_errors = await asyncio.to_thread(_run_spellcheck, pages)
 
-        annotated_pdf = annotate_pdf(pdf_bytes, pages, errors_by_page)
-        docx_bytes = build_docx(pages, errors_by_page, filename)
+        annotated_pdf = await asyncio.to_thread(annotate_pdf, pdf_bytes, pages, errors_by_page)
+        docx_bytes = await asyncio.to_thread(build_docx, pages, errors_by_page, filename)
 
         pdf_path = RESULTS_DIR / f"{job.id}.pdf"
         docx_path = RESULTS_DIR / f"{job.id}.docx"
@@ -165,13 +174,6 @@ async def _process_sync(pdf_bytes: bytes, filename: str, page_count: int):
         raise HTTPException(status_code=500, detail=f"PDF processing failed: {e}")
 
 
-# TODO: Page limit + async flow is temporarily disabled (removed the SYNC_PAGE_LIMIT check
-# in upload_pdf). The infrastructure below (_queue_async_job, _background_process, the
-# email param on the upload endpoint, and the job-status polling endpoints) is all still
-# wired up. Once we have user feedback on whether async delivery is wanted, either:
-#   - Re-add the limit (e.g. SYNC_PAGE_LIMIT = 15) and restore the routing logic, or
-#   - Delete _queue_async_job, _background_process, the email Form param, BackgroundTasks,
-#     and the /spellcheck/job/* endpoints entirely.
 async def _queue_async_job(
     pdf_bytes: bytes,
     filename: str,
@@ -294,7 +296,7 @@ def _run_spellcheck(pages) -> tuple[dict[int, list[str]], list[dict]]:
         errors_by_page: dict mapping page_number → list of error word strings
         all_errors: flat list of error dicts (serialisable for JSON output)
     """
-    checker = TibetanSpellChecker()
+    checker = _checker
     errors_by_page: dict[int, list[str]] = {}
     all_errors: list[dict] = []
 
