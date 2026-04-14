@@ -382,13 +382,3 @@ The initial corpus uses a multi-source approach:
 This approach balances coverage with data quality and allows expansion over time.
 Trade-off: could have a larger corpus with a single source, but at a higher error rate. Quality was prioritized for the MVP.
 
----
-
-## Summary
-
-✅ **Monorepo**: Yes, frontend/ and backend/ directories  
-✅ **Docker**: Recommended for Postgres + easier setup  
-✅ **Corpus**: Multi-source cross-referencing  
-✅ **Next**: Set up structure and start building
-
-**What do you think about using Docker? And should I start researching those word sources?**

@@ -12,19 +12,8 @@ ZERO_WIDTH_CHARS = {'\u200b', '\u200c', '\u200d'}
 
 
 def normalize_tibetan(text: str) -> str:
-    """
-    Normalize Tibetan text to NFC form and remove zero-width characters.
-    
-    Args:
-        text: Tibetan text to normalize
-        
-    Returns:
-        Normalized text in NFC form with zero-width characters removed
-    """
-    # Normalize to NFC (composed) form
+    """Normalize to NFC and strip zero-width characters."""
     text = unicodedata.normalize('NFC', text)
-    
-    # Remove zero-width characters
     text = text.replace('\u200b', '')  # Zero-width space
     text = text.replace('\u200c', '')  # Zero-width non-joiner
     text = text.replace('\u200d', '')  # Zero-width joiner
@@ -150,39 +139,15 @@ def is_punctuation_syllable(syllable: str) -> bool:
 
 
 def is_tibetan_char(char: str) -> bool:
-    """
-    Check if a character is in the Tibetan Unicode range.
-    
-    Tibetan Unicode range: U+0F00 to U+0FFF
-    
-    Args:
-        char: Single character to check
-        
-    Returns:
-        True if character is Tibetan, False otherwise
-    """
-    if not char or len(char) == 0:
+    """Return True if the character is in the Tibetan Unicode block (U+0F00–U+0FFF)."""
+    if not char:
         return False
-    
     code = ord(char[0])
-    
-    # Tibetan Unicode range: 0x0F00 - 0x0FFF
     return 0x0F00 <= code <= 0x0FFF
 
 
 def extract_tibetan(text: str) -> str:
-    """
-    Extract only Tibetan characters from mixed text.
-    
-    Preserves Tibetan letters, vowels, punctuation (tsheg, shad).
-    Removes non-Tibetan characters (Latin, numbers, etc.).
-    
-    Args:
-        text: Mixed script text
-        
-    Returns:
-        Text containing only Tibetan characters
-    """
+    """Filter text to Tibetan characters only (strips Latin, numerals, etc.)."""
     return ''.join(char for char in text if is_tibetan_char(char))
 
 
@@ -206,11 +171,8 @@ def validate_tibetan_text(text: str) -> Dict:
     non_tibetan_count = 0
     
     for char in text:
-        # Skip whitespace - it's normal and expected
         if char.isspace():
             continue
-        
-        # Count non-Tibetan characters
         if not is_tibetan_char(char):
             non_tibetan_count += 1
     

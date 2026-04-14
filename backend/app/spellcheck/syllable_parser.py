@@ -32,9 +32,6 @@ class TibetanSyllableParser:
         Returns dict for backwards compatibility. Use parse_to_model()
         for the TibetanSyllable dataclass.
 
-        Args:
-            syllable: Single Tibetan syllable (no tsheg)
-
         Returns:
             Dictionary with components:
             {
@@ -55,13 +52,8 @@ class TibetanSyllableParser:
         """
         Parse a Tibetan syllable into a TibetanSyllable dataclass.
 
-        This is the preferred method for new code.
-
-        Args:
-            syllable: Single Tibetan syllable (no tsheg)
-
-        Returns:
-            TibetanSyllable with all components identified
+        This is the preferred method for new code. The syllable should
+        not include the tsheg separator.
         """
         if not syllable:
             from .data_types import TibetanSyllable

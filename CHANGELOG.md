@@ -12,6 +12,27 @@ and this project uses
 
 ### Added
 
+- Upload size cap (50 MB) on PDF endpoints; returns HTTP 413 on oversized files
+- `max_length=100_000` on text spellcheck input to prevent event-loop blocking
+- Async page limit restored: PDFs ≤ 15 pages sync, larger PDFs routed to background queue
+
+### Changed
+
+- `TibetanSpellChecker` and `DictionaryService` now shared as module-level singletons — DB corpus loaded once at startup instead of per request
+- CPU-bound PDF processing steps (`extract_pdf`, `annotate_pdf`, `build_docx`, `check_text`) offloaded to thread pool via `asyncio.to_thread` to keep the event loop unblocked
+
+### Removed
+
+- Unused `checkHealth` function and `PDFResultURLs`, `SpellCheckRequest` interfaces from frontend API client
+- Unused `EmailStr` import from spellcheck schemas; `email-validator` dependency dropped
+- Unused `pyctcdecode` and `thin-plate-spline` dependencies
+- Stale archive docs: `REFACTORING_SUMMARY.md`, `MIGRATION_COMPLETE.md`, `SETUP_COMPLETE.md`, `RTF_QUICK_START.md`
+- Stale conversational artifact from `WORD_CORPUS_PLAN.md`
+
+---
+
+### Added
+
 - Dictionary-based word lookup (Phase 2) — structurally valid syllables are now
   checked against a corpus of attested Tibetan words and flagged as `unknown_word`
   if absent, surfaced as yellow warnings distinct from red structural errors
