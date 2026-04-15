@@ -169,56 +169,74 @@ def extract_scanned(pdf_bytes: bytes) -> list[PageContent]:
     return pages
 
 
-# If more than this fraction of non-whitespace characters are Private Use Area
-# codepoints (U+E000–U+F8FF), the PDF has a broken ToUnicode CMap.
-# PUA characters appear when a font's CMap doesn't cover a glyph and the PDF
-# renderer falls back to raw glyph IDs, which land in the PUA for many Tibetan
-# fonts (e.g. Microsoft Himalaya stacked consonants).
-#
-# Deliberately NOT checking for "non-Tibetan" characters: mixed Tibetan/English
-# documents legitimately contain ASCII, and flagging that as broken would send
-# all mixed-script PDFs through OCR unnecessarily.
-BROKEN_CMAP_THRESHOLD = 0.05
+BROKEN_CMAP_PUA_THRESHOLD = 0.05
+BROKEN_CMAP_HIMALAYA_VOWEL_THRESHOLD = 3
+
+# Microsoft Himalaya's CMap maps the vowel sign O (U+0F7C) glyph back to the
+# three-character sequence U+0F90 U+0FB1 U+0F7C (subjoined KA + subjoined YA
+# + vowel O). The two subjoined consonants are artifacts of the font's internal
+# glyph decomposition and don't exist in the original text.
+_HIMALAYA_VOWEL_O_PHANTOM = "\u0F90\u0FB1\u0F7C"
 
 
 def _has_broken_cmap(pages: list[PageContent]) -> bool:
     """
-    Heuristic: scan fitz-extracted text for Private Use Area (PUA) codepoints.
+    Detect broken ToUnicode CMap tables in fitz-extracted Tibetan text.
 
-    When a font's ToUnicode CMap is absent or incomplete (common with MS Himalaya
-    stacked glyphs), fitz returns raw glyph IDs instead of mapped Unicode. For
-    Tibetan fonts these typically land in U+E000–U+F8FF (the PUA).
+    Two heuristics:
 
-    ASCII printable characters are not counted as suspicious because documents
-    can legitimately mix Tibetan and English/Latin script.
+    1. **PUA codepoints** — When a font's CMap is absent or incomplete, fitz
+       returns raw glyph IDs that land in the Private Use Area (U+E000–U+F8FF).
+       If more than 5% of non-whitespace characters are PUA, the CMap is broken.
+
+    2. **Himalaya vowel-O phantom** — Microsoft Himalaya maps the vowel sign ོ
+       (U+0F7C) to the sequence ྐྱོ (U+0F90 + U+0FB1 + U+0F7C). This passes
+       the PUA check (all codepoints are valid Tibetan) but produces garbage
+       syllables. Three or more occurrences of this phantom trigram trigger the
+       fallback.  (The trigram *can* appear legitimately in words like སྐྱོབས,
+       but even a single page of Tibetan text with Himalaya will have dozens.)
     """
     total = 0
     pua = 0
+    full_text = ""
     for page in pages:
+        full_text += page.text
         for ch in page.text:
             if ch.isspace():
                 continue
             total += 1
-            cp = ord(ch)
-            if 0xE000 <= cp <= 0xF8FF:
+            if 0xE000 <= ord(ch) <= 0xF8FF:
                 pua += 1
+
     if total == 0:
         return False
-    ratio = pua / total
+
+    pua_ratio = pua / total
     logger.info(
         "CMap check: %.1f%% PUA chars out of %d total (threshold %.1f%%)",
-        ratio * 100,
+        pua_ratio * 100,
         total,
-        BROKEN_CMAP_THRESHOLD * 100,
+        BROKEN_CMAP_PUA_THRESHOLD * 100,
     )
-    if ratio > BROKEN_CMAP_THRESHOLD:
+    if pua_ratio > BROKEN_CMAP_PUA_THRESHOLD:
         logger.warning(
-            "Broken CMap suspected: %.1f%% PUA codepoints in fitz-extracted text "
-            "(threshold %.1f%%) — falling back to OCR",
-            ratio * 100,
-            BROKEN_CMAP_THRESHOLD * 100,
+            "Broken CMap suspected: %.1f%% PUA codepoints (threshold %.1f%%) "
+            "— falling back to OCR",
+            pua_ratio * 100,
+            BROKEN_CMAP_PUA_THRESHOLD * 100,
         )
         return True
+
+    phantom_count = full_text.count(_HIMALAYA_VOWEL_O_PHANTOM)
+    if phantom_count >= BROKEN_CMAP_HIMALAYA_VOWEL_THRESHOLD:
+        logger.warning(
+            "Broken CMap suspected: Himalaya vowel-O phantom (ྐྱོ) found %d "
+            "times (threshold %d) — falling back to OCR",
+            phantom_count,
+            BROKEN_CMAP_HIMALAYA_VOWEL_THRESHOLD,
+        )
+        return True
+
     return False
 
 
