@@ -87,13 +87,6 @@ export default function SpellCheckPage() {
       }
     } catch (err) {
       const msg = err instanceof APIError ? err.message : 'Upload failed. Please try again.'
-      // If the error mentions email requirement, show the email capture
-      if (err instanceof APIError && err.status === 400 && msg.includes('email')) {
-        const match = msg.match(/(\d+)\s+pages/)
-        const pageCount = match ? parseInt(match[1]) : 0
-        setPdfState({phase: 'needs_email', file, pageCount})
-        return
-      }
       setPdfState({phase: 'error', message: msg})
     }
   }
