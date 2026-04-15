@@ -18,9 +18,9 @@ Comparison criteria
 -------------------
 - Error types that appear in PDF pipeline output but are absent in the copy-paste result
   (excluding "non_tibetan_skipped", which is tolerated) cause a failure.
-- The count of genuine spelling errors is compared within a tolerance of ±2 by
-  default. Increase OCR_ERROR_COUNT_TOLERANCE for texts where OCR drift is
-  expected (e.g. lower-resolution scans).
+- The count of genuine spelling errors is compared within a per-fixture
+  tolerance (default 0). Add an entry to _PER_FIXTURE_TOLERANCE for texts
+  routed through OCR where drift is expected (e.g. Himalaya-font PDFs, scans).
 
 Running
 -------
@@ -39,11 +39,23 @@ import pytest
 
 PARITY_DIR = Path(__file__).parent / "fixtures" / "parity"
 
-# Tolerated absolute difference in genuine error counts between copy-paste and
-# OCR paths. Currently 0 because all fixtures are clean digital PDFs (fitz
-# extraction is deterministic). When adding a scanned fixture, move this to a
-# per-fixture dict rather than raising the global.
+# Default tolerated absolute difference in genuine error counts between the
+# copy-paste and PDF-pipeline paths. Digital PDFs (fitz extraction) are
+# deterministic, so 0 is appropriate. Scanned or OCR-routed PDFs should have
+# a higher tolerance defined in _PER_FIXTURE_TOLERANCE below.
 OCR_ERROR_COUNT_TOLERANCE = 0
+
+# Per-fixture overrides for OCR_ERROR_COUNT_TOLERANCE. Keys are fixture stem
+# names (i.e. the filename without extension). Add an entry here when a fixture
+# uses the OCR path and therefore has inherent extraction drift.
+#
+# How to choose a value: run the parity tests once with a high tolerance to see
+# the actual diff, then set the tolerance to (actual diff + small buffer).
+# "Tashi Gyedpa" is routed through BDRC OCR because it uses the MicrosoftHimalaya
+# font; real OCR output from a multi-stanza prayer can differ by ~5 syllables.
+_PER_FIXTURE_TOLERANCE: dict[str, int] = {
+    "Tashi Gyedpa": 10,
+}
 
 # Module-level cache so PDF extraction runs exactly once per PDF per test session.
 _pdf_cache: dict[Path, list] = {}
@@ -168,8 +180,10 @@ class TestPDFPipelineFixtures:
     def test_genuine_error_count_within_tolerance(self, txt_path, pdf_path, spellchecker):
         """
         The number of genuine (non-noise) spellcheck errors should be within
-        OCR_ERROR_COUNT_TOLERANCE of the copy-paste count.
+        the fixture's tolerance of the copy-paste count.
         """
+        tolerance = _PER_FIXTURE_TOLERANCE.get(txt_path.stem, OCR_ERROR_COUNT_TOLERANCE)
+
         ground_truth = txt_path.read_text(encoding="utf-8").strip()
         copy_errors = spellchecker.check_text(ground_truth)
         copy_count = _genuine_error_count(copy_errors)
@@ -180,12 +194,11 @@ class TestPDFPipelineFixtures:
         pdf_count = _genuine_error_count(pdf_errors)
 
         diff = abs(pdf_count - copy_count)
-        assert diff <= OCR_ERROR_COUNT_TOLERANCE, (
+        assert diff <= tolerance, (
             f"[{txt_path.stem}] Genuine error count differs by {diff} "
-            f"(copy-paste: {copy_count}, PDF: {pdf_count}).\n"
+            f"(copy-paste: {copy_count}, PDF: {pdf_count}, tolerance: {tolerance}).\n"
             "For a digital PDF this should be zero — check for a fitz extraction "
-            "regression. For a scanned fixture, introduce a per-fixture tolerance "
-            "dict rather than raising OCR_ERROR_COUNT_TOLERANCE globally."
+            "regression. For an OCR-routed fixture, update _PER_FIXTURE_TOLERANCE."
         )
 
     @pytest.mark.parametrize("txt_path,pdf_path", _FIXTURE_CASES)
@@ -268,7 +281,9 @@ class TestParityAPIEndpoints:
 
     @pytest.mark.parametrize("txt_path,pdf_path", _FIXTURE_CASES)
     def test_api_error_count_parity(self, txt_path, pdf_path, client):
-        """Error counts via the API should be within OCR_ERROR_COUNT_TOLERANCE."""
+        """Error counts via the API should be within the fixture's tolerance."""
+        tolerance = _PER_FIXTURE_TOLERANCE.get(txt_path.stem, OCR_ERROR_COUNT_TOLERANCE)
+
         ground_truth = txt_path.read_text(encoding="utf-8").strip()
 
         text_resp = client.post("/api/v1/spellcheck/text", json={"text": ground_truth})
@@ -288,10 +303,9 @@ class TestParityAPIEndpoints:
         ocr_count = _genuine_error_count(upload_resp.json()["errors"])
 
         diff = abs(ocr_count - copy_count)
-        assert diff <= OCR_ERROR_COUNT_TOLERANCE, (
+        assert diff <= tolerance, (
             f"[{txt_path.stem}] API: error count differs by {diff} "
-            f"(copy-paste: {copy_count}, PDF: {ocr_count}).\n"
+            f"(copy-paste: {copy_count}, PDF: {ocr_count}, tolerance: {tolerance}).\n"
             "For a digital PDF this should be zero — check for a fitz extraction "
-            "regression. For a scanned fixture, introduce a per-fixture tolerance "
-            "dict rather than raising OCR_ERROR_COUNT_TOLERANCE globally."
+            "regression. For an OCR-routed fixture, update _PER_FIXTURE_TOLERANCE."
         )
