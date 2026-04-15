@@ -8,6 +8,26 @@ and this project uses
 
 ---
 
+## [0.6.0] - 2026-04-15
+
+### Fixed
+
+- Docker Compose startup failure caused by `confidence_score` index referencing a non-existent column in `schema.sql` and `001_add_spelling_reference.sql`
+
+### Added
+
+- `TabButton`, `PDFDownloadLink`, and `ResetLink` extracted as shared components
+- `Button` component gains `disabled` and `type` props
+
+### Changed
+
+- `TextInput` Clear and Submit buttons now use the shared `Button` component
+- `spellcheck.tsx` `useEffect`-to-reset-state anti-pattern replaced with `checkedText`/`isStale` derived flag
+- `PDFUpload` internal `selectedFile` state removed; parent-owned state passed as prop
+- `ResultLink` (spellcheck.tsx) and `DownloadButton` (JobStatus.tsx) consolidated into shared `PDFDownloadLink`
+
+---
+
 ## [0.5.0] - 2026-04-15
 
 ### Added
@@ -32,43 +52,6 @@ and this project uses
 ---
 
 ## [0.4.0] - 2026-04-14
-
-### Fixed
-
-- Docker Compose startup failure caused by `confidence_score` index referencing a non-existent column in `schema.sql` and `001_add_spelling_reference.sql`
-
-### Added
-
-- Upload size cap (50 MB) on PDF endpoints; returns HTTP 413 on oversized files
-- `max_length=100_000` on text spellcheck input to prevent event-loop blocking
-- Async page limit restored: PDFs ≤ 15 pages sync, larger PDFs routed to background queue
-
-### Added (frontend component cleanup)
-
-- `TabButton`, `PDFDownloadLink`, and `ResetLink` extracted as shared components
-- `Button` component gains `disabled` and `type` props
-
-### Changed (frontend component cleanup)
-
-- `TextInput` Clear and Submit buttons now use the shared `Button` component
-- `spellcheck.tsx` `useEffect`-to-reset-state anti-pattern replaced with `checkedText`/`isStale` derived flag
-- `PDFUpload` internal `selectedFile` state removed; parent-owned state passed as prop
-- `ResultLink` (spellcheck.tsx) and `DownloadButton` (JobStatus.tsx) consolidated into shared `PDFDownloadLink`
-
-### Changed
-
-- `TibetanSpellChecker` and `DictionaryService` now shared as module-level singletons — DB corpus loaded once at startup instead of per request
-- CPU-bound PDF processing steps (`extract_pdf`, `annotate_pdf`, `build_docx`, `check_text`) offloaded to thread pool via `asyncio.to_thread` to keep the event loop unblocked
-
-### Removed
-
-- Unused `checkHealth` function and `PDFResultURLs`, `SpellCheckRequest` interfaces from frontend API client
-- Unused `EmailStr` import from spellcheck schemas; `email-validator` dependency dropped
-- Unused `pyctcdecode` and `thin-plate-spline` dependencies
-- Stale archive docs: `REFACTORING_SUMMARY.md`, `MIGRATION_COMPLETE.md`, `SETUP_COMPLETE.md`, `RTF_QUICK_START.md`
-- Stale conversational artifact from `WORD_CORPUS_PLAN.md`
-
----
 
 ### Added
 
