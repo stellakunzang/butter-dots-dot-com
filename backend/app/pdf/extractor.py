@@ -169,56 +169,117 @@ def extract_scanned(pdf_bytes: bytes) -> list[PageContent]:
     return pages
 
 
-# If more than this fraction of non-whitespace characters are Private Use Area
-# codepoints (U+E000–U+F8FF), the PDF has a broken ToUnicode CMap.
-# PUA characters appear when a font's CMap doesn't cover a glyph and the PDF
-# renderer falls back to raw glyph IDs, which land in the PUA for many Tibetan
-# fonts (e.g. Microsoft Himalaya stacked consonants).
-#
-# Deliberately NOT checking for "non-Tibetan" characters: mixed Tibetan/English
-# documents legitimately contain ASCII, and flagging that as broken would send
-# all mixed-script PDFs through OCR unnecessarily.
-BROKEN_CMAP_THRESHOLD = 0.05
+BROKEN_CMAP_PUA_THRESHOLD = 0.05
+BROKEN_CMAP_HIMALAYA_VOWEL_THRESHOLD = 3
+
+# Microsoft Himalaya's CMap maps the vowel sign O (U+0F7C) glyph back to a
+# phantom subjoined consonant sequence that varies by Word/OS version:
+#   - Newer versions: U+0F90 U+0FB1 U+0F7C (subjoined KA + subjoined YA + vowel O)
+#   - Older versions: U+0FA9 U+0F7C (subjoined TSA + vowel O)
+# Font-name detection (see _uses_himalaya_font) is the primary check; these
+# phantom patterns are kept as a backstop for cases where the font name is
+# embedded differently or stripped by the PDF producer.
+_HIMALAYA_VOWEL_O_PHANTOMS = [
+    "\u0F90\u0FB1\u0F7C",  # subjoined KA + subjoined YA + vowel O
+    "\u0FA9\u0F7C",         # subjoined TSA + vowel O
+]
+
+# Convenience export used by tests.
+_HIMALAYA_VOWEL_O_PHANTOM = _HIMALAYA_VOWEL_O_PHANTOMS[0]
+
+# Font names that are known to produce broken CMap output with fitz.
+_BROKEN_CMAP_FONTS = {"MicrosoftHimalaya"}
+
+
+def _uses_broken_cmap_font(pdf_bytes: bytes) -> bool:
+    """
+    Return True if the PDF embeds any font known to produce broken CMap output.
+
+    Microsoft Himalaya is the primary offender: different Word/OS versions map
+    the Tibetan vowel sign ོ to different phantom subjoined-consonant sequences,
+    all of which produce cascading false-positive spelling errors. Detecting the
+    font name before extraction is more reliable than pattern-matching the
+    extracted text, because the phantom sequence varies between versions.
+    """
+    import fitz
+
+    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    try:
+        for page in doc:
+            for block in page.get_text("rawdict").get("blocks", []):
+                for line in block.get("lines", []):
+                    for span in line.get("spans", []):
+                        if span.get("font", "") in _BROKEN_CMAP_FONTS:
+                            logger.warning(
+                                "Broken CMap font detected: %r — falling back to OCR",
+                                span["font"],
+                            )
+                            return True
+    finally:
+        doc.close()
+    return False
 
 
 def _has_broken_cmap(pages: list[PageContent]) -> bool:
     """
-    Heuristic: scan fitz-extracted text for Private Use Area (PUA) codepoints.
+    Detect broken ToUnicode CMap tables in fitz-extracted Tibetan text.
 
-    When a font's ToUnicode CMap is absent or incomplete (common with MS Himalaya
-    stacked glyphs), fitz returns raw glyph IDs instead of mapped Unicode. For
-    Tibetan fonts these typically land in U+E000–U+F8FF (the PUA).
+    Used as a backstop after font-name detection (_uses_broken_cmap_font) for
+    fonts whose name may be stripped or embedded differently by the PDF producer.
 
-    ASCII printable characters are not counted as suspicious because documents
-    can legitimately mix Tibetan and English/Latin script.
+    Two text-level heuristics:
+
+    1. **PUA codepoints** — When a font's CMap is absent or incomplete, fitz
+       returns raw glyph IDs that land in the Private Use Area (U+E000–U+F8FF).
+       If more than 5% of non-whitespace characters are PUA, the CMap is broken.
+
+    2. **Himalaya vowel-O phantoms** — Microsoft Himalaya maps the vowel sign ོ
+       (U+0F7C) to a phantom subjoined-consonant sequence before it. Three or
+       more occurrences of any known phantom pattern trigger the fallback.
     """
     total = 0
     pua = 0
+    full_text = ""
     for page in pages:
+        full_text += page.text
         for ch in page.text:
             if ch.isspace():
                 continue
             total += 1
-            cp = ord(ch)
-            if 0xE000 <= cp <= 0xF8FF:
+            if 0xE000 <= ord(ch) <= 0xF8FF:
                 pua += 1
+
     if total == 0:
         return False
-    ratio = pua / total
+
+    pua_ratio = pua / total
     logger.info(
         "CMap check: %.1f%% PUA chars out of %d total (threshold %.1f%%)",
-        ratio * 100,
+        pua_ratio * 100,
         total,
-        BROKEN_CMAP_THRESHOLD * 100,
+        BROKEN_CMAP_PUA_THRESHOLD * 100,
     )
-    if ratio > BROKEN_CMAP_THRESHOLD:
+    if pua_ratio > BROKEN_CMAP_PUA_THRESHOLD:
         logger.warning(
-            "Broken CMap suspected: %.1f%% PUA codepoints in fitz-extracted text "
-            "(threshold %.1f%%) — falling back to OCR",
-            ratio * 100,
-            BROKEN_CMAP_THRESHOLD * 100,
+            "Broken CMap suspected: %.1f%% PUA codepoints (threshold %.1f%%) "
+            "— falling back to OCR",
+            pua_ratio * 100,
+            BROKEN_CMAP_PUA_THRESHOLD * 100,
         )
         return True
+
+    for phantom in _HIMALAYA_VOWEL_O_PHANTOMS:
+        count = full_text.count(phantom)
+        if count >= BROKEN_CMAP_HIMALAYA_VOWEL_THRESHOLD:
+            logger.warning(
+                "Broken CMap suspected: Himalaya vowel-O phantom %r found %d "
+                "times (threshold %d) — falling back to OCR",
+                phantom,
+                count,
+                BROKEN_CMAP_HIMALAYA_VOWEL_THRESHOLD,
+            )
+            return True
+
     return False
 
 
@@ -226,9 +287,11 @@ def extract_pdf(pdf_bytes: bytes) -> tuple[list[PageContent], bool]:
     """
     Main entry point. Detects PDF type and routes accordingly.
 
-    For digital PDFs, also checks for broken font CMap encoding (common with
-    Microsoft Himalaya and similar Tibetan fonts generated from Word). If
-    detected, falls back to the OCR path for accurate text extraction.
+    For digital PDFs, checks for broken font CMap encoding in two passes:
+      1. Font-name check — known offenders (e.g. MicrosoftHimalaya) are routed
+         to OCR immediately, before any text is extracted.
+      2. Text-level check — PUA codepoints and known phantom sequences catch
+         corrupt fonts whose names are stripped or embedded differently.
 
     Returns:
         (pages, is_scanned) tuple
@@ -240,10 +303,15 @@ def extract_pdf(pdf_bytes: bytes) -> tuple[list[PageContent], bool]:
         return extract_scanned(pdf_bytes), True
 
     logger.info("PDF detected as digital — using fitz text extraction")
+
+    if _uses_broken_cmap_font(pdf_bytes):
+        logger.info("Broken CMap font detected — routing digital PDF through BDRC OCR")
+        return extract_scanned(pdf_bytes), True
+
     pages = extract_digital(pdf_bytes)
 
     if _has_broken_cmap(pages):
-        logger.info("Broken CMap detected — re-routing digital PDF through BDRC OCR")
+        logger.info("Broken CMap detected in extracted text — re-routing through BDRC OCR")
         return extract_scanned(pdf_bytes), True
 
     return pages, False
