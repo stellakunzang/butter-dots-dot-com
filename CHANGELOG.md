@@ -8,7 +8,7 @@ and this project uses
 
 ---
 
-## [Unreleased]
+## [0.5.0] - 2026-04-15
 
 ### Added
 
@@ -30,6 +30,8 @@ and this project uses
 - Stale conversational artifact from `WORD_CORPUS_PLAN.md`
 
 ---
+
+## [0.4.0] - 2026-04-14
 
 ### Added
 
