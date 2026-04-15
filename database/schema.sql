@@ -55,4 +55,3 @@ CREATE TABLE spelling_reference (
 CREATE INDEX idx_spelling_ref_word ON spelling_reference(word);
 CREATE INDEX idx_spelling_ref_word_normalized ON spelling_reference(word_normalized);
 CREATE INDEX idx_spelling_ref_dialect ON spelling_reference(dialect);
-CREATE INDEX idx_spelling_ref_confidence ON spelling_reference(confidence_score DESC);

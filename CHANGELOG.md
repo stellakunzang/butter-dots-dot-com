@@ -10,11 +10,27 @@ and this project uses
 
 ## [Unreleased]
 
+### Fixed
+
+- Docker Compose startup failure caused by `confidence_score` index referencing a non-existent column in `schema.sql` and `001_add_spelling_reference.sql`
+
 ### Added
 
 - Upload size cap (50 MB) on PDF endpoints; returns HTTP 413 on oversized files
 - `max_length=100_000` on text spellcheck input to prevent event-loop blocking
 - Async page limit restored: PDFs ≤ 15 pages sync, larger PDFs routed to background queue
+
+### Added (frontend component cleanup)
+
+- `TabButton`, `PDFDownloadLink`, and `ResetLink` extracted as shared components
+- `Button` component gains `disabled` and `type` props
+
+### Changed (frontend component cleanup)
+
+- `TextInput` Clear and Submit buttons now use the shared `Button` component
+- `spellcheck.tsx` `useEffect`-to-reset-state anti-pattern replaced with `checkedText`/`isStale` derived flag
+- `PDFUpload` internal `selectedFile` state removed; parent-owned state passed as prop
+- `ResultLink` (spellcheck.tsx) and `DownloadButton` (JobStatus.tsx) consolidated into shared `PDFDownloadLink`
 
 ### Changed
 
