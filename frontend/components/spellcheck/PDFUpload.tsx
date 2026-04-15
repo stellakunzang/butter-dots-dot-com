@@ -4,11 +4,11 @@ interface PDFUploadProps {
   onFileSelect: (file: File) => void
   loading: boolean
   disabled?: boolean
+  selectedFile?: File | null
 }
 
-export function PDFUpload({onFileSelect, loading, disabled}: PDFUploadProps) {
+export function PDFUpload({onFileSelect, loading, disabled, selectedFile = null}: PDFUploadProps) {
   const [dragOver, setDragOver] = useState(false)
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const handleFile = useCallback(
@@ -16,7 +16,6 @@ export function PDFUpload({onFileSelect, loading, disabled}: PDFUploadProps) {
       if (!file.name.toLowerCase().endsWith('.pdf')) {
         return
       }
-      setSelectedFile(file)
       onFileSelect(file)
     },
     [onFileSelect]

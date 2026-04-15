@@ -7,6 +7,8 @@ interface ButtonProps {
   onClick?: () => void
   variant?: 'primary' | 'secondary' | 'outline'
   size?: 'small' | 'medium' | 'large'
+  disabled?: boolean
+  type?: 'button' | 'submit' | 'reset'
   download?: boolean | string
   target?: string
   rel?: string
@@ -19,13 +21,15 @@ export const Button: React.FC<ButtonProps> = ({
   onClick,
   variant = 'primary',
   size = 'medium',
+  disabled = false,
+  type = 'button',
   download,
   target,
   rel,
   className = '',
 }) => {
   // Base classes
-  const baseClasses = 'inline-flex items-center justify-center gap-2 border-none rounded-lg font-semibold cursor-pointer transition-all'
+  const baseClasses = 'inline-flex items-center justify-center gap-2 border-none rounded-lg font-semibold cursor-pointer transition-all disabled:opacity-50 disabled:cursor-not-allowed'
   
   // Variant classes
   const variantClasses = {
@@ -66,7 +70,7 @@ export const Button: React.FC<ButtonProps> = ({
   }
 
   return (
-    <button onClick={onClick} className={classes}>
+    <button onClick={onClick} className={classes} disabled={disabled} type={type}>
       {children}
     </button>
   )

@@ -1,6 +1,6 @@
-import React, {useState, useEffect} from 'react'
-import {Layout, PageTitle} from '@/components'
-import {TextInput, ErrorDisplay, PDFUpload, EmailCapture, JobStatus} from '@/components/spellcheck'
+import React, {useState} from 'react'
+import {Layout, PageTitle, TabButton} from '@/components'
+import {TextInput, ErrorDisplay, PDFUpload, EmailCapture, JobStatus, PDFDownloadLink, ResetLink} from '@/components/spellcheck'
 import {
   checkText,
   uploadPDF,
@@ -29,17 +29,15 @@ export default function SpellCheckPage() {
 
   // --- Text tab state ---
   const [text, setText] = useState('')
+  const [checkedText, setCheckedText] = useState('')
   const [textLoading, setTextLoading] = useState(false)
   const [textResult, setTextResult] = useState<SpellCheckResponse | null>(null)
   const [textError, setTextError] = useState<string | null>(null)
 
+  const isStale = text !== checkedText
+
   // --- PDF tab state ---
   const [pdfState, setPdfState] = useState<PDFState>({phase: 'idle'})
-
-  useEffect(() => {
-    setTextResult(null)
-    setTextError(null)
-  }, [text])
 
   // ---- Text tab handlers ----
 
@@ -48,6 +46,7 @@ export default function SpellCheckPage() {
     setTextError(null)
     try {
       const response = await checkText(text)
+      setCheckedText(text)
       setTextResult(response)
     } catch (err) {
       setTextError(err instanceof APIError ? err.message : 'An unexpected error occurred.')
@@ -59,6 +58,7 @@ export default function SpellCheckPage() {
 
   const handleTextClear = () => {
     setText('')
+    setCheckedText('')
     setTextResult(null)
     setTextError(null)
   }
@@ -164,7 +164,7 @@ export default function SpellCheckPage() {
               </div>
               <div>
                 <h2 className="text-xl font-semibold text-gray-900 mb-4">Results</h2>
-                {textResult ? (
+                {!isStale && textResult ? (
                   <ErrorDisplay response={textResult} />
                 ) : (
                   <EmptyResults label="Enter text and click &quot;Check Spelling&quot; to see results" />
@@ -190,9 +190,11 @@ export default function SpellCheckPage() {
                   onFileSelect={handleFileSelect}
                   loading={false}
                   disabled={false}
+                  selectedFile={pdfState.phase === 'file_selected' ? pdfState.file : null}
                 />
                 {pdfState.phase === 'file_selected' && (
                   <button
+                    type="button"
                     onClick={() => handlePDFSubmit(pdfState.file)}
                     className="w-full rounded-md bg-amber-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-amber-600 transition-colors"
                   >
@@ -201,7 +203,7 @@ export default function SpellCheckPage() {
                 )}
               </div>
             ) : pdfState.phase === 'loading' ? (
-              <PDFUpload onFileSelect={() => {}} loading={true} disabled={true} />
+              <PDFUpload onFileSelect={() => {}} loading={true} disabled={true} selectedFile={pdfState.file} />
             ) : pdfState.phase === 'needs_email' ? (
               <EmailCapture
                 pageCount={pdfState.pageCount}
@@ -226,12 +228,7 @@ export default function SpellCheckPage() {
             ) : pdfState.phase === 'error' ? (
               <div className="space-y-4">
                 <InlineError message={pdfState.message} />
-                <button
-                  onClick={handlePDFReset}
-                  className="text-sm text-amber-600 underline"
-                >
-                  Try again
-                </button>
+                <ResetLink onClick={handlePDFReset}>Try again</ResetLink>
               </div>
             ) : null}
           </div>
@@ -244,30 +241,6 @@ export default function SpellCheckPage() {
 // ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
-
-function TabButton({
-  active,
-  onClick,
-  label,
-}: {
-  active: boolean
-  onClick: () => void
-  label: string
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={[
-        'px-5 py-2.5 text-sm font-medium border-b-2 transition-colors',
-        active
-          ? 'border-amber-500 text-amber-700'
-          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300',
-      ].join(' ')}
-    >
-      {label}
-    </button>
-  )
-}
 
 function InlineError({message}: {message: string}) {
   return (
@@ -342,47 +315,14 @@ function PDFSyncResults({
         <div>
           <p className="text-sm font-medium text-gray-700 mb-2">Download results</p>
           <div className="flex flex-wrap gap-2">
-            <ResultLink href={urls.pdf} label="Annotated PDF" colorClass="bg-green-100 text-green-700 hover:bg-green-200" />
-            <ResultLink href={urls.docx} label="Editable Word doc" colorClass="bg-blue-100 text-blue-700 hover:bg-blue-200" />
+            <PDFDownloadLink href={urls.pdf} label="Annotated PDF" colorClass="bg-green-100 text-green-700 hover:bg-green-200" />
+            <PDFDownloadLink href={urls.docx} label="Editable Word doc" colorClass="bg-blue-100 text-blue-700 hover:bg-blue-200" />
           </div>
         </div>
       )}
 
-      <button onClick={onReset} className="text-sm text-amber-600 underline">
-        Upload another PDF
-      </button>
+      <ResetLink onClick={onReset}>Upload another PDF</ResetLink>
     </div>
-  )
-}
-
-function ResultLink({
-  href,
-  label,
-  colorClass,
-}: {
-  href: string
-  label: string
-  colorClass: string
-}) {
-  return (
-    <a
-      href={href}
-      download
-      className={[
-        'inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
-        colorClass,
-      ].join(' ')}
-    >
-      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-        />
-      </svg>
-      {label}
-    </a>
   )
 }
 
@@ -410,13 +350,11 @@ function PDFAsyncDone({
       </div>
       {hasErrors && (
         <div className="flex flex-wrap gap-2">
-          <ResultLink href={urls.pdf} label="Annotated PDF" colorClass="bg-green-100 text-green-700 hover:bg-green-200" />
-          <ResultLink href={urls.docx} label="Editable Word doc" colorClass="bg-blue-100 text-blue-700 hover:bg-blue-200" />
+          <PDFDownloadLink href={urls.pdf} label="Annotated PDF" colorClass="bg-green-100 text-green-700 hover:bg-green-200" />
+          <PDFDownloadLink href={urls.docx} label="Editable Word doc" colorClass="bg-blue-100 text-blue-700 hover:bg-blue-200" />
         </div>
       )}
-      <button onClick={onReset} className="text-sm text-amber-600 underline">
-        Upload another PDF
-      </button>
+      <ResetLink onClick={onReset}>Upload another PDF</ResetLink>
     </div>
   )
 }
