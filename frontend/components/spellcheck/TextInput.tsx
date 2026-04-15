@@ -1,4 +1,5 @@
 import React from 'react'
+import {Button} from '@/components'
 
 interface TextInputProps {
   value: string
@@ -51,19 +52,15 @@ export const TextInput: React.FC<TextInputProps> = ({
 
       <div className="flex gap-3 justify-end">
         {value.length > 0 && (
-          <button
-            type="button"
-            onClick={handleClear}
-            disabled={loading}
-            className="inline-flex items-center justify-center gap-2 border-none rounded-lg font-semibold cursor-pointer transition-all bg-transparent text-gray-700 border-2 border-gray-300 hover:bg-gray-900 hover:text-white hover:border-gray-900 px-6 py-3 text-base disabled:opacity-50 disabled:cursor-not-allowed"
-          >
+          <Button type="button" variant="outline" onClick={handleClear} disabled={loading}>
             Clear
-          </button>
+          </Button>
         )}
-        <button
+        <Button
           type="submit"
+          variant="primary"
           disabled={loading || value.trim().length === 0}
-          className="inline-flex items-center justify-center gap-2 border-none rounded-lg font-semibold cursor-pointer transition-all bg-gray-900 text-white shadow-md hover:shadow-xl hover:bg-gray-800 hover:-translate-y-0.5 px-6 py-3 text-base min-w-[140px] disabled:opacity-50 disabled:cursor-not-allowed"
+          className="min-w-[140px]"
         >
           {loading ? (
             <span className="flex items-center gap-2">
@@ -92,7 +89,7 @@ export const TextInput: React.FC<TextInputProps> = ({
           ) : (
             'Check Spelling'
           )}
-        </button>
+        </Button>
       </div>
     </form>
   )

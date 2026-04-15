@@ -8,6 +8,26 @@ and this project uses
 
 ---
 
+## [0.6.0] - 2026-04-15
+
+### Fixed
+
+- Docker Compose startup failure caused by `confidence_score` index referencing a non-existent column in `schema.sql` and `001_add_spelling_reference.sql`
+
+### Added
+
+- `TabButton`, `PDFDownloadLink`, and `ResetLink` extracted as shared components
+- `Button` component gains `disabled` and `type` props
+
+### Changed
+
+- `TextInput` Clear and Submit buttons now use the shared `Button` component
+- `spellcheck.tsx` `useEffect`-to-reset-state anti-pattern replaced with `checkedText`/`isStale` derived flag
+- `PDFUpload` internal `selectedFile` state removed; parent-owned state passed as prop
+- `ResultLink` (spellcheck.tsx) and `DownloadButton` (JobStatus.tsx) consolidated into shared `PDFDownloadLink`
+
+---
+
 ## [0.5.0] - 2026-04-15
 
 ### Added

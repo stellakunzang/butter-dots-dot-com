@@ -1,5 +1,6 @@
 import React, {useEffect, useState} from 'react'
 import {getJobStatus, getResultURLs, JobStatusResponse} from '@/lib/api'
+import {PDFDownloadLink} from './PDFDownloadLink'
 
 interface JobStatusProps {
   jobId: string
@@ -138,54 +139,10 @@ function PDFResultLinks({
           : `${errorCount} spelling error${errorCount === 1 ? '' : 's'} found.`}
       </p>
       <div className="flex flex-wrap gap-2">
-        <DownloadButton href={urls.pdf} label="Annotated PDF" icon="pdf" />
-        <DownloadButton
-          href={urls.docx}
-          label="Editable Word doc"
-          icon="docx"
-        />
+        <PDFDownloadLink href={urls.pdf} label="Annotated PDF" colorClass="bg-green-100 text-green-700 hover:bg-green-200" />
+        <PDFDownloadLink href={urls.docx} label="Editable Word doc" colorClass="bg-blue-100 text-blue-700 hover:bg-blue-200" />
       </div>
     </div>
   )
 }
 
-function DownloadButton({
-  href,
-  label,
-  icon,
-}: {
-  href: string
-  label: string
-  icon: 'pdf' | 'docx'
-}) {
-  const colors = {
-    pdf: 'bg-red-100 text-red-700 hover:bg-red-200',
-    docx: 'bg-blue-100 text-blue-700 hover:bg-blue-200',
-  }
-
-  return (
-    <a
-      href={href}
-      download
-      className={[
-        'inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
-        colors[icon],
-      ].join(' ')}
-    >
-      <svg
-        className="w-3.5 h-3.5"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-        />
-      </svg>
-      {label}
-    </a>
-  )
-}
