@@ -1,7 +1,11 @@
 # Project Structure - Monorepo Setup
 
-**Structure**: Monorepo with separate frontend/backend directories  
-**Development**: Docker Compose (Postgres + Python + Next.js)  
+> **Note (2026-04-14):** The directory tree below is from the initial planning
+> phase and does not reflect the current codebase. The Docker and deployment
+> sections are accurate. Update the tree before sharing with new contributors.
+
+**Structure**: Monorepo with separate frontend/backend directories
+**Development**: Docker Compose (Postgres + Python + Next.js)
 **Deployment**: Separate (Frontend: Vercel, Backend: Railway/Heroku)
 
 ---

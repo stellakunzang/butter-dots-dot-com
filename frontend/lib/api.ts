@@ -20,9 +20,6 @@ export interface SpellCheckResponse {
   errors: SpellCheckError[]
 }
 
-export interface SpellCheckRequest {
-  text: string
-}
 
 export class APIError extends Error {
   constructor(
@@ -52,7 +49,7 @@ export async function checkText(text: string): Promise<SpellCheckResponse> {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ text } as SpellCheckRequest),
+      body: JSON.stringify({ text }),
     })
 
     if (!response.ok) {
@@ -86,21 +83,6 @@ export async function checkText(text: string): Promise<SpellCheckResponse> {
   }
 }
 
-/**
- * Check if the API is reachable
- * @returns true if API is healthy
- */
-export async function checkHealth(): Promise<boolean> {
-  try {
-    const response = await fetch(`${API_URL}/health`, {
-      method: 'GET',
-    })
-    return response.ok
-  } catch {
-    return false
-  }
-}
-
 // ---------------------------------------------------------------------------
 // PDF upload types and functions
 // ---------------------------------------------------------------------------
@@ -113,11 +95,6 @@ export interface PDFSpellError {
   message?: string
   component?: string
   corpus_hit?: boolean | null
-}
-
-export interface PDFResultURLs {
-  pdf: string
-  docx: string
 }
 
 export interface PDFUploadSyncResponse {
@@ -218,10 +195,7 @@ export async function getJobStatus(jobId: string): Promise<JobStatusResponse> {
   return response.json()
 }
 
-/**
- * Get the absolute download URLs for a completed job.
- */
-export function getResultURLs(jobId: string): PDFResultURLs {
+export function getResultURLs(jobId: string) {
   return {
     pdf: `${API_URL}/api/v1/spellcheck/result/${jobId}/pdf`,
     docx: `${API_URL}/api/v1/spellcheck/result/${jobId}/docx`,
