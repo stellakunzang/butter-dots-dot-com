@@ -371,8 +371,8 @@ const SpellingRules: NextPage = () => {
             {
               particle: 'རུ',
               suffixes: 'འ  or no suffix',
-              example: 'རྒྱལ་ཁབ་རུ་',
-              exampleGloss: 'in the kingdom',
+              example: 'བཀའ་རུ་',
+              exampleGloss: 'into the command; according to the decree',
             },
             {
               particle: 'ར',

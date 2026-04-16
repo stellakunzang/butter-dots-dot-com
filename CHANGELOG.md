@@ -8,6 +8,15 @@ and this project uses
 
 ---
 
+## [0.6.1] - 2026-04-16
+
+### Fixed
+
+- Tibetan syllable parser falsely flagged **འོ** (achung + o-vowel) on valid forms such as **བྱའོ**, **པོའོ**, and **མཐོའོ**. The **འི** path is now generalized: shared `ACHUNG_SUFFIX_VOWELS` (ི, ོ), one detect/parse pipeline, and completeness rules aligned so two vowel marks are allowed when the second sits on suffix **འ**.
+- Spelling rules page: **རུ་** locative example updated from **རྒྱལ་ཁབ་རུ་** to **བཀའ་རུ་**. A **བ** suffix takes **ཏུ་** (e.g. **རྒྱལ་ཁབ་ཏུ་** “to/in the kingdom”), not **རུ་**, which only follows **འ** or no suffix—consistent with the particle rules in the spellchecker.
+
+---
+
 ## [0.6.0] - 2026-04-15
 
 ### Fixed
