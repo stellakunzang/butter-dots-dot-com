@@ -638,6 +638,46 @@ class TestAchungISuffixValidation:
             "ཡིགའི should be invalid -- འི cannot follow suffix ག"
 
 
+
+
+class TestAchungOSuffixValidation:
+    """
+    འོ (achung + o-vowel) as suffix — same grammatical constraints as འི:
+    only after no suffix or suffix འ.
+    """
+
+    def test_bya_o_valid(self):
+        from app.spellcheck.engine import TibetanSpellChecker
+
+        engine = TibetanSpellChecker()
+        assert engine.check_syllable("བྱའོ") is None
+
+    def test_po_o_valid_two_vowels(self):
+        from app.spellcheck.engine import TibetanSpellChecker
+
+        engine = TibetanSpellChecker()
+        assert engine.check_syllable("པོའོ") is None
+
+    def test_mtho_o_valid_two_vowels(self):
+        from app.spellcheck.engine import TibetanSpellChecker
+
+        engine = TibetanSpellChecker()
+        assert engine.check_syllable("མཐོའོ") is None
+
+    def test_bod_o_invalid_suffix_da(self):
+        from app.spellcheck.engine import TibetanSpellChecker
+
+        engine = TibetanSpellChecker()
+        assert engine.check_syllable("བོདའོ") is not None
+
+    def test_achung_o_in_running_text(self):
+        from app.spellcheck.engine import TibetanSpellChecker
+
+        engine = TibetanSpellChecker()
+        errors = engine.check_text("བྱའོ། པོའོ།་")
+        bad = [e.get("word", "") for e in errors if e.get("severity") != "info"]
+        assert "བྱའོ" not in bad
+        assert "པོའོ" not in bad
 class TestPositionMappingWithZeroWidth:
     """
     Regression tests: error positions must be relative to the *original*

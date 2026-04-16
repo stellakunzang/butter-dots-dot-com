@@ -13,6 +13,7 @@ KEY PRINCIPLE: Stacking rules are used DURING parsing, not after.
 The valid combination sets are the deciding factor for structural decisions.
 """
 from typing import List, Optional
+from ..achung_suffix import ACHUNG_SUFFIX_VOWELS
 from ..data_types import TypedChar, CharType, TibetanSyllable
 from ..rules.stacking import (
     VALID_PREFIXES,
@@ -38,16 +39,18 @@ def parse_syllable(typed_chars: List[TypedChar]) -> TibetanSyllable:
     if not typed_chars:
         return TibetanSyllable(raw=raw)
 
-    # Step 0: Check for འི relational suffix pattern BEFORE normal parsing.
+    # Step 0: Check for འ + suffix vowel (འི, འོ, …) BEFORE normal parsing.
     #
-    # འི (achung + i-vowel) can be added to syllables with no suffix or
-    # suffix འ. Without this early detection, the ི vowel causes the
-    # parser to misidentify འ as the root (since "root = last consonant
-    # before first vowel"). Detecting this first lets us parse the body
-    # correctly and attach འི as a suffix.
-    achung_i_idx = _detect_achung_i_suffix(typed_chars)
-    if achung_i_idx is not None:
-        return _parse_with_achung_i_suffix(typed_chars, achung_i_idx, raw)
+    # Without this early detection, the vowel on འ causes འ to be
+    # misidentified as the root (since "root = last consonant before first
+    # vowel"). Detecting this first lets us parse the body correctly and
+    # attach suffix འ + suffix_vowel.
+    achung_suffix = _detect_achung_suffix_vowel(typed_chars)
+    if achung_suffix is not None:
+        achung_idx, suffix_vowel_char = achung_suffix
+        return _parse_with_achung_suffix_vowel(
+            typed_chars, achung_idx, raw, suffix_vowel_char,
+        )
 
     # Step 1: Find superscript (first structural decision, informed by stacking rules)
     super_idx, root_idx = _find_superscript(typed_chars)
@@ -342,61 +345,67 @@ def _parse_no_vowel(
 
 
 # ============================================================================
-# Step 3d: Parse with འི relational suffix
+# Step 3d: Parse with འ + suffix vowel (འི, འོ, …)
 # ============================================================================
 
-def _detect_achung_i_suffix(chars: List[TypedChar]) -> Optional[int]:
+def _detect_achung_suffix_vowel(
+    chars: List[TypedChar],
+) -> Optional[tuple[int, str]]:
     """
-    Check if the syllable ends with འི (achung + i-vowel) relational suffix.
+    Check if the syllable ends with འ + an allowed suffix vowel (e.g. འི, འོ).
 
-    This pattern must be detected BEFORE normal vowel-based parsing,
-    because ི would otherwise cause འ to be misidentified as the root.
+    This pattern must be detected BEFORE normal vowel-based parsing, otherwise
+    the vowel on འ causes འ to be misidentified as the root.
 
     Conditions:
-    - At least 3 characters (need consonant(s) + འ + ི)
-    - Last character is ི (VOWEL, U+0F72)
+    - At least 3 characters (consonant(s) + འ + vowel)
+    - Last character is a VOWEL in ACHUNG_SUFFIX_VOWELS
     - Second-to-last is འ (BASE, U+0F60)
 
     Returns:
-        Index of འ if pattern detected, None otherwise.
+        (index of འ, suffix vowel character) if detected, else None.
     """
     n = len(chars)
     if n < 3:
         return None
 
-    if (chars[n - 1].type == CharType.VOWEL and
-            chars[n - 1].char == '\u0F72' and
-            chars[n - 2].type == CharType.BASE and
-            chars[n - 2].base_form == '\u0F60'):
-        return n - 2
+    last = chars[n - 1]
+    achung = chars[n - 2]
+    if (
+        last.type == CharType.VOWEL
+        and last.char in ACHUNG_SUFFIX_VOWELS
+        and achung.type == CharType.BASE
+        and achung.base_form == "འ"
+    ):
+        return (n - 2, last.char)
 
     return None
 
 
-def _parse_with_achung_i_suffix(
+def _parse_with_achung_suffix_vowel(
     typed_chars: List[TypedChar],
     achung_idx: int,
     raw: str,
+    suffix_vowel: str,
 ) -> TibetanSyllable:
     """
-    Parse a syllable ending with འི relational suffix.
+    Parse a syllable ending with འ + suffix vowel (relational འི, particle འོ, …).
 
     Strategy:
-    1. Split off the འ + ི ending
+    1. Split off the འ + vowel ending
     2. Parse the body (everything before འ) to find prefix/superscript/root/subscripts/vowel
     3. If the body already has its own suffix (e.g., སྐད has suffix ད),
-       the འི is NOT a valid relational -- fall back to normal parsing
-    4. Otherwise, attach suffix=འ, suffix_vowel=ི
+       the trailing འ + vowel is NOT valid -- fall back to normal parsing
+    4. Otherwise, attach suffix=འ, suffix_vowel=suffix_vowel
 
-    The body should have NO suffix of its own -- the suffix is the འ from འི.
-    If the body does have a suffix, the word already had a non-achung suffix
-    and འི was appended incorrectly.
+    If the body has a suffix, the word already had a non-achung suffix and
+    འ + vowel was appended incorrectly.
     """
     body = typed_chars[:achung_idx]
 
     result = TibetanSyllable(raw=raw)
-    result.suffix = '\u0F60'   # འ
-    result.suffix_vowel = '\u0F72'  # ི
+    result.suffix = "འ"  # འ
+    result.suffix_vowel = suffix_vowel
 
     if not body:
         return result
@@ -410,8 +419,8 @@ def _parse_with_achung_i_suffix(
         temp = _parse_with_superscript(body, super_idx, root_idx, vowel_idx, raw)
 
         # If the body already has a suffix (e.g., སྐད → suffix=ད),
-        # the འི at the end is invalid. Fall back to normal parsing
-        # so the extra འི ends up as unparsed characters.
+        # the འ + vowel at the end is invalid. Fall back to normal parsing
+        # so the extra syllable material ends up as unparsed characters.
         if temp.suffix is not None:
             return _parse_normal(typed_chars, raw)
 
@@ -423,7 +432,7 @@ def _parse_with_achung_i_suffix(
         result.unparsed = temp.unparsed
 
     elif vowel_idx is not None:
-        # Body has a vowel (e.g., མཐོ in མཐོའི): reuse vowel logic
+        # Body has a vowel (e.g., མཐོ in མཐོའི / མཐོའོ): reuse vowel logic
         temp = _parse_with_vowel(body, vowel_idx, raw)
 
         # Same check: if body already has a suffix, fall back
@@ -450,10 +459,10 @@ def _parse_normal(
     raw: str,
 ) -> TibetanSyllable:
     """
-    Run the normal parsing pipeline (without འི detection).
+    Run the normal parsing pipeline (without achung+suffix-vowel detection).
 
-    Used as fallback when འི detection was triggered but the body
-    already has its own suffix, meaning འི is not a valid relational.
+    Used as fallback when that detection was triggered but the body
+    already has its own suffix, meaning འ + vowel is not a valid ending.
     """
     super_idx, root_idx = _find_superscript(typed_chars)
     vowel_idx = _find_first_vowel(typed_chars)
@@ -471,10 +480,10 @@ def _parse_body_consonants(
     result: TibetanSyllable,
 ) -> None:
     """
-    Parse consonant-only body when suffix is known to be outside (འི pattern).
+    Parse consonant-only body when suffix is known to be outside (འ + suffix vowel).
 
     Unlike _parse_no_vowel, this does NOT assign any body consonant as suffix,
-    because the suffix is the འ from the འི ending.
+    because the suffix is the འ from the འི / འོ ending.
 
     Handles:
     - Single consonant: root

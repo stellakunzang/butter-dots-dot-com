@@ -6,6 +6,8 @@ This is a bridge function that works with the old dict-based parsed format.
 """
 from typing import Dict, Optional
 
+from ..achung_suffix import ACHUNG_SUFFIX_VOWELS
+
 
 def check_syllable_structure_completeness(syllable: str, parsed: Dict[str, any]) -> Optional[Dict[str, any]]:
     """
@@ -41,20 +43,19 @@ def check_syllable_structure_completeness(syllable: str, parsed: Dict[str, any])
 
     # ERROR 1: Multiple separated vowels
     if len(vowels) > 1:
-        # Exception: འི relational suffix
-        # When a syllable ends with འ + ི, the ི is a valid suffix vowel.
-        # This creates exactly 2 vowel marks (root vowel + suffix ི) which
-        # is legitimate and should not be flagged.
-        is_achung_i_suffix = False
+        # Exception: འ + suffix vowel (འི, འོ, …)
+        # When a syllable ends with འ + an allowed suffix vowel, two vowel
+        # marks (root + suffix) are legitimate.
+        is_achung_suffix_second_vowel = False
         if len(vowels) == 2:
             last_vowel_pos, last_vowel_char = vowels[-1]
-            if (last_vowel_char == '\u0F72' and  # ི
-                    last_vowel_pos > 0 and
-                    last_vowel_pos - 1 < len(syllable) and
-                    ord(syllable[last_vowel_pos - 1]) == 0x0F60):  # འ
-                is_achung_i_suffix = True
+            if (last_vowel_char in ACHUNG_SUFFIX_VOWELS
+                    and last_vowel_pos > 0
+                    and last_vowel_pos - 1 < len(syllable)
+                    and ord(syllable[last_vowel_pos - 1]) == 0x0F60):  # འ
+                is_achung_suffix_second_vowel = True
 
-        if not is_achung_i_suffix:
+        if not is_achung_suffix_second_vowel:
             vowel_positions = [pos for pos, _ in vowels]
             has_separated = any(
                 vowel_positions[i + 1] - vowel_positions[i] > 1
