@@ -1,6 +1,7 @@
 import React from 'react'
 import Head from 'next/head'
 import Link from 'next/link'
+import { FeedbackButton } from './FeedbackButton'
 
 interface LayoutProps {
   children: React.ReactNode
@@ -82,6 +83,8 @@ export const Layout: React.FC<LayoutProps> = ({
           </p>
         </div>
       </footer>
+
+      <FeedbackButton />
     </div>
   )
 }
