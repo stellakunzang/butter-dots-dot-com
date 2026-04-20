@@ -12,7 +12,10 @@ import cv2
 import scipy
 import numpy as np
 import numpy.typing as npt
-from tps import ThinPlateSpline
+try:
+    from tps import ThinPlateSpline
+except ImportError:
+    ThinPlateSpline = None  # type: ignore[assignment,misc]
 from typing import List
 
 from BDRC.Data import Line

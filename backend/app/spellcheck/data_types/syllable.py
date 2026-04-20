@@ -24,7 +24,7 @@ class TibetanSyllable:
         subscripts: Subscript letters below root (ྱ ྲ ླ ྭ)
         vowel: The vowel mark, or None for inherent 'a'
         suffix: Optional suffix letter
-        suffix_vowel: Optional vowel on the suffix (ི on འ for relational འི)
+        suffix_vowel: Optional vowel on suffix འ (ི for འི, ོ for འོ, …)
         post_suffix: Optional post-suffix letter (ད or ས)
         unparsed: Characters the parser could not assign to a component
     """

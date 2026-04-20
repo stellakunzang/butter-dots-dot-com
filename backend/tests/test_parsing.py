@@ -701,3 +701,52 @@ class TestAchungISuffixParsing:
 
         assert len(model.unparsed) == 0, \
             f"མཐོའི: all characters should be parsed, but unparsed={[tc.char for tc in model.unparsed]}"
+
+
+# ============================================================================
+# འོ (Achung + O-Vowel) Suffix Parsing — same mechanism as འི
+# ============================================================================
+
+class TestAchungOSuffixParsing:
+    """Parse འོ (achung + o-vowel) as suffix; root must not be འ."""
+
+    def test_bya_o_root_is_ba_not_achung(self):
+        """བྱའོ — root བ + subscript, suffix འ + ོ"""
+        parser = TibetanSyllableParser()
+        parsed = parser.parse("བྱའོ")
+
+        assert get_root_base_form(parsed) == "བ"
+        assert parsed["suffix"] == "འ"
+        assert parsed["suffix_vowel"] == "ོ"
+
+    def test_po_o_two_vowel_marks(self):
+        """པོའོ — root vowel ོ + suffix འ + ོ (two vowel marks)."""
+        parser = TibetanSyllableParser()
+        parsed = parser.parse("པོའོ")
+
+        assert get_root_base_form(parsed) == "པ"
+        assert "ོ" in parsed.get("vowels", [])
+        assert parsed["suffix"] == "འ"
+        assert parsed["suffix_vowel"] == "ོ"
+
+    def test_mtho_o_symmetric_with_mtho_i(self):
+        """མཐོའོ — same structure as མཐོའི but suffix vowel ོ."""
+        parser = TibetanSyllableParser()
+        parsed = parser.parse("མཐོའོ")
+
+        assert_components(
+            parsed,
+            prefix="མ",
+            root="ཐ",
+            vowel="ོ",
+            suffix="འ",
+        )
+        assert parsed["suffix_vowel"] == "ོ"
+
+    def test_achung_o_suffix_fully_parsed(self):
+        parser = TibetanSyllableParser()
+        for word in ("བྱའོ", "པོའོ", "མཐོའོ"):
+            model = parser.parse_to_model(word)
+            assert len(model.unparsed) == 0, (
+                f"{word}: unparsed={[tc.char for tc in model.unparsed]}"
+            )
