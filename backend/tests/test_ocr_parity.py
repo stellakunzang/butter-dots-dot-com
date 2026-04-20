@@ -65,6 +65,7 @@ _OCR_REQUIRED_FIXTURES = {"Tashi Gyedpa"}
 def _ocr_available() -> bool:
     try:
         import pyctcdecode  # noqa: F401
+        import tps  # noqa: F401
 
         return True
     except ImportError:
