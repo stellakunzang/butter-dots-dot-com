@@ -1,7 +1,7 @@
 """
 DictionaryService — Phase 2 word corpus lookup.
 
-Loads all entries from the spelling_reference table at construction time,
+Loads all entries from the word table at construction time,
 extracts every individual syllable from every word (splitting on tsheg), and
 builds an in-memory frozenset for O(1) per-syllable validity checks.
 
@@ -49,7 +49,7 @@ def _syllables_from_word(word: str) -> list[str]:
 
 class DictionaryService:
     """
-    In-memory syllable inventory built from the spelling_reference table.
+    In-memory syllable inventory built from the word table.
 
     Attributes:
         available: True if a database was reachable and at least one word
@@ -67,7 +67,7 @@ class DictionaryService:
         self._load()
 
     def _load(self) -> None:
-        """Query spelling_reference and build the syllable inventory."""
+        """Query word and build the syllable inventory."""
         try:
             from app.database import db_available, get_session
         except ImportError:
@@ -85,7 +85,7 @@ class DictionaryService:
 
             with get_session() as session:
                 rows = session.execute(
-                    text("SELECT word_normalized FROM spelling_reference")
+                    text("SELECT word_normalized FROM word")
                 ).fetchall()
 
             syllable_set: set[str] = set()
@@ -106,7 +106,7 @@ class DictionaryService:
 
         except Exception:
             logger.exception(
-                "Failed to load spelling_reference; dictionary lookup disabled"
+                "Failed to load word corpus; dictionary lookup disabled"
             )
 
     def is_valid_syllable(self, syllable: str) -> Optional[bool]:

@@ -1,5 +1,5 @@
 """
-Seed the spelling_reference table with a small hand-verified word list.
+Seed the word table with a small hand-verified word list and word_source row(s).
 
 This is NOT a replacement for the full corpus build (see build_corpus.py).
 Its purpose is to:
@@ -14,11 +14,11 @@ Usage:
     python scripts/seed_corpus.py --replace # truncate first (full reset)
 
 Words here are drawn from common Tibetan Buddhist texts and verified against
-multiple reference dictionaries.  Each entry notes which sources confirm it.
+multiple reference dictionaries.  Provenance is stored as source "seed_corpus".
 """
-import json
 import logging
 import sys
+import unicodedata
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -90,7 +90,6 @@ SEED_WORDS = [
     "མཐོང",
 ]
 
-import unicodedata
 
 def normalize(text: str) -> str:
     return unicodedata.normalize("NFC", text.strip())
@@ -104,38 +103,63 @@ def seed(replace: bool = False) -> int:
         logger.error("No database connection. Set DATABASE_URL and try again.")
         return 0
 
-    inserted = 0
+    seed_key = "seed_corpus"
+    written = 0
     with get_session() as session:
         if replace:
-            session.execute(text("TRUNCATE spelling_reference"))
-            logger.info("Truncated spelling_reference")
+            session.execute(text("TRUNCATE word RESTART IDENTITY CASCADE"))
+            logger.info("Truncated word (CASCADE to word_source, definition)")
+
+        session.execute(
+            text("""
+                INSERT INTO source (source_key, display_name) VALUES (:k, :k)
+                ON CONFLICT (source_key) DO NOTHING
+            """),
+            {"k": seed_key},
+        )
+        sid = session.execute(
+            text("SELECT id FROM source WHERE source_key = :k"), {"k": seed_key}
+        ).scalar_one()
 
         for raw_word in SEED_WORDS:
             word = normalize(raw_word)
             session.execute(
                 text("""
-                    INSERT INTO spelling_reference
-                        (word, word_normalized, source_count, sources, first_seen_in)
+                    INSERT INTO word
+                        (word, word_normalized, first_seen_in)
                     VALUES
-                        (:word, :word_normalized, 1, '["seed_corpus"]'::jsonb, 'seed_corpus')
+                        (:word, :word_normalized, :first_seen)
                     ON CONFLICT (word) DO NOTHING
                 """),
-                {"word": word, "word_normalized": word},
+                {"word": word, "word_normalized": word, "first_seen": seed_key},
             )
-            inserted += 1
+            wid = session.execute(
+                text("SELECT id FROM word WHERE word = :w"), {"w": word}
+            ).scalar_one()
+            session.execute(
+                text("""
+                    INSERT INTO word_source (word_id, source_id)
+                    VALUES (:wid, :sid)
+                    ON CONFLICT (word_id, source_id) DO NOTHING
+                """),
+                {"wid": wid, "sid": sid},
+            )
+            written += 1
 
-    logger.info("Seeded %d words into spelling_reference", inserted)
-    return inserted
+    logger.info("Seeded %d headwords in word + word_source", written)
+    return written
 
 
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description="Seed spelling_reference with a small verified word list")
+    parser = argparse.ArgumentParser(
+        description="Seed word + word_source with a small verified word list"
+    )
     parser.add_argument(
         "--replace",
         action="store_true",
-        help="Truncate spelling_reference before seeding",
+        help="Truncate word (and dependent rows) before seeding",
     )
     args = parser.parse_args()
     seed(replace=args.replace)

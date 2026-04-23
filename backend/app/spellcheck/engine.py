@@ -34,7 +34,7 @@ class TibetanSpellChecker:
 
     Phase 1: structural/grammatical validation (always active)
     Phase 2: dictionary lookup against the word corpus (active when a database
-             is configured and the spelling_reference table has been populated)
+             is configured and the word table has been populated)
     """
 
     def __init__(self, dictionary: DictionaryService | None = None):

@@ -33,25 +33,61 @@ CREATE INDEX idx_jobs_status ON jobs(status);
 CREATE INDEX idx_jobs_created_at ON jobs(created_at DESC);
 CREATE INDEX idx_spell_errors_job_id ON spell_errors(job_id);
 
--- Spelling reference: validated Tibetan word corpus (Phase 2)
--- Words are stored at the dictionary-entry level (may be multi-syllable).
--- At runtime the DictionaryService extracts individual syllables from all
--- entries and builds an in-memory frozenset for O(1) per-syllable lookup.
--- Future Phase 3+ tables (word_definitions, word_relationships, word_etymology)
--- will reference this table via spelling_reference.id as a foreign key.
-CREATE TABLE spelling_reference (
+-- Lexicon: word corpus (Phase 2 spelling) and provenance (WORD_CORPUS_PLAN.md)
+-- The word list used for per-syllable spellcheck: DictionaryService loads
+-- word.word_normalized for all rows. Provenance is word_source + source;
+-- full gloss text lives in definition (ingest pipeline, later PRs).
+CREATE TABLE source (
     id SERIAL PRIMARY KEY,
-    word TEXT UNIQUE NOT NULL,           -- original form from source
-    word_normalized TEXT NOT NULL,       -- NFC-normalized form, used for dedup
-    source_count INTEGER NOT NULL DEFAULT 1,
-    sources JSONB NOT NULL DEFAULT '[]', -- e.g. ["thdl", "rangjung_yeshe"]
-    first_seen_in VARCHAR(50),           -- which source contributed it first
-    times_seen INTEGER NOT NULL DEFAULT 0, -- incremented when found in checked docs
-    dialect VARCHAR(20),                 -- 'amdo', 'u_tsang', NULL = pan-dialectal
-    is_sanskrit BOOLEAN NOT NULL DEFAULT FALSE,
+    source_key TEXT UNIQUE NOT NULL,
+    display_name TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE INDEX idx_spelling_ref_word ON spelling_reference(word);
-CREATE INDEX idx_spelling_ref_word_normalized ON spelling_reference(word_normalized);
-CREATE INDEX idx_spelling_ref_dialect ON spelling_reference(dialect);
+CREATE TABLE word (
+    id SERIAL PRIMARY KEY,
+    word TEXT UNIQUE NOT NULL,
+    word_normalized TEXT NOT NULL,
+    first_seen_in VARCHAR(50),
+    times_seen INTEGER NOT NULL DEFAULT 0,
+    dialect VARCHAR(20),
+    is_sanskrit BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    CONSTRAINT uq_word_normalized UNIQUE (word_normalized)
+);
+
+CREATE TABLE word_source (
+    id SERIAL PRIMARY KEY,
+    word_id INTEGER NOT NULL REFERENCES word(id) ON DELETE CASCADE,
+    source_id INTEGER NOT NULL REFERENCES source(id) ON DELETE CASCADE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    CONSTRAINT uq_word_source_word_source UNIQUE (word_id, source_id)
+);
+
+CREATE TABLE definition (
+    id SERIAL PRIMARY KEY,
+    word_id INTEGER NOT NULL REFERENCES word(id) ON DELETE CASCADE,
+    source_id INTEGER NOT NULL REFERENCES source(id) ON DELETE CASCADE,
+    body TEXT NOT NULL,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Raw import lines for replay/QA (optional for early ingest tooling)
+CREATE TABLE lexicon_staging_line (
+    id BIGSERIAL PRIMARY KEY,
+    import_batch_id UUID NOT NULL,
+    file_ref TEXT,
+    line_number INTEGER,
+    raw_line TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX idx_word_display ON word (word);
+CREATE INDEX idx_word_dialect ON word (dialect);
+CREATE INDEX idx_word_source_word_id ON word_source (word_id);
+CREATE INDEX idx_word_source_source_id ON word_source (source_id);
+CREATE INDEX idx_definition_word_id ON definition (word_id);
+CREATE INDEX idx_definition_source_id ON definition (source_id);
+CREATE INDEX idx_definition_word_source ON definition (word_id, source_id);
+CREATE INDEX idx_lexicon_staging_batch ON lexicon_staging_line (import_batch_id);
