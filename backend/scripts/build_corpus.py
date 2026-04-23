@@ -3,7 +3,7 @@ Tibetan word corpus builder.
 
 Extracts Tibetan words from multiple dictionary sources, cross-references them
 (keeping only words that appear in 2+ sources for quality assurance), and loads
-the result into the spelling_reference table.
+the result into the word and word_source tables.
 
 See docs/planning/WORD_CORPUS_PLAN.md for the sourcing strategy.
 
@@ -31,7 +31,6 @@ Sources status:
                       Status: permission required before use
 """
 import argparse
-import json
 import logging
 import sys
 import unicodedata
@@ -153,7 +152,7 @@ def cross_reference(
         threshold: Minimum number of sources a word must appear in to be kept.
 
     Returns:
-        List of dicts ready for insertion into spelling_reference.
+        List of dicts for load_to_database (word row + per-source word_source).
     """
     word_data: dict[str, dict] = {}
 
@@ -177,7 +176,6 @@ def cross_reference(
         {
             "word": word,
             "word_normalized": word,
-            "source_count": data["source_count"],
             "sources": data["sources"],
             "first_seen_in": data["sources"][0],
         }
@@ -200,14 +198,15 @@ def cross_reference(
 
 def load_to_database(words: list[dict], replace: bool = False) -> int:
     """
-    Insert validated words into spelling_reference.
+    Insert validated headwords into word and word_source (and ensure source rows).
 
     Args:
-        words: List of word dicts from cross_reference().
-        replace: If True, truncate the table before inserting.
+        words: List of word dicts from cross_reference() with keys word,
+               word_normalized, sources, first_seen_in.
+        replace: If True, truncate word (and related rows) before inserting.
 
     Returns:
-        Number of rows inserted.
+        Number of headword rows written.
     """
     # Import here so the script can be imported without a live DB for --dry-run
     import sys
@@ -220,30 +219,59 @@ def load_to_database(words: list[dict], replace: bool = False) -> int:
         logger.error("No database connection. Set DATABASE_URL and try again.")
         return 0
 
-    inserted = 0
+    if not words:
+        return 0
+
+    all_keys = {k for w in words for k in w["sources"]}
+    written = 0
     with get_session() as session:
         if replace:
-            session.execute(text("TRUNCATE spelling_reference"))
-            logger.info("Truncated spelling_reference")
+            session.execute(text("TRUNCATE word RESTART IDENTITY CASCADE"))
+            logger.info("Truncated word (CASCADE to word_source, definition)")
+
+        for key in sorted(all_keys):
+            session.execute(
+                text("""
+                    INSERT INTO source (source_key, display_name) VALUES (:k, :k)
+                    ON CONFLICT (source_key) DO NOTHING
+                """),
+                {"k": key},
+            )
 
         for w in words:
             session.execute(
                 text("""
-                    INSERT INTO spelling_reference
-                        (word, word_normalized, source_count, sources, first_seen_in)
+                    INSERT INTO word
+                        (word, word_normalized, first_seen_in)
                     VALUES
-                        (:word, :word_normalized, :source_count, :sources::jsonb,
-                         :first_seen_in)
-                    ON CONFLICT (word) DO UPDATE SET
-                        source_count = EXCLUDED.source_count,
-                        sources      = EXCLUDED.sources
+                        (:word, :word_normalized, :first_seen_in)
+                    ON CONFLICT (word) DO NOTHING
                 """),
-                {**w, "sources": json.dumps(w["sources"])},
+                {
+                    "word": w["word"],
+                    "word_normalized": w["word_normalized"],
+                    "first_seen_in": w["first_seen_in"],
+                },
             )
-            inserted += 1
+            wid = session.execute(
+                text("SELECT id FROM word WHERE word = :w"), {"w": w["word"]}
+            ).scalar_one()
+            for skey in w["sources"]:
+                sid = session.execute(
+                    text("SELECT id FROM source WHERE source_key = :k"), {"k": skey}
+                ).scalar_one()
+                session.execute(
+                    text("""
+                        INSERT INTO word_source (word_id, source_id)
+                        VALUES (:wid, :sid)
+                        ON CONFLICT (word_id, source_id) DO NOTHING
+                    """),
+                    {"wid": wid, "sid": sid},
+                )
+            written += 1
 
-    logger.info("Inserted/updated %d words in spelling_reference", inserted)
-    return inserted
+    logger.info("Wrote %d headwords to word + word_source", written)
+    return written
 
 
 # ---------------------------------------------------------------------------
@@ -280,7 +308,7 @@ def main() -> None:
     parser.add_argument(
         "--replace",
         action="store_true",
-        help="Truncate spelling_reference before inserting (full rebuild)",
+        help="Truncate word (and word_source) before inserting (full rebuild)",
     )
     args = parser.parse_args()
 
@@ -303,7 +331,7 @@ def main() -> None:
     validated = cross_reference(collected, threshold=args.threshold)
 
     if args.dry_run:
-        logger.info("Dry run — %d words would be written to spelling_reference", len(validated))
+        logger.info("Dry run — %d words would be written to word + word_source", len(validated))
         return
 
     load_to_database(validated, replace=args.replace)

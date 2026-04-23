@@ -18,8 +18,8 @@ async def corpus_stats():
     Return statistics about the loaded word corpus.
 
     - **available**: whether dictionary lookup is active (requires DATABASE_URL
-      and a populated spelling_reference table)
-    - **word_count**: number of entries in spelling_reference
+      and a populated word table)
+    - **word_count**: number of entries in word
     - **syllable_count**: unique syllables extracted from all entries
     """
     return CorpusStatsResponse(**_dictionary.stats())

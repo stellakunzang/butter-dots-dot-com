@@ -137,7 +137,7 @@ class CorpusStatsResponse(BaseModel):
     )
     word_count: int = Field(
         ...,
-        description="Number of entries in the spelling_reference table",
+        description="Number of headword entries in the word table",
         ge=0
     )
     syllable_count: int = Field(
