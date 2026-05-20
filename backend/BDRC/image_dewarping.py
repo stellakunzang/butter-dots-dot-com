@@ -41,11 +41,11 @@ def run_tps(image: npt.NDArray, input_pts, output_pts, add_corners=True, alpha=0
         image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
         height, width, _ = image.shape
 
-    input_pts = npt.NDArray(input_pts)
-    output_pts = npt.NDArray(output_pts)
+    input_pts = np.array(input_pts)
+    output_pts = np.array(output_pts)
 
     if add_corners:
-        corners = npt.NDArray(  # Add corners ctrl points
+        corners = np.array(  # Add corners ctrl points
         [
             [0.0, 0.0],
             [1.0, 0.0],
@@ -53,7 +53,6 @@ def run_tps(image: npt.NDArray, input_pts, output_pts, add_corners=True, alpha=0
             [1.0, 1.0],
         ])
 
-        corners *= [height, width]
         corners *= [height, width]
 
         input_pts = np.concatenate((input_pts, corners))
@@ -171,6 +170,18 @@ def check_line_tps(image: npt.NDArray, contour: npt.NDArray, slice_width: int = 
     mean_center_y = np.mean(all_centers)
 
     if max_ydelta > mean_bbox_h:
+        # Check whether the y-centers are nearly collinear (pure tilt, not curvature).
+        # Collinear control points make the TPS kernel singular → divide by zero.
+        # Pure tilt is better corrected by rotation, not TPS.
+        xs = np.array([slice1_center_x, slice2_center_x, slice3_center_x,
+                       slice4_center_x, slice5_center_x], dtype=float)
+        ys = np.array([slice1_center_y, slice2_center_y, slice3_center_y,
+                       slice4_center_y, slice5_center_y], dtype=float)
+        if np.ptp(xs) > 0:  # avoid division by zero in polyfit
+            residuals = ys - np.polyval(np.polyfit(xs, ys, 1), xs)
+            if np.max(np.abs(residuals)) < 3.0:  # near-linear: skip TPS
+                return False, None, None, 0.0
+
         target_y = round(mean_center_y)
 
         input_pts = [
