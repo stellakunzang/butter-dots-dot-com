@@ -212,9 +212,9 @@ Each ticket below is sized to be a single PR. Dependencies are noted. The order 
 **Out of scope:** Integration into the quality scorer (that's T-03). Wiring into the existing spellcheck API response (that's T-02b).
 
 **Acceptance criteria:**
-- [ ] Module exists with the function signature above
-- [ ] Tests cover at least: pure Tibetan word (score < 0.1), classic mantra syllable (score > 0.7), ambiguous case (score in middle band)
-- [ ] No regression in existing spellcheck tests
+- [x] Module exists with the function signature above
+- [x] Tests cover at least: pure Tibetan word (score < 0.1), classic mantra syllable (score > 0.7), ambiguous case (score in middle band)
+- [x] No regression in existing spellcheck tests
 
 **Dependencies:** none
 
