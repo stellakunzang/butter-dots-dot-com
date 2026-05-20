@@ -23,7 +23,7 @@ You (the assistant) then:
 
 - **`main`** — production. Nothing in this plan merges here until the user explicitly says so. Do not target PRs at `main`.
 - **`feat/interactive-ocr`** — long-lived integration branch off `main`. All ticket PRs target this. Sits open as long as needed.
-- **`feat/interactive-ocr/T-NN-slug`** — one branch per ticket.
+- **`feat/interactive-ocr-T-NN-slug`** — one branch per ticket. (Hyphen, not slash: a `feat/interactive-ocr` branch ref blocks any sibling under `feat/interactive-ocr/...` because git treats slashes as filesystem paths.)
   - **Default:** branch off `feat/interactive-ocr`.
   - **Stacked case:** if the ticket depends on another whose PR is still open, branch off that dependency's branch instead. When the dependency merges into `feat/interactive-ocr`, rebase this branch onto `feat/interactive-ocr` and force-push (note: force-push to the ticket branch only — never `main` or `feat/interactive-ocr`).
 
@@ -31,10 +31,10 @@ The integration branch may not exist yet on a fresh chat. Check with `git branch
 
 ### Slug convention
 
-`feat/interactive-ocr/T-NN-short-slug`, e.g.:
-- `feat/interactive-ocr/T-01-ocr-engine-sync`
-- `feat/interactive-ocr/T-02-sanskrit-detector`
-- `feat/interactive-ocr/T-02b-sanskrit-in-spellcheck-api`
+`feat/interactive-ocr-T-NN-short-slug`, e.g.:
+- `feat/interactive-ocr-T-01-ocr-engine-sync`
+- `feat/interactive-ocr-T-02-sanskrit-detector`
+- `feat/interactive-ocr-T-02b-sanskrit-in-spellcheck-api`
 
 ---
 

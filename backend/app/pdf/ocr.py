@@ -24,6 +24,23 @@ MODELS_DIR = BACKEND_DIR / "Models"
 OCR_MODELS_DIR = BACKEND_DIR / "OCRModels"
 
 
+def _normalize_to_bgr(image: np.ndarray) -> np.ndarray:
+    """Coerce a page image into 3-channel BGR.
+
+    Handles grayscale (h,w), BGRA (h,w,4), and exotic formats (e.g. CMYK+Alpha)
+    by falling back through PIL. Already-BGR inputs pass through untouched.
+    """
+    if image.ndim == 2:
+        return cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+    if image.shape[2] == 4:
+        return cv2.cvtColor(image, cv2.COLOR_BGRA2BGR)
+    if image.shape[2] != 3:
+        from PIL import Image as PILImage
+        pil_img = PILImage.fromarray(image).convert("RGB")
+        return cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
+    return image
+
+
 @dataclass
 class OCRLine:
     """A single recognized line of text with its bounding box in image coordinates."""
@@ -115,6 +132,8 @@ class BDRCOCREngine:
         """
         if not self.ready:
             raise RuntimeError(self._error or "OCR engine not ready")
+
+        image = _normalize_to_bgr(image)
 
         from BDRC.Data import Encoding, OpStatus
 

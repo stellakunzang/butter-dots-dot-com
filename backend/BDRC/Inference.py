@@ -3,7 +3,7 @@ import pyewts
 import numpy as np
 import numpy.typing as npt
 import onnxruntime as ort
-from typing import List, Union
+from typing import List, Union, Optional
 
 
 from scipy.special import softmax
@@ -25,7 +25,8 @@ from BDRC.line_detection import (
     optimize_countour,
     sort_lines_by_threshold2,
     build_raw_line_data,
-    filter_line_contours
+    filter_line_contours,
+    split_tall_contours,
 )
 
 from BDRC.image_dewarping import (
@@ -47,7 +48,7 @@ from BDRC.Utils import (
 
 
 class CTCDecoder:
-    def __init__(self, charset: str | List[str], add_blank: bool):
+    def __init__(self, charset: Union[str, List[str]], add_blank: bool):
 
         if isinstance(charset, str):
             self.charset = [x for x in charset]
@@ -73,7 +74,7 @@ class CTCDecoder:
 
 
 class Detection:
-    def __init__(self, platform: Platform, config: LineDetectionConfig | LayoutDetectionConfig):
+    def __init__(self, platform: Platform, config: Union[LineDetectionConfig, LayoutDetectionConfig]):
         self.platform = platform
         self.config = config
         self._config_file = config
@@ -163,7 +164,7 @@ class LayoutDetection(Detection):
                              image: npt.NDArray,
                              prediction: npt.NDArray,
                              alpha: float = 0.4,
-                             ) -> npt.NDArray | None:
+                             ) -> Optional[npt.NDArray]:
 
         if image is None:
             return None
@@ -315,6 +316,9 @@ class OCRInference:
 
     def run(self, line_image: npt.NDArray, pre_pad: bool = True) -> str:
 
+        if line_image.shape[0] < 2 or line_image.shape[1] < 2:
+            return ""
+
         if pre_pad:
             line_image = self._pre_pad(line_image)
         line_image = self._prepare_ocr_line(line_image)
@@ -342,7 +346,7 @@ class OCRPipeline:
             self,
             platform: Platform,
             ocr_config: OCRModelConfig,
-            line_config: LineDetectionConfig | LayoutDetectionConfig
+            line_config: Union[LineDetectionConfig, LayoutDetectionConfig]
     ):
         self.ready = False
         self.platform = platform
@@ -369,9 +373,10 @@ class OCRPipeline:
     def update_line_detection(self, config: Union[LineDetectionConfig, LayoutDetectionConfig]):
         if isinstance(config, LineDetectionConfig) and isinstance(self.line_config, LayoutDetectionConfig):
             self.line_inference = LineDetection(self.platform, config)
+            self.line_config = config
         elif isinstance(config, LayoutDetectionConfig) and isinstance(self.line_config, LineDetectionConfig):
             self.line_inference = LayoutDetection(self.platform, config)
-
+            self.line_config = config
         else:
             return
 
@@ -405,9 +410,16 @@ class OCRPipeline:
             except Exception as e:
                 return OpStatus.FAILED, f"Line detection failed: {str(e)}"
 
+            # Diagnostic: log line mask stats to help diagnose blank-page failures
+            mask_nonzero = int(np.count_nonzero(line_mask))
+            mask_total = int(line_mask.shape[0] * line_mask.shape[1])
+            mask_pct = 100.0 * mask_nonzero / mask_total if mask_total > 0 else 0.0
+            print(f"[Diag] line_mask shape={line_mask.shape} nonzero={mask_nonzero}/{mask_total} ({mask_pct:.2f}%)")
+
             # Build line data
             try:
                 rot_img, rot_mask, line_contours, page_angle = build_raw_line_data(image, line_mask)
+                print(f"[Diag] raw contours={len(line_contours)} angle={page_angle:.2f}°")
                 if len(line_contours) == 0:
                     return OpStatus.FAILED, "No lines detected"
             except Exception as e:
@@ -415,6 +427,7 @@ class OCRPipeline:
 
             # Filter contours
             filtered_contours = filter_line_contours(rot_mask, line_contours)
+            print(f"[Diag] filtered contours={len(filtered_contours)}/{len(line_contours)}")
             if len(filtered_contours) == 0:
                 return OpStatus.FAILED, "No valid lines after filtering"
 
@@ -423,14 +436,25 @@ class OCRPipeline:
                 if use_tps:
                     ratio, tps_line_data = check_for_tps(rot_img, filtered_contours)
                     if ratio > tps_threshold:
-                        dewarped_img, dewarped_mask = apply_global_tps(rot_img, rot_mask, tps_line_data)
-                        if len(dewarped_mask.shape) == 3:
-                            dewarped_mask = cv2.cvtColor(dewarped_mask, cv2.COLOR_RGB2GRAY)
-                        dew_rot_img, dew_rot_mask, line_contours, page_angle = build_raw_line_data(dewarped_img, dewarped_mask)
-                        filtered_contours = filter_line_contours(dew_rot_mask, line_contours)
-                        line_data = [build_line_data(x) for x in filtered_contours]
-                        sorted_lines, _ = sort_lines_by_threshold2(rot_mask, line_data, group_lines=merge_lines)
-                        line_images = extract_line_images(dew_rot_img, sorted_lines, k_factor, bbox_tolerance)
+                        try:
+                            import warnings
+                            with warnings.catch_warnings():
+                                warnings.simplefilter("error", RuntimeWarning)
+                                dewarped_img, dewarped_mask = apply_global_tps(rot_img, rot_mask, tps_line_data)
+                            if not np.isfinite(dewarped_img).all():
+                                raise ValueError("TPS produced non-finite values")
+                            if len(dewarped_mask.shape) == 3:
+                                dewarped_mask = cv2.cvtColor(dewarped_mask, cv2.COLOR_RGB2GRAY)
+                            dew_rot_img, dew_rot_mask, line_contours, page_angle = build_raw_line_data(dewarped_img, dewarped_mask)
+                            filtered_contours = filter_line_contours(dew_rot_mask, line_contours)
+                            line_data = [build_line_data(x) for x in filtered_contours]
+                            sorted_lines, _ = sort_lines_by_threshold2(rot_mask, line_data, group_lines=merge_lines)
+                            line_images = extract_line_images(dew_rot_img, sorted_lines, k_factor, bbox_tolerance)
+                        except Exception as tps_err:
+                            print(f"[TPS] Dewarping failed ({tps_err}), falling back to non-dewarped processing")
+                            line_data = [build_line_data(x) for x in filtered_contours]
+                            sorted_lines, _ = sort_lines_by_threshold2(rot_mask, line_data, group_lines=merge_lines)
+                            line_images = extract_line_images(rot_img, sorted_lines, k_factor, bbox_tolerance)
                     else:
                         line_data = [build_line_data(x) for x in filtered_contours]
                         sorted_lines, _ = sort_lines_by_threshold2(rot_mask, line_data, group_lines=merge_lines)
@@ -452,10 +476,13 @@ class OCRPipeline:
                         pred = pred.strip()
                         pred = pred.replace("§", " ")
 
-                        if self.encoder == CharsetEncoder.Wylie and target_encoding == Encoding.Unicode:
-                            pred = self.converter.toUnicode(pred)
-                        elif self.encoder == CharsetEncoder.Stack and target_encoding == Encoding.Wylie:
-                            pred = self.converter.toWylie(pred)
+                        try:
+                            if self.encoder == CharsetEncoder.Wylie and target_encoding == Encoding.Unicode:
+                                pred = self.converter.toUnicode(pred)
+                            elif self.encoder == CharsetEncoder.Stack and target_encoding == Encoding.Wylie:
+                                pred = self.converter.toWylie(pred)
+                        except Exception as conv_err:
+                            print(f"[OCR] Encoding conversion failed for line, keeping raw output: {conv_err}")
 
                         ocr_line = OCRLine(
                             guid=line_info.guid,

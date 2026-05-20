@@ -185,10 +185,10 @@ Each ticket below is sized to be a single PR. Dependencies are noted. The order 
 **Out of scope:** Refactoring the BDRC code, changing model files, adding new preprocessing.
 
 **Acceptance criteria:**
-- [ ] All listed fixes present in `backend/BDRC/`
-- [ ] Existing OCR endpoint still works on a known-good PDF (smoke test)
-- [ ] `UPSTREAM.md` records the synced-from commit SHA and lists the cherry-picked fixes
-- [ ] No spellcheck or DOCX behavior changes
+- [x] All listed fixes present in `backend/BDRC/`
+- [x] Existing OCR endpoint still works on a known-good PDF (smoke test)
+- [x] `UPSTREAM.md` records the synced-from commit SHA and lists the cherry-picked fixes
+- [x] No spellcheck or DOCX behavior changes
 
 **Dependencies:** none
 
