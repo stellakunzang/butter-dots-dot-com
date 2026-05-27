@@ -140,3 +140,56 @@ def score_sanskrit_likelihoods(
         else:
             scores.append(base)
     return scores
+
+
+def annotate_errors_with_sanskrit(text: str, errors: list[dict]) -> None:
+    """Decorate spellcheck error dicts in place with Sanskrit-likelihood fields.
+
+    Adds ``sanskrit_likelihood`` (float, rounded to 3 places) and
+    ``likely_sanskrit`` (bool) to each error. Errors that don't correspond
+    to a syllable in ``text`` (e.g. the synthetic ``non_tibetan_skipped``
+    summary with ``word=''``) are annotated with 0.0 / False.
+
+    Args:
+        text: The original text passed to the spell checker.
+        errors: Engine error dicts; each is expected to carry ``position``
+            (in original-text coordinates) and ``word``.
+    """
+    if not errors:
+        return
+
+    from .char_typing import type_characters
+    from .normalizer import (
+        is_tibetan_char,
+        normalize_tibetan,
+        normalize_tibetan_with_position_map,
+    )
+    from .parsing import parse_syllable
+    from .splitter import split_syllables_with_position
+
+    normalized, pos_map = normalize_tibetan_with_position_map(text)
+    syllable_items = split_syllables_with_position(normalized)
+
+    parsed_seq: list[TibetanSyllable] = []
+    score_keys: list[tuple[int, str]] = []
+    for item in syllable_items:
+        raw_syl = item["syllable"]
+        norm_pos = item["position"]
+        original_pos = pos_map[norm_pos] if norm_pos < len(pos_map) else norm_pos
+
+        if any(is_tibetan_char(c) for c in raw_syl):
+            normalized_syl = normalize_tibetan(raw_syl)
+            parsed_seq.append(parse_syllable(type_characters(normalized_syl)))
+        else:
+            parsed_seq.append(TibetanSyllable(raw=""))
+
+        score_keys.append((original_pos, raw_syl))
+
+    scores = score_sanskrit_likelihoods(parsed_seq)
+    score_by_key = dict(zip(score_keys, scores))
+
+    for err in errors:
+        key = (err.get("position", 0), err.get("word", ""))
+        score = score_by_key.get(key, 0.0)
+        err["sanskrit_likelihood"] = round(score, 3)
+        err["likely_sanskrit"] = score >= LIKELY_SANSKRIT_THRESHOLD

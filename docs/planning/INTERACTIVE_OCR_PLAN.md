@@ -234,10 +234,10 @@ Each ticket below is sized to be a single PR. Dependencies are noted. The order 
 **Out of scope:** Auto-accepting Sanskrit during spellcheck. Configuring the threshold per user.
 
 **Acceptance criteria:**
-- [ ] API response includes the new fields for every error
-- [ ] UI renders likely-Sanskrit errors visually distinct from regular errors
-- [ ] Existing spellcheck tests updated and passing; new test asserts the field is present
-- [ ] Pure-Tibetan misspellings still surface as normal errors (no false suppression)
+- [x] API response includes the new fields for every error
+- [x] UI renders likely-Sanskrit errors visually distinct from regular errors
+- [x] Existing spellcheck tests updated and passing; new test asserts the field is present
+- [x] Pure-Tibetan misspellings still surface as normal errors (no false suppression)
 
 **Dependencies:** T-02
 

@@ -194,12 +194,60 @@ class TestErrorResponseStructure:
             "/api/v1/spellcheck/text",
             json={"text": "གཀར"}
         )
-        
+
         assert response.status_code == 200
         data = response.json()
-        
+
         for error in data["errors"]:
             assert error["severity"] in ["critical", "error", "info"]
+
+    def test_errors_include_sanskrit_fields(self):
+        """Every error should include sanskrit_likelihood and likely_sanskrit."""
+        response = client.post(
+            "/api/v1/spellcheck/text",
+            json={"text": "གཀར"}
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["error_count"] > 0
+
+        for error in data["errors"]:
+            assert "sanskrit_likelihood" in error
+            assert "likely_sanskrit" in error
+            assert isinstance(error["sanskrit_likelihood"], float)
+            assert 0.0 <= error["sanskrit_likelihood"] <= 1.0
+            assert isinstance(error["likely_sanskrit"], bool)
+
+    def test_mantra_syllable_flagged_likely_sanskrit(self):
+        """A syllable with anusvara should be annotated likely_sanskrit=True."""
+        # ཨོཾ trips the engine's structural check (anusvara is unparsed) and
+        # is unambiguously Sanskrit transliteration.
+        response = client.post(
+            "/api/v1/spellcheck/text",
+            json={"text": "ཨོཾ"}
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        sanskrit_errors = [e for e in data["errors"] if e.get("likely_sanskrit")]
+        assert len(sanskrit_errors) >= 1
+        assert sanskrit_errors[0]["sanskrit_likelihood"] > 0.7
+
+    def test_pure_tibetan_error_not_flagged_sanskrit(self):
+        """A plain structural error should NOT be flagged as likely Sanskrit."""
+        response = client.post(
+            "/api/v1/spellcheck/text",
+            json={"text": "གཀར"}  # invalid prefix-root, no Sanskrit signals
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        spelling_errors = [e for e in data["errors"] if e["severity"] != "info"]
+        assert len(spelling_errors) >= 1
+        for error in spelling_errors:
+            assert error["likely_sanskrit"] is False
+            assert error["sanskrit_likelihood"] < 0.5
 
 
 class TestAPIDocumentation:
