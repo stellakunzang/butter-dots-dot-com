@@ -19,6 +19,7 @@ from app.schemas.spellcheck import (
     SpellCheckResponse,
 )
 from app.spellcheck.engine import TibetanSpellChecker
+from app.spellcheck.sanskrit import annotate_errors_with_sanskrit
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +56,7 @@ async def check_text(request: SpellCheckRequest):
     """
     try:
         raw_errors = await asyncio.to_thread(_checker.check_text, request.text)
+        annotate_errors_with_sanskrit(request.text, raw_errors)
 
         errors = [
             ErrorResponse(
@@ -65,6 +67,8 @@ async def check_text(request: SpellCheckRequest):
                 message=error.get("message"),
                 component=error.get("component"),
                 corpus_hit=error.get("corpus_hit"),
+                sanskrit_likelihood=error.get("sanskrit_likelihood", 0.0),
+                likely_sanskrit=error.get("likely_sanskrit", False),
             )
             for error in raw_errors
         ]
@@ -305,6 +309,7 @@ def _run_spellcheck(pages) -> tuple[dict[int, list[str]], list[dict]]:
             continue
 
         raw_errors = checker.check_text(page.text)
+        annotate_errors_with_sanskrit(page.text, raw_errors)
 
         page_error_words = [e.get("word", "") for e in raw_errors if e.get("word")]
         if page_error_words:
@@ -320,6 +325,8 @@ def _run_spellcheck(pages) -> tuple[dict[int, list[str]], list[dict]]:
                     "message": e.get("message"),
                     "component": e.get("component"),
                     "corpus_hit": e.get("corpus_hit"),
+                    "sanskrit_likelihood": e.get("sanskrit_likelihood", 0.0),
+                    "likely_sanskrit": e.get("likely_sanskrit", False),
                 }
             )
 

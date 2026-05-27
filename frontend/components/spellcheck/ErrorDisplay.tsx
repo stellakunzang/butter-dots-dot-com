@@ -34,9 +34,19 @@ const SeverityBadge: React.FC<{ severity: string }> = ({ severity }) => {
   )
 }
 
-const errorUnderlineClass = (severity: string): string => {
-  if (severity === 'warning') return 'border-b-2 border-yellow-400 text-yellow-700 cursor-pointer'
+const errorUnderlineClass = (error: SpellCheckError): string => {
+  if (error.likely_sanskrit) {
+    return 'border-b-2 border-dotted border-purple-500 text-purple-700 cursor-pointer'
+  }
+  if (error.severity === 'warning') {
+    return 'border-b-2 border-yellow-400 text-yellow-700 cursor-pointer'
+  }
   return 'border-b-2 border-red-500 text-red-700 cursor-pointer'
+}
+
+const tooltipText = (error: SpellCheckError): string => {
+  const base = formatErrorType(error.error_type) + (error.message ? ` — ${error.message}` : '')
+  return error.likely_sanskrit ? `${base} · likely Sanskrit transliteration` : base
 }
 
 const AnnotatedText: React.FC<{ text: string; errors: SpellCheckError[] }> = ({
@@ -83,12 +93,11 @@ const AnnotatedText: React.FC<{ text: string; errors: SpellCheckError[] }> = ({
             key={`error-${currentErrorStart}`}
             className="relative inline-block group"
           >
-            <span className={errorUnderlineClass(currentError.severity)}>
+            <span className={errorUnderlineClass(currentError)}>
               {chars.slice(currentErrorStart, i).join('')}
             </span>
             <span className="invisible group-hover:visible absolute z-10 bottom-full left-0 mb-2 px-3 py-2 text-xs bg-gray-900 text-white rounded shadow-lg whitespace-nowrap">
-              {formatErrorType(currentError.error_type)}
-              {currentError.message && ` — ${currentError.message}`}
+              {tooltipText(currentError)}
             </span>
           </span>
         )
@@ -101,12 +110,11 @@ const AnnotatedText: React.FC<{ text: string; errors: SpellCheckError[] }> = ({
           key={`error-${currentErrorStart}`}
           className="relative inline-block group"
         >
-          <span className={errorUnderlineClass(currentError.severity)}>
+          <span className={errorUnderlineClass(currentError)}>
             {chars.slice(currentErrorStart, i).join('')}
           </span>
           <span className="invisible group-hover:visible absolute z-10 bottom-full left-0 mb-2 px-3 py-2 text-xs bg-gray-900 text-white rounded shadow-lg whitespace-nowrap">
-            {formatErrorType(currentError.error_type)}
-            {currentError.message && ` — ${currentError.message}`}
+            {tooltipText(currentError)}
           </span>
         </span>
       )
@@ -129,12 +137,11 @@ const AnnotatedText: React.FC<{ text: string; errors: SpellCheckError[] }> = ({
         key={`error-${currentErrorStart}`}
         className="relative inline-block group"
       >
-        <span className={errorUnderlineClass(currentError.severity)}>
+        <span className={errorUnderlineClass(currentError)}>
           {chars.slice(currentErrorStart).join('')}
         </span>
         <span className="invisible group-hover:visible absolute z-10 bottom-full left-0 mb-2 px-3 py-2 text-xs bg-gray-900 text-white rounded shadow-lg whitespace-nowrap">
-          {formatErrorType(currentError.error_type)}
-          {currentError.message && ` — ${currentError.message}`}
+          {tooltipText(currentError)}
         </span>
       </span>
     )
@@ -148,7 +155,7 @@ const AnnotatedText: React.FC<{ text: string; errors: SpellCheckError[] }> = ({
       >
         {elements}
       </div>
-      <div className="flex gap-4 text-xs text-gray-500">
+      <div className="flex flex-wrap gap-4 text-xs text-gray-500">
         <span className="flex items-center gap-1.5">
           <span className="inline-block w-4 border-b-2 border-red-500" />
           Structural error
@@ -156,6 +163,10 @@ const AnnotatedText: React.FC<{ text: string; errors: SpellCheckError[] }> = ({
         <span className="flex items-center gap-1.5">
           <span className="inline-block w-4 border-b-2 border-yellow-400" />
           Not found in word corpus
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block w-4 border-b-2 border-dotted border-purple-500" />
+          Likely Sanskrit transliteration
         </span>
       </div>
     </div>
@@ -288,7 +299,7 @@ export const ErrorDisplay: React.FC<ErrorDisplayProps> = ({ response }) => {
             <div className="flex flex-col gap-3">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
+                  <div className="flex items-center gap-2 mb-2 flex-wrap">
                     <span
                       className="text-2xl font-semibold text-gray-900"
                       style={{ fontFamily: 'Jomolhari, serif' }}
@@ -296,6 +307,14 @@ export const ErrorDisplay: React.FC<ErrorDisplayProps> = ({ response }) => {
                       {error.word}
                     </span>
                     <SeverityBadge severity={error.severity} />
+                    {error.likely_sanskrit && (
+                      <span
+                        className="inline-block px-2 py-1 text-xs font-medium rounded border bg-purple-100 text-purple-800 border-purple-200"
+                        title="Likely Sanskrit transliteration — this syllable deliberately breaks Tibetan stacking rules"
+                      >
+                        LIKELY SANSKRIT
+                      </span>
+                    )}
                   </div>
                   <p className="text-sm text-gray-700 font-medium">
                     {formatErrorType(error.error_type)}

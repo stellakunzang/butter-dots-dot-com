@@ -56,6 +56,21 @@ class ErrorResponse(BaseModel):
             "None means the corpus was not loaded."
         )
     )
+    sanskrit_likelihood: float = Field(
+        0.0,
+        description=(
+            "Likelihood [0, 1] that the offending syllable is Sanskrit transliteration "
+            "rather than native Tibetan. Mantras and dharanis deliberately break "
+            "Tibetan stacking rules; this signal lets the UI annotate likely-Sanskrit "
+            "errors with extra context without suppressing them."
+        ),
+        ge=0.0,
+        le=1.0,
+    )
+    likely_sanskrit: bool = Field(
+        False,
+        description="True when sanskrit_likelihood meets the detector's threshold.",
+    )
 
 
 class SpellCheckResponse(BaseModel):
@@ -96,6 +111,8 @@ class PDFErrorResponse(BaseModel):
     message: Optional[str] = None
     component: Optional[str] = None
     corpus_hit: Optional[bool] = None
+    sanskrit_likelihood: float = Field(0.0, ge=0.0, le=1.0)
+    likely_sanskrit: bool = False
 
 
 class PDFUploadSyncResponse(BaseModel):

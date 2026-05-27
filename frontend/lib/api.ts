@@ -2,7 +2,7 @@
  * API client for Tibetan Spell Checker backend
  */
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+const API_URL = process.env.NEXT_PUBLIC_API_URL || ''
 
 export interface SpellCheckError {
   word: string
@@ -12,6 +12,8 @@ export interface SpellCheckError {
   message?: string
   component?: string
   corpus_hit?: boolean | null
+  sanskrit_likelihood?: number
+  likely_sanskrit?: boolean
 }
 
 export interface SpellCheckResponse {
@@ -95,6 +97,8 @@ export interface PDFSpellError {
   message?: string
   component?: string
   corpus_hit?: boolean | null
+  sanskrit_likelihood?: number
+  likely_sanskrit?: boolean
 }
 
 export interface PDFUploadSyncResponse {
