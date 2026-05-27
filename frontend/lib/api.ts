@@ -12,6 +12,8 @@ export interface SpellCheckError {
   message?: string
   component?: string
   corpus_hit?: boolean | null
+  sanskrit_likelihood?: number
+  likely_sanskrit?: boolean
 }
 
 export interface SpellCheckResponse {
@@ -95,6 +97,8 @@ export interface PDFSpellError {
   message?: string
   component?: string
   corpus_hit?: boolean | null
+  sanskrit_likelihood?: number
+  likely_sanskrit?: boolean
 }
 
 export interface PDFUploadSyncResponse {

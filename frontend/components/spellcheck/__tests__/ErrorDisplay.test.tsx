@@ -159,6 +159,33 @@ describe('ErrorDisplay', () => {
     expect(checkIcon).toBeInTheDocument()
   })
 
+  it('renders likely-Sanskrit errors with a distinct purple badge and dotted underline', () => {
+    const sanskritError: SpellCheckError = {
+      word: 'ཨོཾ',
+      position: 0,
+      error_type: 'unparsed_characters',
+      severity: 'error',
+      message: "Characters 'ཾ' could not be assigned to any syllable component",
+      sanskrit_likelihood: 0.85,
+      likely_sanskrit: true,
+    }
+
+    const {container} = render(
+      <ErrorDisplay
+        response={{
+          text: 'ཨོཾ་',
+          error_count: 1,
+          errors: [sanskritError],
+        }}
+      />,
+    )
+
+    expect(screen.getByText('LIKELY SANSKRIT')).toBeInTheDocument()
+    expect(container.querySelector('.border-dotted.border-purple-500')).toBeInTheDocument()
+    // Both the inline tooltip and the legend mention "Likely Sanskrit transliteration".
+    expect(screen.getAllByText(/likely sanskrit transliteration/i).length).toBeGreaterThan(0)
+  })
+
   it('filters out info messages from error display', () => {
     const withInfoResponse: SpellCheckResponse = {
       text: 'བོད་ABC',
