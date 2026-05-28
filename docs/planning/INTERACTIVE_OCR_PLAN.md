@@ -283,11 +283,11 @@ Each ticket below is sized to be a single PR. Dependencies are noted. The order 
 **Out of scope:** OCR execution (T-05). UI exposure (T-08).
 
 **Acceptance criteria:**
-- [ ] Creating a job from a PDF persists `manifest.json` + `baseline_settings.json` + one directory per page with `image.png`
-- [ ] `save_page_attempt` writes under `attempts/NN/` with monotonic numbering
-- [ ] `finalize_page` writes `final.txt` and `final_quality.json`
-- [ ] `load_job` round-trips a previously saved job
-- [ ] Tests cover create, save attempt, finalize, reload
+- [x] Creating a job from a PDF persists `manifest.json` + `baseline_settings.json` + one directory per page with `image.png`
+- [x] `save_page_attempt` writes under `attempts/NN/` with monotonic numbering
+- [x] `finalize_page` writes `final.txt` and `final_quality.json`
+- [x] `load_job` round-trips a previously saved job
+- [x] Tests cover create, save attempt, finalize, reload
 
 **Dependencies:** none (can run alongside T-01/T-02/T-03)
 
