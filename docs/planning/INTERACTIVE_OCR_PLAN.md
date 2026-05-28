@@ -258,10 +258,10 @@ Each ticket below is sized to be a single PR. Dependencies are noted. The order 
 **Out of scope:** Threshold tuning (T-09). Phase 2 corpus weight (later, when corpus is populated).
 
 **Acceptance criteria:**
-- [ ] Module + functions exist with documented composite formula
-- [ ] Uses T-02's Sanskrit scorer to compute `sanskrit_adjusted_error_ratio`
-- [ ] Phase 2 inputs are present in the function signature but weighted at 0 for now, with a TODO marker
-- [ ] Unit tests with hand-crafted inputs covering each branch of `decide`
+- [x] Module + functions exist with documented composite formula
+- [x] Uses T-02's Sanskrit scorer to compute `sanskrit_adjusted_error_ratio`
+- [x] Phase 2 inputs are present in the function signature but weighted at 0 for now, with a TODO marker
+- [x] Unit tests with hand-crafted inputs covering each branch of `decide`
 
 **Dependencies:** T-02
 
