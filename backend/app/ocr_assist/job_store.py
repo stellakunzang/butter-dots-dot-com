@@ -149,8 +149,8 @@ def load_job(jobs_root: Path, job_id: str) -> Job:
     job_dir = jobs_root / job_id
     if not job_dir.is_dir():
         raise FileNotFoundError(f"No job directory at {job_dir}")
-    manifest = json.loads((job_dir / MANIFEST_FILE).read_text())
-    baseline = json.loads((job_dir / BASELINE_SETTINGS_FILE).read_text())
+    manifest = json.loads((job_dir / MANIFEST_FILE).read_text(encoding="utf-8"))
+    baseline = json.loads((job_dir / BASELINE_SETTINGS_FILE).read_text(encoding="utf-8"))
     return Job(
         id=manifest["id"],
         root=job_dir,
@@ -168,22 +168,22 @@ def load_page(job: Job, page_index: int) -> PageState:
     if not page_dir.is_dir():
         raise FileNotFoundError(f"No page directory: {page_dir}")
 
-    settings = json.loads((page_dir / PAGE_SETTINGS_FILE).read_text())
+    settings = json.loads((page_dir / PAGE_SETTINGS_FILE).read_text(encoding="utf-8"))
     attempts_dir = page_dir / ATTEMPTS_DIR
     attempts = _load_attempts(attempts_dir) if attempts_dir.is_dir() else []
 
     final_text_path = page_dir / FINAL_TEXT_FILE
-    final_text = final_text_path.read_text() if final_text_path.is_file() else None
+    final_text = final_text_path.read_text(encoding="utf-8") if final_text_path.is_file() else None
 
     final_quality_path = page_dir / FINAL_QUALITY_FILE
     final_quality = (
-        json.loads(final_quality_path.read_text())
+        json.loads(final_quality_path.read_text(encoding="utf-8"))
         if final_quality_path.is_file()
         else None
     )
 
     notes_path = page_dir / NOTES_FILE
-    notes = notes_path.read_text() if notes_path.is_file() else None
+    notes = notes_path.read_text(encoding="utf-8") if notes_path.is_file() else None
 
     return PageState(
         index=page_index,
@@ -294,9 +294,9 @@ def _load_attempts(attempts_dir: Path) -> list[AttemptRecord]:
         records.append(
             AttemptRecord(
                 number=int(entry.name),
-                ocr_text=ocr_path.read_text() if ocr_path.is_file() else "",
-                quality=json.loads(quality_path.read_text()) if quality_path.is_file() else None,
-                ai_verdict=json.loads(verdict_path.read_text()) if verdict_path.is_file() else None,
+                ocr_text=ocr_path.read_text(encoding="utf-8") if ocr_path.is_file() else "",
+                quality=json.loads(quality_path.read_text(encoding="utf-8")) if quality_path.is_file() else None,
+                ai_verdict=json.loads(verdict_path.read_text(encoding="utf-8")) if verdict_path.is_file() else None,
             )
         )
     return records
@@ -304,7 +304,7 @@ def _load_attempts(attempts_dir: Path) -> list[AttemptRecord]:
 
 def _atomic_write_text(path: Path, content: str) -> None:
     tmp = path.with_name(path.name + ".tmp")
-    tmp.write_text(content)
+    tmp.write_text(content, encoding="utf-8")
     os.replace(tmp, path)
 
 
