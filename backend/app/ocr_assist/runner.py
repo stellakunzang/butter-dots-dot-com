@@ -46,7 +46,15 @@ logger = logging.getLogger(__name__)
 DEFAULT_THRESHOLDS = Thresholds(accept=0.85, reject=0.5)
 
 
-Decision = Literal["accept", "needs_review"]
+# The runner's coarse outcome for a page. ``error`` is reserved for pages that
+# blew up before a quality verdict could be computed (e.g. the OCR engine was
+# unavailable); see ``run_all_pages``.
+Decision = Literal["accept", "needs_review", "error"]
+
+# The raw three-way verdict from ``quality.decide``. ``needs_review`` collapses
+# both ``escalate`` and ``reject``; carrying the raw verdict lets a caller
+# distinguish "borderline, worth another look" from "too damaged to retry".
+Verdict = Literal["accept", "escalate", "reject"]
 
 
 @dataclass(frozen=True)
@@ -78,15 +86,28 @@ SpellcheckAdapter = Callable[[str], list[dict[str, Any]]]
 class RunResult:
     """Outcome of running a single page through the loop.
 
-    ``decision`` is the runner's verdict for this page: ``"accept"`` means
-    the page was finalized, ``"needs_review"`` means it's waiting for a
-    human (no ``final.txt`` written). Inspecting the job store for pages
-    where ``final_text is None`` and ``attempts`` is non-empty gives the
-    review queue.
+    ``decision`` is the runner's coarse verdict for this page: ``"accept"``
+    means the page was finalized, ``"needs_review"`` means it's waiting for a
+    human (no ``final.txt`` written), and ``"error"`` means the page failed
+    before it could be scored (only produced by ``run_all_pages``, which keeps
+    going past a failing page — ``run_page`` itself still raises). Inspecting
+    the job store for pages where ``final_text is None`` and ``attempts`` is
+    non-empty gives the review queue.
+
+    ``verdict`` carries the *raw* ``decide()`` result (``accept`` /
+    ``escalate`` / ``reject``) so a caller building a human-review queue can
+    tell "borderline, worth another look" (``escalate``) from "too damaged to
+    retry" (``reject``) — a distinction ``decision`` deliberately collapses. It
+    is ``None`` when ``decision == "error"`` (no quality was computed).
+
+    ``error`` holds the stringified exception when ``decision == "error"`` and
+    is ``None`` otherwise.
     """
     page: PageState
     decision: Decision
-    quality: PageQuality
+    quality: PageQuality | None
+    verdict: Verdict | None = None
+    error: str | None = None
 
 
 def run_page(
@@ -121,6 +142,11 @@ def run_page(
     quality = score_page(
         result.text,
         spellcheck_errors,
+        # line_count is plumbed through but currently inert: with no
+        # expected_line_count baseline, quality._line_count_sanity returns 1.0,
+        # so the W_LINE_SANITY term contributes nothing to the composite. The
+        # signal becomes live once a per-page baseline exists (T-06); wiring it
+        # now means no signature churn when that lands.
         OcrDiagnostics(line_count=result.line_count),
     )
     verdict = decide(quality, thresholds)
@@ -139,13 +165,18 @@ def run_page(
             final_text=result.text,
             final_quality=_quality_to_dict(quality),
         )
-        return RunResult(page=updated, decision="accept", quality=quality)
+        return RunResult(
+            page=updated, decision="accept", quality=quality, verdict=verdict
+        )
 
-    # escalate or reject without an AI loop → queue for human review.
+    # escalate or reject without an AI loop → queue for human review. The raw
+    # verdict is preserved on RunResult so the caller can still tell the two
+    # apart even though `decision` collapses them.
     return RunResult(
         page=load_page(job, page_index),
         decision="needs_review",
         quality=quality,
+        verdict=verdict,
     )
 
 
@@ -157,7 +188,14 @@ def run_all_pages(
     ocr: OcrAdapter | None = None,
     spellcheck: SpellcheckAdapter | None = None,
 ) -> list[RunResult]:
-    """Run every page in the job; skip pages already finalized on disk."""
+    """Run every page in the job; skip pages already finalized on disk.
+
+    A page that raises (e.g. the OCR engine is unavailable or one image is
+    unreadable) is recorded as a ``decision="error"`` ``RunResult`` and the run
+    continues; one bad page no longer abandons the rest of the batch, and the
+    pages that already finalized stay persisted. ``run_page`` itself still
+    raises — only the batch surface swallows-and-records.
+    """
     ocr_fn = ocr or _default_ocr_adapter()
     spellcheck_fn = spellcheck or _default_spellcheck_adapter()
 
@@ -168,16 +206,27 @@ def run_all_pages(
             # Resume: page was finalized in a prior run, leave it alone.
             logger.info("page %d already finalized; skipping", index)
             continue
-        results.append(
-            run_page(
-                job,
-                index,
-                thresholds=thresholds,
-                claude_diagnostician=claude_diagnostician,
-                ocr=ocr_fn,
-                spellcheck=spellcheck_fn,
+        try:
+            results.append(
+                run_page(
+                    job,
+                    index,
+                    thresholds=thresholds,
+                    claude_diagnostician=claude_diagnostician,
+                    ocr=ocr_fn,
+                    spellcheck=spellcheck_fn,
+                )
             )
-        )
+        except Exception as exc:  # noqa: BLE001 — one bad page must not sink the batch
+            logger.exception("page %d failed; recording as error and continuing", index)
+            results.append(
+                RunResult(
+                    page=load_page(job, index),
+                    decision="error",
+                    quality=None,
+                    error=str(exc),
+                )
+            )
     return results
 
 

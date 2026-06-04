@@ -181,6 +181,59 @@ class TestRunAllPages:
         assert load_page(job, 2).final_text == "manually finalized"
 
 
+class TestRawVerdict:
+    def test_accept_page_carries_accept_verdict(self, job):
+        result = run_page(job, 1, ocr=clean_ocr, spellcheck=no_errors)
+        assert result.decision == "accept"
+        assert result.verdict == "accept"
+
+    def test_escalate_page_carries_escalate_verdict(self, job):
+        # Garbled all-non-Tibetan text scores composite=0.75, between the
+        # default reject=0.5 and accept=0.85 → escalate (folded into
+        # needs_review). The raw verdict still distinguishes it from reject.
+        result = run_page(job, 1, ocr=garbled_ocr, spellcheck=no_errors)
+        assert result.decision == "needs_review"
+        assert result.verdict == "escalate"
+
+    def test_reject_page_carries_reject_verdict(self, job):
+        # Push reject above the garbled page's 0.75 composite so it genuinely
+        # rejects rather than escalates — exercising the path that is otherwise
+        # indistinguishable from escalate through `decision` alone.
+        strict = Thresholds(accept=0.85, reject=0.8)
+        result = run_page(
+            job, 1, ocr=garbled_ocr, spellcheck=no_errors, thresholds=strict
+        )
+        assert result.decision == "needs_review"
+        assert result.verdict == "reject"
+
+
+class TestRunAllPagesResilience:
+    def test_one_failing_page_does_not_abort_batch(self, job):
+        # OCR blows up on page 2 only; pages 1 and 3 must still run and the
+        # failure must surface as a decision="error" result rather than an
+        # exception that kills the loop.
+        def flaky_ocr(image_path: Path, settings: dict) -> OcrResult:
+            if image_path.parent.name == "page-002":
+                raise RuntimeError("OCR engine unavailable: boom")
+            return OcrResult(text=CLEAN_TEXT, line_count=2)
+
+        results = run_all_pages(job, ocr=flaky_ocr, spellcheck=no_errors)
+
+        assert len(results) == job.page_count
+        by_index = {r.page.index: r for r in results}
+        assert by_index[1].decision == "accept"
+        assert by_index[3].decision == "accept"
+
+        failed = by_index[2]
+        assert failed.decision == "error"
+        assert failed.quality is None
+        assert failed.verdict is None
+        assert "boom" in failed.error
+        # The failed page was never finalized.
+        assert failed.page.final_text is None
+        assert not (job.root / "page-002" / "final.txt").is_file()
+
+
 class TestThresholdsOverride:
     def test_lax_thresholds_accept_garbled(self, job):
         # The garbled page is rejected under DEFAULT_THRESHOLDS (see
