@@ -28,13 +28,24 @@ quality scorer (T-03), and diagnostician (T-06) respectively. This module
 just persists arbitrary dicts so adding a field upstream doesn't require
 a job_store change.
 
-All JSON writes go through ``_atomic_write_*`` (write-temp → ``os.replace``)
-so a crash mid-write can't leave a half-written file on disk.
+All text/JSON is read and written as UTF-8 regardless of the host's locale
+so Tibetan/Sanskrit transcriptions round-trip correctly everywhere (the
+platform default is cp1252 on a stock Windows install, which would corrupt
+the script). JSON is stored with ``ensure_ascii=False`` so the files stay
+human-inspectable.
+
+All writes go through ``_atomic_write_*``: content is written to a unique
+temp file, ``fsync``'d, then ``os.replace``'d into place (and the parent
+directory is ``fsync``'d), so a crash mid-write can't leave a half-written
+or partially-flushed file on disk. The store assumes a *single writer per
+job*: it serializes nothing, so concurrent writers to the same job (e.g. a
+future parallelizing runner) must coordinate externally.
 """
 from __future__ import annotations
 
 import json
 import os
+import tempfile
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -106,6 +117,11 @@ def create_job(
     in ``settings.json`` — retries mutate the page's copy only, never the
     job baseline. (See the plan's "Why this avoids the global-tweak
     regression" section.)
+
+    The job directory is created with ``exist_ok=False``, so a generated
+    ``job_id`` that happens to collide with an existing job (or an explicit
+    ``job_id`` that's already taken) raises ``FileExistsError`` rather than
+    clobbering data — callers should catch it and retry with a fresh id.
     """
     job_id = job_id or uuid.uuid4().hex[:12]
     job_dir = jobs_root / job_id
@@ -149,8 +165,8 @@ def load_job(jobs_root: Path, job_id: str) -> Job:
     job_dir = jobs_root / job_id
     if not job_dir.is_dir():
         raise FileNotFoundError(f"No job directory at {job_dir}")
-    manifest = json.loads((job_dir / MANIFEST_FILE).read_text())
-    baseline = json.loads((job_dir / BASELINE_SETTINGS_FILE).read_text())
+    manifest = json.loads((job_dir / MANIFEST_FILE).read_text(encoding="utf-8"))
+    baseline = json.loads((job_dir / BASELINE_SETTINGS_FILE).read_text(encoding="utf-8"))
     return Job(
         id=manifest["id"],
         root=job_dir,
@@ -168,22 +184,24 @@ def load_page(job: Job, page_index: int) -> PageState:
     if not page_dir.is_dir():
         raise FileNotFoundError(f"No page directory: {page_dir}")
 
-    settings = json.loads((page_dir / PAGE_SETTINGS_FILE).read_text())
+    settings = json.loads((page_dir / PAGE_SETTINGS_FILE).read_text(encoding="utf-8"))
     attempts_dir = page_dir / ATTEMPTS_DIR
     attempts = _load_attempts(attempts_dir) if attempts_dir.is_dir() else []
 
     final_text_path = page_dir / FINAL_TEXT_FILE
-    final_text = final_text_path.read_text() if final_text_path.is_file() else None
+    final_text = (
+        final_text_path.read_text(encoding="utf-8") if final_text_path.is_file() else None
+    )
 
     final_quality_path = page_dir / FINAL_QUALITY_FILE
     final_quality = (
-        json.loads(final_quality_path.read_text())
+        json.loads(final_quality_path.read_text(encoding="utf-8"))
         if final_quality_path.is_file()
         else None
     )
 
     notes_path = page_dir / NOTES_FILE
-    notes = notes_path.read_text() if notes_path.is_file() else None
+    notes = notes_path.read_text(encoding="utf-8") if notes_path.is_file() else None
 
     return PageState(
         index=page_index,
@@ -261,7 +279,9 @@ def list_jobs(jobs_root: Path) -> list[Job]:
             continue
         try:
             jobs.append(load_job(jobs_root, entry.name))
-        except (json.JSONDecodeError, KeyError):
+        except (json.JSONDecodeError, KeyError, OSError):
+            # Malformed manifest, missing key, or a job that was deleted
+            # between the is_file() check above and the read — skip it.
             continue
     return jobs
 
@@ -294,25 +314,72 @@ def _load_attempts(attempts_dir: Path) -> list[AttemptRecord]:
         records.append(
             AttemptRecord(
                 number=int(entry.name),
-                ocr_text=ocr_path.read_text() if ocr_path.is_file() else "",
-                quality=json.loads(quality_path.read_text()) if quality_path.is_file() else None,
-                ai_verdict=json.loads(verdict_path.read_text()) if verdict_path.is_file() else None,
+                ocr_text=ocr_path.read_text(encoding="utf-8") if ocr_path.is_file() else "",
+                quality=(
+                    json.loads(quality_path.read_text(encoding="utf-8"))
+                    if quality_path.is_file()
+                    else None
+                ),
+                ai_verdict=(
+                    json.loads(verdict_path.read_text(encoding="utf-8"))
+                    if verdict_path.is_file()
+                    else None
+                ),
             )
         )
     return records
 
 
 def _atomic_write_text(path: Path, content: str) -> None:
-    tmp = path.with_name(path.name + ".tmp")
-    tmp.write_text(content)
-    os.replace(tmp, path)
+    """Write ``content`` to ``path`` atomically and durably as UTF-8.
+
+    Content goes to a uniquely-named temp file in the same directory (so
+    two writers never share a temp path), which is flushed and ``fsync``'d
+    before being ``os.replace``'d into place; the parent directory is then
+    ``fsync``'d so the rename itself survives a crash. If anything fails
+    before the replace, the temp file is removed rather than orphaned.
+    """
+    fd, tmp_name = tempfile.mkstemp(
+        dir=str(path.parent), prefix=path.name + ".", suffix=".tmp"
+    )
+    tmp = Path(tmp_name)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(content)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, path)
+    except BaseException:
+        tmp.unlink(missing_ok=True)
+        raise
+
+    # Best-effort directory fsync so the rename is durable. Not all
+    # platforms allow opening/fsync'ing a directory (e.g. Windows), and the
+    # data fsync above is the part that matters for not losing contents.
+    try:
+        dir_fd = os.open(str(path.parent), os.O_RDONLY)
+    except OSError:
+        return
+    try:
+        os.fsync(dir_fd)
+    except OSError:
+        pass
+    finally:
+        os.close(dir_fd)
 
 
 def _atomic_write_json(path: Path, obj: Any) -> None:
-    _atomic_write_text(path, json.dumps(obj, indent=2, sort_keys=True))
+    _atomic_write_text(
+        path, json.dumps(obj, indent=2, sort_keys=True, ensure_ascii=False)
+    )
 
 
 def _render_pdf(pdf_bytes: bytes, *, dpi: int) -> Sequence:
-    """Render a PDF to PIL images. Pulled out for monkeypatching in tests."""
+    """Render a PDF to PIL images. Pulled out for monkeypatching in tests.
+
+    Returns a sequence of page images; callers (and test fakes) only rely
+    on each element supporting ``.save(path, "PNG")`` — i.e. the Pillow
+    ``Image`` protocol — so a fake can return any object with that method.
+    """
     from pdf2image import convert_from_bytes
     return convert_from_bytes(pdf_bytes, dpi=dpi)
