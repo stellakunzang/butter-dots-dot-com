@@ -94,8 +94,8 @@ class TestRunPageAccept:
 
 class TestRunPageNeedsReview:
     def test_low_score_page_does_not_finalize(self, job):
-        # All-non-Tibetan text pegs non_tibetan_char_ratio at 1.0 → composite
-        # falls below the default reject threshold.
+        # All-non-Tibetan text pegs non_tibetan_char_ratio at 1.0 → composite=0.75
+        # (penalty 0.25), between reject=0.5 and accept=0.85, so decide() escalates.
         result = run_page(job, 1, ocr=garbled_ocr, spellcheck=no_errors)
 
         assert result.decision == "needs_review"
