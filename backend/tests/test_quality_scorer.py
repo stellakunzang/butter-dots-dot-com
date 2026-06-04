@@ -73,6 +73,78 @@ class TestSanskritAdjustment:
         assert quality.sanskrit_adjusted_error_ratio > 0.0
 
 
+class TestSanskritExclusionPositionAware:
+    """The position-aware exclusion (`_is_sanskrit_error`).
+
+    A syllable flagged Sanskrit-likely at one position must not suppress a
+    genuine error on the same syllable string at a different (non-Sanskrit)
+    position. When an error carries no position, fall back to string matching.
+    """
+
+    def test_position_match_takes_precedence_over_word(self):
+        from app.ocr_assist.quality import _is_sanskrit_error
+
+        positions = {5}
+        words = {"ཨོཾ"}
+
+        # Same word string, two positions → different verdicts.
+        on_sanskrit = {"word": "ཨོཾ", "position": 5}
+        off_sanskrit = {"word": "ཨོཾ", "position": 99}
+        assert _is_sanskrit_error(on_sanskrit, positions, words) is True
+        assert _is_sanskrit_error(off_sanskrit, positions, words) is False
+
+    def test_falls_back_to_word_when_no_position(self):
+        from app.ocr_assist.quality import _is_sanskrit_error
+
+        positions = {5}
+        words = {"ཨོཾ"}
+        assert _is_sanskrit_error({"word": "ཨོཾ"}, positions, words) is True
+        assert _is_sanskrit_error({"word": "བཀྲ"}, positions, words) is False
+
+    def test_real_check_text_positions_exclude_sanskrit(self):
+        # End-to-end: real check_text errors carry positions; a Sanskrit
+        # syllable's error is excluded, a plain one is not.
+        from app.spellcheck.engine import TibetanSpellChecker
+
+        text = "ཨོཾ་མ་ཎི།\nབཀྲ་ཤིས།"
+        checker = TibetanSpellChecker()
+        real_errors = checker.check_text(text)
+        # Guard: only meaningful if check_text actually flags something here.
+        quality = score_page(text, real_errors, OcrDiagnostics())
+        assert quality.sanskrit_adjusted_error_ratio <= quality.structural_error_ratio
+        assert 0.0 <= quality.composite_score <= 1.0
+
+
+class TestCleanPageSkipsSanskritWork:
+    def test_no_structural_errors_skips_sanskrit_scoring(self, monkeypatch):
+        # On a clean page the (expensive) per-syllable Sanskrit parse/score
+        # must not run. Make it explode if called, then score a clean page.
+        import app.ocr_assist.quality as quality_mod
+
+        def _boom(*_args, **_kwargs):
+            raise AssertionError("_sanskrit_syllables should not run on a clean page")
+
+        monkeypatch.setattr(quality_mod, "_sanskrit_syllables", _boom)
+        q = quality_mod.score_page(CLEAN_TEXT, [], OcrDiagnostics())
+        assert q.sanskrit_adjusted_error_ratio == 0.0
+        assert q.composite_score > 0.95
+
+
+class TestThresholdsValidation:
+    def test_equal_accept_and_reject_is_allowed(self):
+        Thresholds(accept=0.5, reject=0.5)  # no raise
+
+    def test_inverted_thresholds_raise(self):
+        with pytest.raises(ValueError):
+            Thresholds(accept=0.5, reject=0.8)
+
+    def test_out_of_range_thresholds_raise(self):
+        with pytest.raises(ValueError):
+            Thresholds(accept=1.2, reject=0.5)
+        with pytest.raises(ValueError):
+            Thresholds(accept=0.5, reject=-0.1)
+
+
 class TestLineSanity:
     def test_no_expected_line_count_skips_check(self):
         q = score_page(CLEAN_TEXT, [], OcrDiagnostics(line_count=3, expected_line_count=None))

@@ -33,12 +33,15 @@ substitution can score well structurally while being silently wrong.
 from dataclasses import dataclass
 from typing import Literal, Sequence
 
-from app.spellcheck.normalizer import is_tibetan_char, normalize_tibetan
+from app.spellcheck.normalizer import (
+    is_tibetan_char,
+    normalize_tibetan_with_position_map,
+)
 from app.spellcheck.sanskrit import (
     LIKELY_SANSKRIT_THRESHOLD,
     score_sanskrit_likelihoods,
 )
-from app.spellcheck.splitter import split_syllables
+from app.spellcheck.splitter import split_syllables_with_position
 from app.spellcheck.syllable_parser import TibetanSyllableParser
 
 
@@ -88,6 +91,13 @@ class Thresholds:
     accept: float
     reject: float
 
+    def __post_init__(self) -> None:
+        if not 0.0 <= self.reject <= self.accept <= 1.0:
+            raise ValueError(
+                "Thresholds must satisfy 0.0 <= reject <= accept <= 1.0; "
+                f"got accept={self.accept}, reject={self.reject}"
+            )
+
 
 @dataclass(frozen=True)
 class PageQuality:
@@ -119,6 +129,11 @@ def score_page(
     tibetan_syllables = _split_tibetan_syllables(ocr_text)
     total = len(tibetan_syllables)
 
+    # encoding_error is intentionally NOT excluded here: it is severity
+    # "critical" and not a Phase-2 type, so it counts (1.5x) toward the
+    # structural / sanskrit-adjusted ratio *and* separately trips the hard
+    # floor in decide(). It is genuinely both a structural defect and a
+    # silent-substitution risk, so the double-count is deliberate.
     structural_errors = [
         e for e in spellcheck_result
         if e.get("error_type") not in _PHASE2_ERROR_TYPES
@@ -128,10 +143,18 @@ def score_page(
 
     structural_ratio = _ratio(_weighted_error_score(structural_errors), total)
 
-    sanskrit_words = _sanskrit_words(tibetan_syllables)
-    sanskrit_adjusted_errors = [
-        e for e in structural_errors if e.get("word") not in sanskrit_words
-    ]
+    # The per-syllable Sanskrit parse/score is only needed to strip Sanskrit
+    # errors out of the structural numerator. On a clean page (no structural
+    # errors — the common case in the retry loop) there is nothing to strip,
+    # so skip the work entirely.
+    if structural_errors:
+        sanskrit_positions, sanskrit_words = _sanskrit_syllables(tibetan_syllables)
+        sanskrit_adjusted_errors = [
+            e for e in structural_errors
+            if not _is_sanskrit_error(e, sanskrit_positions, sanskrit_words)
+        ]
+    else:
+        sanskrit_adjusted_errors = []
     sanskrit_adjusted_ratio = _ratio(
         _weighted_error_score(sanskrit_adjusted_errors), total
     )
@@ -210,17 +233,66 @@ def _line_count_sanity(diagnostics: OcrDiagnostics) -> float:
     return max(0.0, 1.0 - deviation)
 
 
-def _split_tibetan_syllables(text: str) -> list[str]:
-    return [s for s in split_syllables(normalize_tibetan(text)) if any(is_tibetan_char(c) for c in s)]
+def _split_tibetan_syllables(text: str) -> list[tuple[str, int]]:
+    """Tibetan-only syllables paired with their position in the *original* text.
+
+    Mirrors ``TibetanSpellChecker.check_text``: normalize (NFC + zero-width
+    strip) before splitting, then map each syllable's offset back to a position
+    in the original text so it lines up with the ``position`` recorded on
+    spellcheck errors (``engine.py:182,195``). Normalizing first also keeps the
+    syllable strings byte-equal to the error ``word`` values for the fallback
+    match.
+    """
+    normalized, pos_map = normalize_tibetan_with_position_map(text)
+    syllables: list[tuple[str, int]] = []
+    for item in split_syllables_with_position(normalized):
+        syl = item["syllable"]
+        if not any(is_tibetan_char(c) for c in syl):
+            continue
+        norm_pos = item["position"]
+        mapped = pos_map[norm_pos] if norm_pos < len(pos_map) else norm_pos
+        syllables.append((syl, mapped))
+    return syllables
 
 
-def _sanskrit_words(tibetan_syllables: Sequence[str]) -> set[str]:
+def _sanskrit_syllables(
+    tibetan_syllables: Sequence[tuple[str, int]],
+) -> tuple[set[int], set[str]]:
+    """Positions and strings of Sanskrit-likely syllables on the page.
+
+    The Sanskrit scorer is context-sensitive (a syllable's score gets a
+    clustering bonus from its neighbours), so the page is scored as one ordered
+    sequence. Returns both the set of original-text positions (for the
+    position-aware exclusion) and the set of syllable strings (a fallback for
+    errors that carry no position).
+    """
     if not tibetan_syllables:
-        return set()
-    parsed = [_parser.parse_to_model(s) for s in tibetan_syllables]
+        return set(), set()
+    syls = [s for s, _ in tibetan_syllables]
+    parsed = [_parser.parse_to_model(s) for s in syls]
     likelihoods = score_sanskrit_likelihoods(parsed)
-    return {
-        syl
-        for syl, score in zip(tibetan_syllables, likelihoods)
-        if score >= LIKELY_SANSKRIT_THRESHOLD
-    }
+    positions: set[int] = set()
+    words: set[str] = set()
+    for (syl, pos), score in zip(tibetan_syllables, likelihoods):
+        if score >= LIKELY_SANSKRIT_THRESHOLD:
+            positions.add(pos)
+            words.add(syl)
+    return positions, words
+
+
+def _is_sanskrit_error(
+    error: dict,
+    sanskrit_positions: set[int],
+    sanskrit_words: set[str],
+) -> bool:
+    """Whether a structural error sits on a Sanskrit-likely syllable.
+
+    Prefers a position match (precise — a syllable flagged Sanskrit inside a
+    mantra no longer suppresses a genuine error on the same string elsewhere).
+    Falls back to string match for errors that carry no ``position`` (e.g.
+    hand-crafted inputs in unit tests).
+    """
+    position = error.get("position")
+    if position is not None:
+        return position in sanskrit_positions
+    return error.get("word") in sanskrit_words
