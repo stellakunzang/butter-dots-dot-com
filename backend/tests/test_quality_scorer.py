@@ -10,6 +10,8 @@ Covers each signal and each branch of ``decide``:
 - Phase-2 unknown_word_ratio captured but currently weighted 0
 - decide → accept / escalate / reject branches
 """
+import unicodedata
+
 import pytest
 
 from app.ocr_assist.quality import (
@@ -155,6 +157,52 @@ class TestDecide:
     def test_boundary_at_reject_threshold(self):
         # composite == reject threshold → escalate (strict <)
         assert decide(self._q(0.5), self.THRESHOLDS) == "escalate"
+
+
+class TestNormalizationRoundtrip:
+    """Integration: check_text output must match score_page syllable splitting.
+
+    check_text normalizes (NFC + ZW strip) before splitting, so error['word']
+    values are normalized.  score_page must normalize ocr_text the same way
+    before splitting so that Sanskrit-syllable lookup works on non-NFC/ZW input.
+    """
+
+    def test_zw_prefixed_sanskrit_excluded_from_adjusted_ratio(self):
+        # ཨོཾ is a Sanskrit indicator syllable (anusvara U+0F7E).
+        # Inject a zero-width space before it to simulate non-clean OCR output.
+        # check_text strips the ZWS and returns word='ཨོཾ' in any error;
+        # score_page must also strip ZWS so the syllable set contains 'ཨོཾ'.
+        from app.spellcheck.engine import TibetanSpellChecker
+
+        zws = '​'
+        sanskrit_syl = 'ཨོཾ'
+        plain_syl = 'བཀྲ'
+        raw_text = f'{zws}{sanskrit_syl}་{plain_syl}་ཤིས།'
+
+        checker = TibetanSpellChecker()
+        spellcheck_result = checker.check_text(raw_text)
+
+        synthetic_errors = [
+            {'word': sanskrit_syl, 'error_type': 'invalid_subscript_combination', 'severity': 'error'},
+            {'word': plain_syl,    'error_type': 'invalid_subscript_combination', 'severity': 'error'},
+        ]
+        combined = list(spellcheck_result) + synthetic_errors
+        quality = score_page(raw_text, combined, OcrDiagnostics())
+
+        # The Sanskrit syllable should be excluded → adjusted ratio < structural ratio.
+        assert quality.sanskrit_adjusted_error_ratio < quality.structural_error_ratio
+
+    def test_non_nfc_text_matches_check_text_words(self):
+        # Build NFD text and confirm score_page handles it without exceptions
+        # and produces a valid composite (no KeyError from mismatched word forms).
+        from app.spellcheck.engine import TibetanSpellChecker
+
+        nfd_text = unicodedata.normalize('NFD', 'བཀྲ་ཤིས།')
+        checker = TibetanSpellChecker()
+        spellcheck_result = checker.check_text(nfd_text)
+
+        quality = score_page(nfd_text, spellcheck_result, OcrDiagnostics())
+        assert 0.0 <= quality.composite_score <= 1.0
 
 
 class TestEmptyText:

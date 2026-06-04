@@ -33,7 +33,7 @@ substitution can score well structurally while being silently wrong.
 from dataclasses import dataclass
 from typing import Literal, Sequence
 
-from app.spellcheck.normalizer import is_tibetan_char
+from app.spellcheck.normalizer import is_tibetan_char, normalize_tibetan
 from app.spellcheck.sanskrit import (
     LIKELY_SANSKRIT_THRESHOLD,
     score_sanskrit_likelihoods,
@@ -211,7 +211,7 @@ def _line_count_sanity(diagnostics: OcrDiagnostics) -> float:
 
 
 def _split_tibetan_syllables(text: str) -> list[str]:
-    return [s for s in split_syllables(text) if any(is_tibetan_char(c) for c in s)]
+    return [s for s in split_syllables(normalize_tibetan(text)) if any(is_tibetan_char(c) for c in s)]
 
 
 def _sanskrit_words(tibetan_syllables: Sequence[str]) -> set[str]:
