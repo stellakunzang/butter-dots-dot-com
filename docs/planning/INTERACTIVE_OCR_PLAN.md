@@ -308,10 +308,10 @@ Each ticket below is sized to be a single PR. Dependencies are noted. The order 
 **Out of scope:** Claude integration (T-06). Vision fallback (T-07). UI (T-08).
 
 **Acceptance criteria:**
-- [ ] Can run end-to-end on a small PDF, producing a populated job directory
-- [ ] Pages with high score auto-accept; low-score pages have status `needs_review`
-- [ ] No retries happen when `claude_diagnostician is None`
-- [ ] Existing spellcheck tests still pass
+- [x] Can run end-to-end on a small PDF, producing a populated job directory
+- [x] Pages with high score auto-accept; low-score pages have status `needs_review`
+- [x] No retries happen when `claude_diagnostician is None`
+- [x] Existing spellcheck tests still pass
 
 **Dependencies:** T-03, T-04
 
