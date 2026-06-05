@@ -5,12 +5,12 @@ Wires together the BDRC OCR pipeline, the Phase-1 spellchecker, the Sanskrit
 detector, the page quality scorer, and the filesystem job store. See
 ``docs/planning/INTERACTIVE_OCR_PLAN.md`` § T-05 for the design.
 
-This ticket lands the control flow only. With no Claude diagnostician
-available, a page is either auto-accepted or queued for human review — no
-retries happen. T-06 will plug in the diagnostician and enable the loop;
-T-07 will add the vision-OCR fallback. The OCR and spellcheck dependencies
-are injectable so tests (and future callers) can run without loading the
-BDRC models or constructing a real ``TibetanSpellChecker``.
+T-05 landed the control flow with no retry loop; T-06 plugs in the Claude
+diagnostician and enables the per-page retry loop (up to
+``max_attempts``, default 3). T-07 will add the vision-OCR fallback. The
+OCR and spellcheck dependencies are injectable so tests (and future
+callers) can run without loading the BDRC models or constructing a real
+``TibetanSpellChecker``.
 
 Resume is implicit: ``run_all_pages`` skips pages that already have
 ``final.txt`` on disk, so re-running a job picks up where it left off.
@@ -22,12 +22,21 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Literal, Protocol
 
+from app.ocr_assist.diagnostician import (
+    AccurateAsSanskrit,
+    NeedsHuman,
+    RetryWithSettings,
+    Verdict as DiagnosticianVerdict,
+    verdict_to_dict,
+)
 from app.ocr_assist.job_store import (
     Job,
     PageState,
     finalize_page,
     load_page,
+    save_attempt_verdict,
     save_page_attempt,
+    update_page_settings,
 )
 from app.ocr_assist.quality import (
     OcrDiagnostics,
@@ -44,6 +53,11 @@ logger = logging.getLogger(__name__)
 # Starting thresholds for the runner. T-10 calibrates these against a real
 # target text; until then these mirror the values used in T-03's tests.
 DEFAULT_THRESHOLDS = Thresholds(accept=0.85, reject=0.5)
+
+# Hard cap on OCR attempts per page when the diagnostician is wired in,
+# matching the plan's default. Bounds API cost in the absence of a separate
+# per-job budget (a future ticket).
+DEFAULT_MAX_ATTEMPTS = 3
 
 
 # The runner's coarse outcome for a page. ``error`` is reserved for pages that
@@ -115,28 +129,155 @@ def run_page(
     page_index: int,
     *,
     thresholds: Thresholds = DEFAULT_THRESHOLDS,
+    max_attempts: int = DEFAULT_MAX_ATTEMPTS,
     claude_diagnostician: Any = None,
     ocr: OcrAdapter | None = None,
     spellcheck: SpellcheckAdapter | None = None,
 ) -> RunResult:
-    """Run OCR + quality scoring for one page; finalize or queue for review.
+    """Run OCR for one page; retry under the diagnostician's direction.
 
-    With ``claude_diagnostician=None`` (the only mode shipped in T-05) the
-    runner does a single OCR attempt and either accepts the page or queues
-    it for human review. Retries land in T-06 alongside the Claude call.
+    With ``claude_diagnostician=None`` the runner does one OCR attempt and
+    either accepts the page or queues it for review (no retries).
+
+    With a diagnostician callable, the runner loops up to ``max_attempts``:
+    each attempt OCRs with the page's current settings, scores, persists
+    the attempt, and either finalizes (``accept``), surfaces for review
+    (``needs_human`` verdict from Claude), or applies the verdict's setting
+    overrides and retries (``retry_with_settings``). The
+    ``accurate_as_sanskrit_accept`` verdict finalizes the current OCR text
+    even though structural rules flagged it — that's the whole point of
+    the verdict.
+
+    Setting overrides are merged into the page's ``settings.json`` so a
+    re-run of this page is deterministic. The page's settings start from
+    a copy of the job baseline (see ``job_store.create_job``); retries
+    mutate the copy, never the baseline (per the plan's per-page-settings
+    rule).
     """
-    if claude_diagnostician is not None:
-        # Keep the surface honest: until T-06 wires the diagnostician in,
-        # silently accepting a non-None argument here would let callers
-        # believe retries were running when they aren't.
-        raise NotImplementedError(
-            "claude_diagnostician integration ships in T-06; pass None for now."
-        )
-
-    page = load_page(job, page_index)
     ocr_fn = ocr or _default_ocr_adapter()
     spellcheck_fn = spellcheck or _default_spellcheck_adapter()
 
+    if claude_diagnostician is None:
+        # No retry loop without a diagnostician: one attempt, accept or queue.
+        return _run_single_attempt(
+            job, page_index, thresholds, ocr_fn, spellcheck_fn
+        )
+
+    last_attempt: _AttemptResult | None = None
+    for attempt_index in range(max_attempts):
+        page = load_page(job, page_index)
+        last_attempt = _attempt_once(
+            job, page_index, page, ocr_fn, spellcheck_fn, thresholds
+        )
+
+        if last_attempt.verdict == "accept":
+            updated = finalize_page(
+                job,
+                page_index,
+                final_text=last_attempt.ocr_text,
+                final_quality=_quality_to_dict(last_attempt.quality),
+            )
+            return RunResult(
+                page=updated,
+                decision="accept",
+                quality=last_attempt.quality,
+                verdict=last_attempt.verdict,
+            )
+
+        # No retries remaining → don't burn an API call we can't act on.
+        if attempt_index == max_attempts - 1:
+            break
+
+        verdict = claude_diagnostician(
+            image_path=page.image_path,
+            ocr_text=last_attempt.ocr_text,
+            quality=last_attempt.quality,
+            prior_attempts=load_page(job, page_index).attempts,
+        )
+        _annotate_attempt_verdict(job, page_index, verdict)
+
+        if isinstance(verdict, AccurateAsSanskrit):
+            updated = finalize_page(
+                job,
+                page_index,
+                final_text=last_attempt.ocr_text,
+                final_quality=_quality_to_dict(last_attempt.quality),
+                notes=f"accepted as Sanskrit: {verdict.rationale}",
+            )
+            return RunResult(
+                page=updated,
+                decision="accept",
+                quality=last_attempt.quality,
+                verdict=last_attempt.verdict,
+            )
+        if isinstance(verdict, NeedsHuman):
+            return RunResult(
+                page=load_page(job, page_index),
+                decision="needs_review",
+                quality=last_attempt.quality,
+                verdict=last_attempt.verdict,
+            )
+        if isinstance(verdict, RetryWithSettings):
+            _apply_settings_overrides(job, page_index, verdict.settings_overrides)
+            continue
+        # Defensive — diagnostician contract is a closed union.
+        raise TypeError(f"Unknown verdict type: {type(verdict).__name__}")
+
+    # Attempts exhausted without an accept.
+    assert last_attempt is not None
+    return RunResult(
+        page=load_page(job, page_index),
+        decision="needs_review",
+        quality=last_attempt.quality,
+        verdict=last_attempt.verdict,
+    )
+
+
+@dataclass(frozen=True)
+class _AttemptResult:
+    ocr_text: str
+    quality: PageQuality
+    verdict: Verdict
+
+
+def _run_single_attempt(
+    job: Job,
+    page_index: int,
+    thresholds: Thresholds,
+    ocr_fn: OcrAdapter,
+    spellcheck_fn: SpellcheckAdapter,
+) -> RunResult:
+    page = load_page(job, page_index)
+    attempt = _attempt_once(job, page_index, page, ocr_fn, spellcheck_fn, thresholds)
+    if attempt.verdict == "accept":
+        updated = finalize_page(
+            job,
+            page_index,
+            final_text=attempt.ocr_text,
+            final_quality=_quality_to_dict(attempt.quality),
+        )
+        return RunResult(
+            page=updated,
+            decision="accept",
+            quality=attempt.quality,
+            verdict=attempt.verdict,
+        )
+    return RunResult(
+        page=load_page(job, page_index),
+        decision="needs_review",
+        quality=attempt.quality,
+        verdict=attempt.verdict,
+    )
+
+
+def _attempt_once(
+    job: Job,
+    page_index: int,
+    page: PageState,
+    ocr_fn: OcrAdapter,
+    spellcheck_fn: SpellcheckAdapter,
+    thresholds: Thresholds,
+) -> _AttemptResult:
     result = ocr_fn(page.image_path, page.settings)
     spellcheck_errors = spellcheck_fn(result.text)
     quality = score_page(
@@ -145,45 +286,46 @@ def run_page(
         # line_count is plumbed through but currently inert: with no
         # expected_line_count baseline, quality._line_count_sanity returns 1.0,
         # so the W_LINE_SANITY term contributes nothing to the composite. The
-        # signal becomes live once a per-page baseline exists (T-06); wiring it
-        # now means no signature churn when that lands.
+        # signal becomes live once a per-page baseline exists; wiring it now
+        # means no signature churn when that lands.
         OcrDiagnostics(line_count=result.line_count),
     )
-    verdict = decide(quality, thresholds)
-
     save_page_attempt(
         job,
         page_index,
         ocr_text=result.text,
         quality=_quality_to_dict(quality),
     )
-
-    if verdict == "accept":
-        updated = finalize_page(
-            job,
-            page_index,
-            final_text=result.text,
-            final_quality=_quality_to_dict(quality),
-        )
-        return RunResult(
-            page=updated, decision="accept", quality=quality, verdict=verdict
-        )
-
-    # escalate or reject without an AI loop → queue for human review. The raw
-    # verdict is preserved on RunResult so the caller can still tell the two
-    # apart even though `decision` collapses them.
-    return RunResult(
-        page=load_page(job, page_index),
-        decision="needs_review",
-        quality=quality,
-        verdict=verdict,
+    return _AttemptResult(
+        ocr_text=result.text, quality=quality, verdict=decide(quality, thresholds)
     )
+
+
+def _annotate_attempt_verdict(
+    job: Job, page_index: int, verdict: DiagnosticianVerdict
+) -> None:
+    """Attach the diagnostician's verdict to the most recent attempt directory.
+
+    ``save_page_attempt`` already wrote the OCR + quality for this attempt;
+    the verdict comes back from Claude after scoring, so we land it in the
+    same numbered folder via ``save_attempt_verdict``.
+    """
+    save_attempt_verdict(job, page_index, verdict_to_dict(verdict))
+
+
+def _apply_settings_overrides(
+    job: Job, page_index: int, overrides: dict[str, Any]
+) -> None:
+    page = load_page(job, page_index)
+    merged = {**page.settings, **overrides}
+    update_page_settings(job, page_index, merged)
 
 
 def run_all_pages(
     job: Job,
     *,
     thresholds: Thresholds = DEFAULT_THRESHOLDS,
+    max_attempts: int = DEFAULT_MAX_ATTEMPTS,
     claude_diagnostician: Any = None,
     ocr: OcrAdapter | None = None,
     spellcheck: SpellcheckAdapter | None = None,
@@ -212,6 +354,7 @@ def run_all_pages(
                     job,
                     index,
                     thresholds=thresholds,
+                    max_attempts=max_attempts,
                     claude_diagnostician=claude_diagnostician,
                     ocr=ocr_fn,
                     spellcheck=spellcheck_fn,

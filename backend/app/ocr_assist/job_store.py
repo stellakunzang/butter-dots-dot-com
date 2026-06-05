@@ -247,6 +247,48 @@ def save_page_attempt(
     )
 
 
+def save_attempt_verdict(
+    job: Job,
+    page_index: int,
+    verdict: dict[str, Any],
+) -> None:
+    """Attach an AI verdict to the most recently saved attempt on a page.
+
+    Called after ``save_page_attempt`` (which writes OCR text + quality) once
+    the diagnostician has returned. Writes ``ai_verdict.json`` under the
+    highest-numbered ``attempts/NN/`` directory — raises ``FileNotFoundError``
+    if no attempt has been saved yet, because a verdict has no meaning without
+    one.
+    """
+    attempts_dir = job.root / _page_dir_name(page_index) / ATTEMPTS_DIR
+    candidates = [
+        p for p in attempts_dir.iterdir() if p.is_dir() and p.name.isdigit()
+    ] if attempts_dir.is_dir() else []
+    if not candidates:
+        raise FileNotFoundError(
+            f"No attempts to attach a verdict to under {attempts_dir}"
+        )
+    latest = max(candidates, key=lambda p: int(p.name))
+    _atomic_write_json(latest / ATTEMPT_VERDICT_FILE, verdict)
+
+
+def update_page_settings(
+    job: Job,
+    page_index: int,
+    settings: dict[str, Any],
+) -> None:
+    """Overwrite the page's ``settings.json`` with ``settings``.
+
+    Retries mutate the page's copy of settings, not the job baseline (per the
+    plan's per-page settings model). Pass the full settings dict — callers do
+    their own merge with the prior value and persist the result.
+    """
+    page_dir = job.root / _page_dir_name(page_index)
+    if not page_dir.is_dir():
+        raise FileNotFoundError(f"No page directory: {page_dir}")
+    _atomic_write_json(page_dir / PAGE_SETTINGS_FILE, dict(settings))
+
+
 def finalize_page(
     job: Job,
     page_index: int,
