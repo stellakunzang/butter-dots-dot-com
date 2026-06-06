@@ -46,7 +46,11 @@ from app.ocr_assist.quality import PageQuality
 logger = logging.getLogger(__name__)
 
 
-DEFAULT_MODEL = "claude-opus-4-7"
+# A constrained 3-way classification over a quality breakdown plus one page
+# image. Sonnet handles this well at a fraction of Opus's per-call cost, which
+# matters because the diagnostician runs once per page per retry. Override with
+# ``model=`` for harder corpora.
+DEFAULT_MODEL = "claude-sonnet-4-6"
 DEFAULT_MAX_TOKENS = 2048
 
 _SYSTEM_PROMPT = """You are an OCR diagnostician for Tibetan-script pages run through the BDRC OCR pipeline. \
@@ -220,6 +224,12 @@ class Diagnostician:
                     "media_type": _guess_media_type(image_path),
                     "data": image_b64,
                 },
+                # The image is the dominant input cost and is identical across
+                # retries of the *same* page, so cache up to and including it.
+                # The breakpoint stays on the image (not the text after it,
+                # which carries the per-attempt OCR/quality and changes every
+                # call) so attempts 2+ on a page read the image from cache.
+                "cache_control": {"type": "ephemeral"},
             },
             {
                 "type": "text",

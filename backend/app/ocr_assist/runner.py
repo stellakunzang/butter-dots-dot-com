@@ -30,6 +30,7 @@ from app.ocr_assist.diagnostician import (
     verdict_to_dict,
 )
 from app.ocr_assist.job_store import (
+    AttemptRecord,
     Job,
     PageState,
     finalize_page,
@@ -96,6 +97,25 @@ class OcrAdapter(Protocol):
 SpellcheckAdapter = Callable[[str], list[dict[str, Any]]]
 
 
+class DiagnosticianCallable(Protocol):
+    """The diagnostician seam the runner calls when a page scores below accept.
+
+    ``diagnostician.Diagnostician.__call__`` implements this, and tests inject a
+    stub with the same signature; typing it (rather than ``Any``) documents the
+    contract and lets type-checkers verify both. The return is the closed
+    verdict union from ``diagnostician`` (``RetryWithSettings`` /
+    ``AccurateAsSanskrit`` / ``NeedsHuman``).
+    """
+    def __call__(
+        self,
+        *,
+        image_path: Path,
+        ocr_text: str,
+        quality: PageQuality,
+        prior_attempts: list[AttemptRecord],
+    ) -> DiagnosticianVerdict: ...
+
+
 @dataclass(frozen=True)
 class RunResult:
     """Outcome of running a single page through the loop.
@@ -130,7 +150,7 @@ def run_page(
     *,
     thresholds: Thresholds = DEFAULT_THRESHOLDS,
     max_attempts: int = DEFAULT_MAX_ATTEMPTS,
-    claude_diagnostician: Any = None,
+    claude_diagnostician: DiagnosticianCallable | None = None,
     ocr: OcrAdapter | None = None,
     spellcheck: SpellcheckAdapter | None = None,
 ) -> RunResult:
@@ -154,6 +174,9 @@ def run_page(
     mutate the copy, never the baseline (per the plan's per-page-settings
     rule).
     """
+    if max_attempts < 1:
+        raise ValueError(f"max_attempts must be >= 1, got {max_attempts}")
+
     ocr_fn = ocr or _default_ocr_adapter()
     spellcheck_fn = spellcheck or _default_spellcheck_adapter()
 
@@ -326,7 +349,7 @@ def run_all_pages(
     *,
     thresholds: Thresholds = DEFAULT_THRESHOLDS,
     max_attempts: int = DEFAULT_MAX_ATTEMPTS,
-    claude_diagnostician: Any = None,
+    claude_diagnostician: DiagnosticianCallable | None = None,
     ocr: OcrAdapter | None = None,
     spellcheck: SpellcheckAdapter | None = None,
 ) -> list[RunResult]:
@@ -362,9 +385,15 @@ def run_all_pages(
             )
         except Exception as exc:  # noqa: BLE001 — one bad page must not sink the batch
             logger.exception("page %d failed; recording as error and continuing", index)
+            # Reuse the page object loaded at the top of the loop rather than
+            # re-`load_page`-ing here: if the failure was *in* ``load_page``
+            # itself (corrupt page dir, bad settings.json) it would have raised
+            # above, never reaching this branch — but reloading now would hit
+            # the same fault and propagate out, defeating the per-page
+            # resilience guarantee.
             results.append(
                 RunResult(
-                    page=load_page(job, index),
+                    page=existing,
                     decision="error",
                     quality=None,
                     error=str(exc),

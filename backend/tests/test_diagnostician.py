@@ -232,9 +232,26 @@ class TestRequestShape:
         assert user_content[0]["type"] == "image"
         assert user_content[0]["source"]["type"] == "base64"
         assert user_content[0]["source"]["media_type"] == "image/png"
+        # The image — the dominant input cost, identical across same-page
+        # retries — carries the cache breakpoint; the trailing text block
+        # (per-attempt OCR/quality) deliberately does not.
+        assert user_content[0]["cache_control"] == {"type": "ephemeral"}
         assert user_content[1]["type"] == "text"
+        assert "cache_control" not in user_content[1]
         assert "ocr text here" in user_content[1]["text"]
         assert "composite_score" in user_content[1]["text"]
+
+    def test_defaults_to_sonnet(self, image_file):
+        # Cost-sensitive default: this is a constrained 3-way classification
+        # that runs per-page-per-retry, so the cheaper Sonnet model is the
+        # default (callers can pass model= to override).
+        client = _FakeClient(
+            _FakeResponse(content=[_FakeToolUse(name="needs_human", input={"reason": "x"})])
+        )
+        Diagnostician(client=client)(
+            image_path=image_file, ocr_text="x", quality=_quality(), prior_attempts=[]
+        )
+        assert client.calls[0]["model"] == "claude-sonnet-4-6"
 
 
 class TestVerdictToDict:

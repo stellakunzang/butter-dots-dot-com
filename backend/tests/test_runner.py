@@ -235,6 +235,61 @@ class TestRunAllPagesResilience:
         assert failed.page.final_text is None
         assert not (job.root / "page-002" / "final.txt").is_file()
 
+    def test_recovery_does_not_reload_the_failed_page(self, job, monkeypatch):
+        # Regression guard: the per-page recovery branch must build its error
+        # RunResult from the page object already loaded at the top of the loop,
+        # not by re-reading the page. If it reloaded and the underlying fault
+        # were *in* load_page (corrupt settings.json), that reload would raise
+        # and sink the whole batch. Here a reload of page 2 after its initial
+        # load is forced to fail; the batch must still complete.
+        from app.ocr_assist import runner as runner_mod
+
+        real_load_page = runner_mod.load_page
+        load_counts: dict[int, int] = {}
+
+        def flaky_load_page(job, index):
+            load_counts[index] = load_counts.get(index, 0) + 1
+            # First load (top of loop) and the load inside the attempt succeed;
+            # any *further* reload of page 2 — i.e. a recovery-branch reload —
+            # raises, standing in for a corrupt page dir on re-read.
+            if index == 2 and load_counts[index] >= 3:
+                raise RuntimeError("settings.json corrupt on reload")
+            return real_load_page(job, index)
+
+        monkeypatch.setattr(runner_mod, "load_page", flaky_load_page)
+
+        def flaky_ocr(image_path: Path, settings: dict) -> OcrResult:
+            if image_path.parent.name == "page-002":
+                raise RuntimeError("OCR engine unavailable: boom")
+            return OcrResult(text=CLEAN_TEXT, line_count=2)
+
+        results = run_all_pages(job, ocr=flaky_ocr, spellcheck=no_errors)
+
+        assert len(results) == job.page_count
+        by_index = {r.page.index: r for r in results}
+        assert by_index[1].decision == "accept"
+        assert by_index[3].decision == "accept"
+        assert by_index[2].decision == "error"
+        assert "boom" in by_index[2].error
+        # The recovery branch never reloaded page 2 (would have been call #3).
+        assert load_counts[2] == 2
+
+
+class TestMaxAttemptsGuard:
+    def test_zero_max_attempts_raises_value_error(self, job):
+        # A diagnostician-driven run with max_attempts=0 has no attempt to act
+        # on; reject it cleanly rather than tripping an internal assertion.
+        diagnostician = _stub_diagnostician([])  # never called
+        with pytest.raises(ValueError, match="max_attempts"):
+            run_page(
+                job,
+                1,
+                ocr=garbled_ocr,
+                spellcheck=no_errors,
+                claude_diagnostician=diagnostician,
+                max_attempts=0,
+            )
+
 
 class TestThresholdsOverride:
     def test_lax_thresholds_accept_garbled(self, job):
