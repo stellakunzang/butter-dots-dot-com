@@ -338,11 +338,13 @@ Each ticket below is sized to be a single PR. Dependencies are noted. The order 
 **Out of scope:** Vision-OCR fallback (T-07).
 
 **Acceptance criteria:**
-- [ ] Module exists and is callable with a real API key
-- [ ] Verdicts deserialize into the typed union; malformed responses raise a clear error
-- [ ] `run_page` with diagnostician wired in produces retry attempts on a deliberately-bad page
+- [x] Module exists and is callable with a real API key
+- [x] Verdicts deserialize into the typed union; malformed responses raise a clear error
+- [x] `run_page` with diagnostician wired in produces retry attempts on a deliberately-bad page
 - [ ] Sanskrit-heavy page produces `AccurateAsSanskrit` verdict (manual smoke test, no need to mock)
 - [ ] System prompt is cached (verify cache_read tokens > 0 on the second call in the same session)
+
+The two unticked items are real-API smoke tests that need a live `ANTHROPIC_API_KEY`. The wiring is in place: the system prompt and last tool both carry `cache_control: {"type": "ephemeral"}`, and the Sanskrit guidance is in the system prompt. They get ticked after running against a real page.
 
 **Dependencies:** T-05
 

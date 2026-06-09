@@ -1,22 +1,37 @@
 """
-Tests for the per-page OCR runner (T-05).
+Tests for the per-page OCR runner (T-05 + T-06).
 
-Covers the T-05 acceptance criteria:
-- End-to-end run on a small (faked) PDF produces a populated job directory.
-- High-score pages auto-accept (final.txt written); low-score pages have
-  status needs_review (final.txt absent but attempt persisted).
-- No retries happen when claude_diagnostician is None.
-- run_all_pages skips pages already finalized on disk (resume).
+T-05 covers the no-AI path: high-score pages auto-accept, low-score pages
+queue for review, ``run_all_pages`` skips finalized pages and survives a
+single failing page.
+
+T-06 adds the Claude diagnostician retry loop. The diagnostician is stubbed
+with a callable so the suite never makes a real API call. Covers:
+
+- ``RetryWithSettings`` merges overrides into the page's settings.json and
+  the next attempt sees them.
+- ``AccurateAsSanskrit`` finalizes the current OCR text with the rationale
+  in the page notes.
+- ``NeedsHuman`` queues for review without finalizing.
+- ``max_attempts`` caps the loop; the diagnostician is not consulted on the
+  final attempt (the verdict can't be acted on).
+- The diagnostician's verdict is persisted into the attempt's ai_verdict.json.
 
 OCR and spellcheck are injected as fakes so the suite never loads BDRC models
 or opens a database connection.
 """
+import json
 from pathlib import Path
 
 import pytest
 from PIL import Image
 
 from app.ocr_assist import job_store
+from app.ocr_assist.diagnostician import (
+    AccurateAsSanskrit,
+    NeedsHuman,
+    RetryWithSettings,
+)
 from app.ocr_assist.job_store import (
     create_job,
     load_page,
@@ -124,19 +139,6 @@ class TestRunPageNeedsReview:
 
 
 class TestNoRetries:
-    def test_diagnostician_arg_rejected_until_t06(self, job):
-        # Until T-06 wires the loop, silently ignoring the diagnostician arg
-        # would lull callers into believing retries are running. The runner
-        # refuses the call instead.
-        with pytest.raises(NotImplementedError):
-            run_page(
-                job,
-                1,
-                ocr=garbled_ocr,
-                spellcheck=no_errors,
-                claude_diagnostician=lambda *a, **kw: None,
-            )
-
     def test_low_score_only_one_attempt(self, job):
         # A bad page produces exactly one OCR attempt: no retry loop runs.
         calls = []
@@ -233,6 +235,61 @@ class TestRunAllPagesResilience:
         assert failed.page.final_text is None
         assert not (job.root / "page-002" / "final.txt").is_file()
 
+    def test_recovery_does_not_reload_the_failed_page(self, job, monkeypatch):
+        # Regression guard: the per-page recovery branch must build its error
+        # RunResult from the page object already loaded at the top of the loop,
+        # not by re-reading the page. If it reloaded and the underlying fault
+        # were *in* load_page (corrupt settings.json), that reload would raise
+        # and sink the whole batch. Here a reload of page 2 after its initial
+        # load is forced to fail; the batch must still complete.
+        from app.ocr_assist import runner as runner_mod
+
+        real_load_page = runner_mod.load_page
+        load_counts: dict[int, int] = {}
+
+        def flaky_load_page(job, index):
+            load_counts[index] = load_counts.get(index, 0) + 1
+            # First load (top of loop) and the load inside the attempt succeed;
+            # any *further* reload of page 2 — i.e. a recovery-branch reload —
+            # raises, standing in for a corrupt page dir on re-read.
+            if index == 2 and load_counts[index] >= 3:
+                raise RuntimeError("settings.json corrupt on reload")
+            return real_load_page(job, index)
+
+        monkeypatch.setattr(runner_mod, "load_page", flaky_load_page)
+
+        def flaky_ocr(image_path: Path, settings: dict) -> OcrResult:
+            if image_path.parent.name == "page-002":
+                raise RuntimeError("OCR engine unavailable: boom")
+            return OcrResult(text=CLEAN_TEXT, line_count=2)
+
+        results = run_all_pages(job, ocr=flaky_ocr, spellcheck=no_errors)
+
+        assert len(results) == job.page_count
+        by_index = {r.page.index: r for r in results}
+        assert by_index[1].decision == "accept"
+        assert by_index[3].decision == "accept"
+        assert by_index[2].decision == "error"
+        assert "boom" in by_index[2].error
+        # The recovery branch never reloaded page 2 (would have been call #3).
+        assert load_counts[2] == 2
+
+
+class TestMaxAttemptsGuard:
+    def test_zero_max_attempts_raises_value_error(self, job):
+        # A diagnostician-driven run with max_attempts=0 has no attempt to act
+        # on; reject it cleanly rather than tripping an internal assertion.
+        diagnostician = _stub_diagnostician([])  # never called
+        with pytest.raises(ValueError, match="max_attempts"):
+            run_page(
+                job,
+                1,
+                ocr=garbled_ocr,
+                spellcheck=no_errors,
+                claude_diagnostician=diagnostician,
+                max_attempts=0,
+            )
+
 
 class TestThresholdsOverride:
     def test_lax_thresholds_accept_garbled(self, job):
@@ -252,3 +309,210 @@ class TestDefaultThresholds:
         # the new values should be documented and this test updated.
         assert DEFAULT_THRESHOLDS.accept == 0.85
         assert DEFAULT_THRESHOLDS.reject == 0.5
+
+
+# ---------------------------------------------------------------------------
+# T-06 — diagnostician retry loop
+# ---------------------------------------------------------------------------
+
+
+def _stub_diagnostician(verdicts):
+    """Build a diagnostician callable that yields ``verdicts`` in order.
+
+    Each invocation pops the next verdict. Test failures are clearer when the
+    stub asserts on exhaustion rather than running off the end silently.
+    """
+    iterator = iter(verdicts)
+    calls: list[dict] = []
+
+    def _fake(*, image_path, ocr_text, quality, prior_attempts):
+        calls.append(
+            {
+                "image_path": image_path,
+                "ocr_text": ocr_text,
+                "composite": quality.composite_score,
+                "prior_attempt_count": len(prior_attempts),
+            }
+        )
+        return next(iterator)
+
+    _fake.calls = calls  # type: ignore[attr-defined]
+    return _fake
+
+
+class TestDiagnosticianRetryWithSettings:
+    def test_overrides_merge_into_page_settings(self, job):
+        # First attempt OCRs garbled text (below accept); diagnostician asks
+        # to retry with k_factor=3.0; second attempt also garbled → exhausts
+        # attempts. Settings.json should have the override applied.
+        diagnostician = _stub_diagnostician(
+            [RetryWithSettings(settings_overrides={"k_factor": 3.0}, rationale="x")]
+        )
+
+        run_page(
+            job,
+            1,
+            ocr=garbled_ocr,
+            spellcheck=no_errors,
+            claude_diagnostician=diagnostician,
+            max_attempts=2,
+        )
+
+        settings = json.loads(
+            (job.root / "page-001" / "settings.json").read_text()
+        )
+        # Baseline ``model_variant`` is preserved; the override is layered on.
+        assert settings["model_variant"] == "Modern"
+        assert settings["k_factor"] == 3.0
+
+    def test_second_attempt_sees_new_settings(self, job):
+        # The runner should pass the *updated* settings dict to the OCR
+        # adapter on the second attempt, not the baseline.
+        settings_seen: list[dict] = []
+
+        def recording_ocr(image_path: Path, settings: dict) -> OcrResult:
+            settings_seen.append(dict(settings))
+            return OcrResult(text=GARBLED_TEXT, line_count=1)
+
+        diagnostician = _stub_diagnostician(
+            [RetryWithSettings(settings_overrides={"k_factor": 4.2}, rationale="x")]
+        )
+
+        run_page(
+            job,
+            1,
+            ocr=recording_ocr,
+            spellcheck=no_errors,
+            claude_diagnostician=diagnostician,
+            max_attempts=2,
+        )
+
+        assert len(settings_seen) == 2
+        assert "k_factor" not in settings_seen[0]
+        assert settings_seen[1]["k_factor"] == 4.2
+
+
+class TestDiagnosticianAccurateAsSanskrit:
+    def test_finalizes_current_text_with_notes(self, job):
+        diagnostician = _stub_diagnostician(
+            [AccurateAsSanskrit(rationale="anusvara-heavy mantra block")]
+        )
+
+        result = run_page(
+            job,
+            1,
+            ocr=garbled_ocr,
+            spellcheck=no_errors,
+            claude_diagnostician=diagnostician,
+            max_attempts=3,
+        )
+
+        assert result.decision == "accept"
+        assert result.page.final_text == GARBLED_TEXT
+        assert (job.root / "page-001" / "final.txt").is_file()
+        assert result.page.notes is not None
+        assert "anusvara-heavy mantra block" in result.page.notes
+
+
+class TestDiagnosticianNeedsHuman:
+    def test_needs_human_queues_for_review(self, job):
+        diagnostician = _stub_diagnostician(
+            [NeedsHuman(reason="image is upside-down and torn")]
+        )
+
+        result = run_page(
+            job,
+            1,
+            ocr=garbled_ocr,
+            spellcheck=no_errors,
+            claude_diagnostician=diagnostician,
+            max_attempts=3,
+        )
+
+        assert result.decision == "needs_review"
+        assert result.page.final_text is None
+        # Verdict was persisted onto the attempt.
+        verdict_path = job.root / "page-001" / "attempts" / "01" / "ai_verdict.json"
+        verdict = json.loads(verdict_path.read_text())
+        assert verdict["tool"] == "needs_human"
+        assert "torn" in verdict["reason"]
+
+
+class TestMaxAttempts:
+    def test_loop_stops_at_max_attempts(self, job):
+        # All attempts come back garbled; diagnostician keeps asking for retries.
+        # The runner must cap the loop at max_attempts and not consult the
+        # diagnostician on the last attempt (verdict can't be acted on).
+        diagnostician = _stub_diagnostician(
+            [
+                RetryWithSettings(settings_overrides={"k_factor": 3.0}, rationale="a"),
+                RetryWithSettings(settings_overrides={"k_factor": 4.0}, rationale="b"),
+                # Third entry deliberately omitted — accessing it would raise
+                # StopIteration, which proves the loop didn't call again.
+            ]
+        )
+
+        ocr_calls: list[Path] = []
+
+        def counting_ocr(image_path: Path, settings: dict) -> OcrResult:
+            ocr_calls.append(image_path)
+            return OcrResult(text=GARBLED_TEXT, line_count=1)
+
+        result = run_page(
+            job,
+            1,
+            ocr=counting_ocr,
+            spellcheck=no_errors,
+            claude_diagnostician=diagnostician,
+            max_attempts=3,
+        )
+
+        assert len(ocr_calls) == 3
+        assert len(diagnostician.calls) == 2  # not called on the final attempt
+        assert result.decision == "needs_review"
+        assert result.page.final_text is None
+
+    def test_no_diagnostician_call_when_first_attempt_accepts(self, job):
+        diagnostician = _stub_diagnostician([])  # would explode if called
+
+        result = run_page(
+            job,
+            1,
+            ocr=clean_ocr,
+            spellcheck=no_errors,
+            claude_diagnostician=diagnostician,
+            max_attempts=3,
+        )
+
+        assert result.decision == "accept"
+        assert diagnostician.calls == []
+
+
+class TestVerdictPersistence:
+    def test_retry_verdict_recorded_on_attempt(self, job):
+        diagnostician = _stub_diagnostician(
+            [
+                RetryWithSettings(
+                    settings_overrides={"model_variant": "Woodblock"},
+                    rationale="probably a pecha page",
+                ),
+            ]
+        )
+
+        run_page(
+            job,
+            1,
+            ocr=garbled_ocr,
+            spellcheck=no_errors,
+            claude_diagnostician=diagnostician,
+            max_attempts=2,
+        )
+
+        # Verdict landed on attempt 1 (the one that triggered the retry).
+        verdict_path = job.root / "page-001" / "attempts" / "01" / "ai_verdict.json"
+        verdict = json.loads(verdict_path.read_text())
+        assert verdict == {
+            "tool": "retry_with_settings",
+            "settings_overrides": {"model_variant": "Woodblock"},
+            "rationale": "probably a pecha page",
+        }
