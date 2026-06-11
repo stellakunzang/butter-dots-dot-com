@@ -64,6 +64,11 @@ ATTEMPTS_DIR = "attempts"
 ATTEMPT_OCR_FILE = "ocr.txt"
 ATTEMPT_QUALITY_FILE = "quality.json"
 ATTEMPT_VERDICT_FILE = "ai_verdict.json"
+# T-07 vision-OCR fallback transcripts live directly under the page dir, not
+# under attempts/: they come from a different engine than BDRC and the human
+# review surface needs both BDRC attempts and the vision read side-by-side.
+VISION_TRANSCRIPT_FILE = "vision_ocr.json"
+VISION_QUALITY_FILE = "vision_quality.json"
 
 JOB_STATUS_IN_PROGRESS = "in_progress"
 JOB_STATUS_COMPLETE = "complete"
@@ -80,7 +85,14 @@ class AttemptRecord:
 
 @dataclass
 class PageState:
-    """All persisted state for one page of a job."""
+    """All persisted state for one page of a job.
+
+    ``vision_transcript`` / ``vision_quality`` are populated when the T-07
+    Claude vision-OCR fallback ran on this page; they sit next to the BDRC
+    attempts list rather than inside it so the human review UI can show both
+    engines' reads side-by-side. Both are ``None`` on pages where vision was
+    never consulted (the common case — most pages accept on first OCR).
+    """
     index: int
     image_path: Path
     settings: dict[str, Any]
@@ -88,6 +100,8 @@ class PageState:
     final_text: str | None = None
     final_quality: dict[str, Any] | None = None
     notes: str | None = None
+    vision_transcript: dict[str, Any] | None = None
+    vision_quality: dict[str, Any] | None = None
 
 
 @dataclass
@@ -203,6 +217,20 @@ def load_page(job: Job, page_index: int) -> PageState:
     notes_path = page_dir / NOTES_FILE
     notes = notes_path.read_text(encoding="utf-8") if notes_path.is_file() else None
 
+    vision_transcript_path = page_dir / VISION_TRANSCRIPT_FILE
+    vision_transcript = (
+        json.loads(vision_transcript_path.read_text(encoding="utf-8"))
+        if vision_transcript_path.is_file()
+        else None
+    )
+
+    vision_quality_path = page_dir / VISION_QUALITY_FILE
+    vision_quality = (
+        json.loads(vision_quality_path.read_text(encoding="utf-8"))
+        if vision_quality_path.is_file()
+        else None
+    )
+
     return PageState(
         index=page_index,
         image_path=page_dir / PAGE_IMAGE_FILE,
@@ -211,6 +239,8 @@ def load_page(job: Job, page_index: int) -> PageState:
         final_text=final_text,
         final_quality=final_quality,
         notes=notes,
+        vision_transcript=vision_transcript,
+        vision_quality=vision_quality,
     )
 
 
@@ -270,6 +300,32 @@ def save_attempt_verdict(
         )
     latest = max(candidates, key=lambda p: int(p.name))
     _atomic_write_json(latest / ATTEMPT_VERDICT_FILE, verdict)
+
+
+def save_vision_transcript(
+    job: Job,
+    page_index: int,
+    *,
+    transcript: dict[str, Any],
+    quality: dict[str, Any] | None = None,
+) -> None:
+    """Persist a T-07 vision-OCR transcript + its quality next to the page.
+
+    Distinct from ``save_page_attempt`` because vision results come from a
+    different engine than the BDRC attempts; storing them at the page level
+    (not under ``attempts/NN/``) keeps the BDRC retry log semantically clean
+    and gives the review UI a single well-known path for the fallback read.
+
+    ``transcript`` is the serialized ``VisionTranscript`` (text + optional
+    notes). ``quality`` follows the same shape ``save_page_attempt`` writes
+    for BDRC attempts so the UI can render either with the same code.
+    """
+    page_dir = job.root / _page_dir_name(page_index)
+    if not page_dir.is_dir():
+        raise FileNotFoundError(f"No page directory: {page_dir}")
+    _atomic_write_json(page_dir / VISION_TRANSCRIPT_FILE, transcript)
+    if quality is not None:
+        _atomic_write_json(page_dir / VISION_QUALITY_FILE, quality)
 
 
 def update_page_settings(

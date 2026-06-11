@@ -45,6 +45,7 @@ from app.ocr_assist.runner import (
     run_all_pages,
     run_page,
 )
+from app.ocr_assist.contracts import VisionTranscript
 
 
 CLEAN_TEXT = "བཀྲ་ཤིས་བདེ་ལེགས།\nདགེ་བའི་བཤེས་གཉེན།"
@@ -286,7 +287,7 @@ class TestMaxAttemptsGuard:
                 1,
                 ocr=garbled_ocr,
                 spellcheck=no_errors,
-                claude_diagnostician=diagnostician,
+                diagnostician=diagnostician,
                 max_attempts=0,
             )
 
@@ -354,7 +355,7 @@ class TestDiagnosticianRetryWithSettings:
             1,
             ocr=garbled_ocr,
             spellcheck=no_errors,
-            claude_diagnostician=diagnostician,
+            diagnostician=diagnostician,
             max_attempts=2,
         )
 
@@ -383,7 +384,7 @@ class TestDiagnosticianRetryWithSettings:
             1,
             ocr=recording_ocr,
             spellcheck=no_errors,
-            claude_diagnostician=diagnostician,
+            diagnostician=diagnostician,
             max_attempts=2,
         )
 
@@ -403,7 +404,7 @@ class TestDiagnosticianAccurateAsSanskrit:
             1,
             ocr=garbled_ocr,
             spellcheck=no_errors,
-            claude_diagnostician=diagnostician,
+            diagnostician=diagnostician,
             max_attempts=3,
         )
 
@@ -425,7 +426,7 @@ class TestDiagnosticianNeedsHuman:
             1,
             ocr=garbled_ocr,
             spellcheck=no_errors,
-            claude_diagnostician=diagnostician,
+            diagnostician=diagnostician,
             max_attempts=3,
         )
 
@@ -463,7 +464,7 @@ class TestMaxAttempts:
             1,
             ocr=counting_ocr,
             spellcheck=no_errors,
-            claude_diagnostician=diagnostician,
+            diagnostician=diagnostician,
             max_attempts=3,
         )
 
@@ -480,7 +481,7 @@ class TestMaxAttempts:
             1,
             ocr=clean_ocr,
             spellcheck=no_errors,
-            claude_diagnostician=diagnostician,
+            diagnostician=diagnostician,
             max_attempts=3,
         )
 
@@ -504,7 +505,7 @@ class TestVerdictPersistence:
             1,
             ocr=garbled_ocr,
             spellcheck=no_errors,
-            claude_diagnostician=diagnostician,
+            diagnostician=diagnostician,
             max_attempts=2,
         )
 
@@ -516,3 +517,232 @@ class TestVerdictPersistence:
             "settings_overrides": {"model_variant": "Woodblock"},
             "rationale": "probably a pecha page",
         }
+
+
+# ---------------------------------------------------------------------------
+# T-07 — Claude vision-OCR fallback
+# ---------------------------------------------------------------------------
+
+
+def _stub_vision(transcripts):
+    """Build a vision-OCR callable that yields ``transcripts`` in order.
+
+    Mirrors ``_stub_diagnostician``: each call pops the next transcript and
+    appends to ``.calls`` so tests can assert exactly when vision was consulted
+    and on what page image.
+    """
+    iterator = iter(transcripts)
+    calls: list[Path] = []
+
+    def _fake(*, image_path: Path) -> VisionTranscript:
+        calls.append(image_path)
+        return next(iterator)
+
+    _fake.calls = calls  # type: ignore[attr-defined]
+    return _fake
+
+
+class TestVisionFallbackNotConsulted:
+    def test_first_attempt_accept_skips_vision(self, job):
+        # Plan acceptance criterion: "No vision call is made on pages that
+        # already accept on first OCR attempt." Stub would raise on call.
+        vision = _stub_vision([])
+
+        result = run_page(
+            job,
+            1,
+            ocr=clean_ocr,
+            spellcheck=no_errors,
+            vision_transcriber=vision,
+        )
+
+        assert result.decision == "accept"
+        assert vision.calls == []
+        assert load_page(job, 1).vision_transcript is None
+
+    def test_diagnostician_accept_skips_vision(self, job):
+        diagnostician = _stub_diagnostician([])
+        vision = _stub_vision([])
+
+        result = run_page(
+            job,
+            1,
+            ocr=clean_ocr,
+            spellcheck=no_errors,
+            diagnostician=diagnostician,
+            vision_transcriber=vision,
+        )
+
+        assert result.decision == "accept"
+        assert vision.calls == []
+
+    def test_no_vision_callable_preserves_pre_t07_behavior(self, job):
+        # A garbled page with no vision callable must still surface as
+        # needs_review without writing vision files. This guards callers that
+        # don't opt in to vision yet.
+        result = run_page(
+            job,
+            1,
+            ocr=garbled_ocr,
+            spellcheck=no_errors,
+            vision_transcriber=None,
+        )
+
+        assert result.decision == "needs_review"
+        page = load_page(job, 1)
+        assert page.vision_transcript is None
+        assert page.vision_quality is None
+
+
+class TestVisionFallbackAfterAttemptsExhausted:
+    def test_vision_accept_finalizes_page(self, job):
+        # BDRC attempts all return garbled text; vision returns a clean Tibetan
+        # transcript. The page must finalize from vision, write vision_ocr.json,
+        # and tag the notes so the reviewer sees which engine produced final.txt.
+        diagnostician = _stub_diagnostician(
+            [
+                RetryWithSettings(settings_overrides={"k_factor": 3.0}, rationale="x"),
+                RetryWithSettings(settings_overrides={"k_factor": 4.0}, rationale="y"),
+            ]
+        )
+        vision = _stub_vision([VisionTranscript(text=CLEAN_TEXT, notes=None)])
+
+        result = run_page(
+            job,
+            1,
+            ocr=garbled_ocr,
+            spellcheck=no_errors,
+            diagnostician=diagnostician,
+            vision_transcriber=vision,
+            max_attempts=3,
+        )
+
+        assert result.decision == "accept"
+        assert len(vision.calls) == 1
+        # final.txt is the vision transcript, not the last garbled BDRC attempt.
+        assert (job.root / "page-001" / "final.txt").read_text() == CLEAN_TEXT
+        page = load_page(job, 1)
+        assert page.final_text == CLEAN_TEXT
+        assert page.vision_transcript == {"text": CLEAN_TEXT}
+        # Notes record the provenance so it doesn't get mistaken for a BDRC accept.
+        assert "vision fallback" in (page.notes or "")
+
+    def test_vision_failure_attaches_to_needs_review(self, job):
+        # Vision also returns garbled text → page surfaces as needs_review but
+        # both reads are persisted side-by-side. The acceptance criterion:
+        # "Vision transcript is scored and either accepted or attached to the
+        # human-review record."
+        diagnostician = _stub_diagnostician(
+            [RetryWithSettings(settings_overrides={"k_factor": 3.0}, rationale="x")]
+        )
+        vision = _stub_vision([VisionTranscript(text=GARBLED_TEXT, notes="hard to read")])
+
+        result = run_page(
+            job,
+            1,
+            ocr=garbled_ocr,
+            spellcheck=no_errors,
+            diagnostician=diagnostician,
+            vision_transcriber=vision,
+            max_attempts=2,
+        )
+
+        assert result.decision == "needs_review"
+        assert result.page.final_text is None
+        assert not (job.root / "page-001" / "final.txt").is_file()
+        page = load_page(job, 1)
+        assert page.vision_transcript == {"text": GARBLED_TEXT, "notes": "hard to read"}
+        assert page.vision_quality is not None
+        # BDRC attempts list is also preserved — both engines visible to reviewer.
+        assert len(page.attempts) == 2
+
+    def test_vision_runs_without_diagnostician(self, job):
+        # Vision can be wired in independently of the diagnostician: a one-shot
+        # OCR that fails should still trigger vision before declaring needs_review.
+        vision = _stub_vision([VisionTranscript(text=CLEAN_TEXT)])
+
+        result = run_page(
+            job,
+            1,
+            ocr=garbled_ocr,
+            spellcheck=no_errors,
+            vision_transcriber=vision,
+        )
+
+        assert result.decision == "accept"
+        assert len(vision.calls) == 1
+        assert load_page(job, 1).final_text == CLEAN_TEXT
+
+
+class TestVisionFallbackAfterNeedsHuman:
+    def test_needs_human_still_consults_vision(self, job):
+        # The diagnostician flagging NeedsHuman means BDRC retries won't help.
+        # Vision is a different engine and gets one shot. Here it succeeds, so
+        # the page finalizes from vision even though Claude flagged it.
+        diagnostician = _stub_diagnostician(
+            [NeedsHuman(reason="multi-column layout")]
+        )
+        vision = _stub_vision([VisionTranscript(text=CLEAN_TEXT)])
+
+        result = run_page(
+            job,
+            1,
+            ocr=garbled_ocr,
+            spellcheck=no_errors,
+            diagnostician=diagnostician,
+            vision_transcriber=vision,
+            max_attempts=3,
+        )
+
+        assert result.decision == "accept"
+        page = load_page(job, 1)
+        assert page.final_text == CLEAN_TEXT
+        # The diagnostician's reason is preserved in notes so the reviewer
+        # sees why vision was consulted, even on an accept.
+        assert "multi-column layout" in (page.notes or "")
+
+    def test_needs_human_with_no_vision_returns_needs_review(self, job):
+        # No vision callable → NeedsHuman is still terminal.
+        diagnostician = _stub_diagnostician(
+            [NeedsHuman(reason="torn page")]
+        )
+
+        result = run_page(
+            job,
+            1,
+            ocr=garbled_ocr,
+            spellcheck=no_errors,
+            diagnostician=diagnostician,
+            max_attempts=3,
+        )
+
+        assert result.decision == "needs_review"
+        page = load_page(job, 1)
+        assert page.vision_transcript is None
+
+
+class TestRunAllPagesPassesVision:
+    def test_vision_called_only_on_failing_pages(self, job):
+        # Page 1 and 3 OCR cleanly; page 2 garbled. Vision must run on page 2
+        # only — not on the accepts. Then the batch finalizes all three.
+        vision = _stub_vision([VisionTranscript(text=CLEAN_TEXT)])
+
+        def mixed_ocr(image_path: Path, settings: dict) -> OcrResult:
+            if image_path.parent.name == "page-002":
+                return OcrResult(text=GARBLED_TEXT, line_count=1)
+            return OcrResult(text=CLEAN_TEXT, line_count=2)
+
+        results = run_all_pages(
+            job,
+            ocr=mixed_ocr,
+            spellcheck=no_errors,
+            vision_transcriber=vision,
+        )
+
+        assert {r.page.index: r.decision for r in results} == {
+            1: "accept",
+            2: "accept",
+            3: "accept",
+        }
+        assert len(vision.calls) == 1
+        assert vision.calls[0].parent.name == "page-002"

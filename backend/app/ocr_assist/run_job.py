@@ -4,21 +4,28 @@ CLI entry point for the interactive OCR runner.
 Usage::
 
     python -m app.ocr_assist.run_job <pdf_path> [--jobs-root DIR] [--model NAME]
+    python -m app.ocr_assist.run_job book.pdf --enable-ai
+    python -m app.ocr_assist.run_job book.pdf --enable-ai --vision-provider gemini
 
 Creates a fresh job under ``--jobs-root`` (default ``./jobs``), renders the
 PDF to per-page PNGs, then runs every page through ``runner.run_page``.
 Prints a summary of how each page resolved: ``accept`` or ``needs_review``.
 
-This is a smoke-test surface for T-05. The interactive UI lands in T-09.
+Provider selection (when ``--enable-ai`` is set):
+  ``DIAGNOSTICIAN_PROVIDER`` / ``--diagnostician-provider`` — default ``anthropic``
+  ``VISION_OCR_PROVIDER`` / ``--vision-provider`` — ``anthropic`` or ``gemini``
 """
 from __future__ import annotations
 
 import argparse
 import logging
+import os
 import sys
 from pathlib import Path
 
+from app.config import settings
 from app.ocr_assist.job_store import create_job
+from app.ocr_assist.providers import build_diagnostician, build_vision_transcriber
 from app.ocr_assist.runner import RunResult, run_all_pages
 
 
@@ -33,8 +40,26 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--model",
-        default="Modern",
-        help="Baseline OCR model variant to record on the job (default: Modern).",
+        default=settings.ocr_model_name,
+        help=(
+            "Baseline OCR model variant to record on the job "
+            f"(default: {settings.ocr_model_name} from OCR_MODEL_NAME)."
+        ),
+    )
+    parser.add_argument(
+        "--enable-ai",
+        action="store_true",
+        help="Wire in AI diagnostician + vision fallback via provider factories.",
+    )
+    parser.add_argument(
+        "--diagnostician-provider",
+        default=os.environ.get("DIAGNOSTICIAN_PROVIDER", "anthropic"),
+        help="Diagnostician backend (default: anthropic, or DIAGNOSTICIAN_PROVIDER).",
+    )
+    parser.add_argument(
+        "--vision-provider",
+        default=os.environ.get("VISION_OCR_PROVIDER", "anthropic"),
+        help="Vision OCR backend: anthropic or gemini (default: anthropic).",
     )
     parser.add_argument(
         "--verbose", "-v", action="store_true", help="Verbose logging."
@@ -60,7 +85,21 @@ def main(argv: list[str] | None = None) -> int:
     )
     print(f"created job {job.id} with {job.page_count} pages → {job.root}")
 
-    results = run_all_pages(job)
+    diagnostician = None
+    vision_transcriber = None
+    if args.enable_ai:
+        diagnostician = build_diagnostician(args.diagnostician_provider)
+        vision_transcriber = build_vision_transcriber(args.vision_provider)
+        print(
+            f"AI enabled: diagnostician={args.diagnostician_provider}, "
+            f"vision={args.vision_provider}"
+        )
+
+    results = run_all_pages(
+        job,
+        diagnostician=diagnostician,
+        vision_transcriber=vision_transcriber,
+    )
     _print_summary(results)
     return 0
 

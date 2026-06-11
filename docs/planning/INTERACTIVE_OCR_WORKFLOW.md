@@ -64,7 +64,7 @@ The plan's **Deployment posture** section tags each ticket as one of:
 
 - **`prod`** — pure-local improvements, no API cost. Safe to ship later.
 - **`local-only`** — workflow scaffolding. Code can live in the repo but entry points should be off in prod (no public route, no UI link).
-- **`behind-flag`** — calls the Claude API. Must be gated; for now this means no prod wiring at all. When auth lands later, a `FEATURE_AI_OCR_ASSIST` flag plus admin role check will gate the routes.
+- **`behind-flag`** — calls a paid LLM API (Anthropic and/or Gemini). Must be gated; for now this means no prod wiring at all. When auth lands later, a `FEATURE_AI_OCR_ASSIST` flag plus admin role check will gate the routes.
 
 **Concretely, while working a ticket:**
 - `behind-flag` tickets must not add a frontend link or a publicly-reachable API route. Local CLI / direct backend call only.
