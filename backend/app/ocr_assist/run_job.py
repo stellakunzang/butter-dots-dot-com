@@ -107,10 +107,14 @@ def main(argv: list[str] | None = None) -> int:
 def _print_summary(results: list[RunResult]) -> None:
     accepted = sum(1 for r in results if r.decision == "accept")
     needs_review = sum(1 for r in results if r.decision == "needs_review")
-    print(f"\nrun complete: {accepted} accepted, {needs_review} needs review")
+    errored = sum(1 for r in results if r.decision == "error")
+    print(f"\nrun complete: {accepted} accepted, {needs_review} needs review, {errored} errored")
     for r in results:
-        score = r.quality.composite_score
-        print(f"  page {r.page.index:>3}: {r.decision:<13} composite={score:.3f}")
+        if r.decision == "error":
+            print(f"  page {r.page.index:>3}: {r.decision:<13} error={r.error}")
+        else:
+            score = r.quality.composite_score
+            print(f"  page {r.page.index:>3}: {r.decision:<13} composite={score:.3f}")
 
 
 if __name__ == "__main__":
