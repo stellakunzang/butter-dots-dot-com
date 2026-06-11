@@ -256,6 +256,13 @@ def run_page(
                 needs_human_reason=verdict.reason,
             )
         if isinstance(verdict, RetryWithSettings):
+            if not verdict.settings_overrides:
+                logger.warning(
+                    "diagnostician returned retry_with_settings with empty overrides "
+                    "(rationale=%r); skipping redundant OCR",
+                    verdict.rationale,
+                )
+                break
             _apply_settings_overrides(job, page_index, verdict.settings_overrides)
             continue
         # Defensive — diagnostician contract is a closed union.

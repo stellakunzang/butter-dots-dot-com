@@ -205,7 +205,7 @@ class TestRequestShape:
             )
         )
         VisionOcr(client=client)(image_path=image_file)
-        assert client.calls[0]["model"] == "claude-opus-4-7"
+        assert client.calls[0]["model"] == "claude-opus-4-8"
 
 
 class TestTranscriptToDict:

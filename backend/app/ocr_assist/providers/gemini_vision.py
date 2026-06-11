@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from app.ocr_assist.contracts import VisionTranscript
-from app.ocr_assist.providers.anthropic_common import guess_media_type
+from app.ocr_assist.providers.media import guess_media_type
 
 
 logger = logging.getLogger(__name__)

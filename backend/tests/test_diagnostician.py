@@ -232,10 +232,9 @@ class TestRequestShape:
         assert user_content[0]["type"] == "image"
         assert user_content[0]["source"]["type"] == "base64"
         assert user_content[0]["source"]["media_type"] == "image/png"
-        # The image — the dominant input cost, identical across same-page
-        # retries — carries the cache breakpoint; the trailing text block
-        # (per-attempt OCR/quality) deliberately does not.
-        assert user_content[0]["cache_control"] == {"type": "ephemeral"}
+        # Per-page images differ every call, so no cache breakpoint on the image
+        # block; stable prefix caching comes from system + tools instead.
+        assert "cache_control" not in user_content[0]
         assert user_content[1]["type"] == "text"
         assert "cache_control" not in user_content[1]
         assert "ocr text here" in user_content[1]["text"]

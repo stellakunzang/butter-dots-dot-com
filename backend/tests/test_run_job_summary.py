@@ -40,7 +40,7 @@ def test_print_summary_mixed(capsys):
     captured = capsys.readouterr().out
     assert "1 accepted" in captured
     assert "1 needs review" in captured
-    assert "1 errored" in captured
+    assert "1 error" in captured
     assert "composite=0.950" in captured
     assert "composite=0.420" in captured
     assert "error=timeout" in captured

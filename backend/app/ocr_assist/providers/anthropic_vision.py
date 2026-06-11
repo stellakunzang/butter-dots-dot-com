@@ -17,7 +17,7 @@ from app.ocr_assist.providers.anthropic_common import (
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_MODEL = "claude-opus-4-7"
+DEFAULT_MODEL = "claude-opus-4-8"
 DEFAULT_MAX_TOKENS = 8192
 
 _SYSTEM_PROMPT = """You are a Tibetan-script OCR system. Transcribe the page image exactly as written. \

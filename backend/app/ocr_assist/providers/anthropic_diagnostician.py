@@ -157,7 +157,7 @@ class AnthropicDiagnostician:
         prior_attempts: list[AttemptRecord],
     ) -> DiagnosticianVerdict:
         user_content: list[dict[str, Any]] = [
-            anthropic_image_block(image_path, cache_control={"type": "ephemeral"}),
+            anthropic_image_block(image_path),
             {
                 "type": "text",
                 "text": _render_user_prompt(ocr_text, quality, prior_attempts),

@@ -392,6 +392,30 @@ class TestDiagnosticianRetryWithSettings:
         assert "k_factor" not in settings_seen[0]
         assert settings_seen[1]["k_factor"] == 4.2
 
+    def test_empty_overrides_skip_redundant_ocr(self, job):
+        # Empty settings_overrides would rerun identical OCR; skip to vision path.
+        settings_seen: list[dict] = []
+
+        def recording_ocr(image_path: Path, settings: dict) -> OcrResult:
+            settings_seen.append(dict(settings))
+            return OcrResult(text=GARBLED_TEXT, line_count=1)
+
+        diagnostician = _stub_diagnostician(
+            [RetryWithSettings(settings_overrides={}, rationale="try again")]
+        )
+
+        result = run_page(
+            job,
+            1,
+            ocr=recording_ocr,
+            spellcheck=no_errors,
+            diagnostician=diagnostician,
+            max_attempts=3,
+        )
+
+        assert len(settings_seen) == 1
+        assert result.decision == "needs_review"
+
 
 class TestDiagnosticianAccurateAsSanskrit:
     def test_finalizes_current_text_with_notes(self, job):
