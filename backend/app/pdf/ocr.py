@@ -5,16 +5,28 @@ Wraps the BDRC/Monlam OCRPipeline (MIT licensed) as a simple server-side
 interface. The pipeline is loaded once at module import time as a singleton
 so model weights are only read from disk on the first use.
 
+Per-page settings (``k_factor``, ``bbox_tolerance``, ``model_variant``,
+``rotate``) from the interactive OCR job store are accepted by
+``run_on_image`` and forwarded into ``OCRPipeline.run_ocr``. Model variants
+are loaded on demand and swapped via ``update_ocr_model``.
+
 Source: https://github.com/buda-base/tibetan-ocr-app
 """
+from __future__ import annotations
+
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 import cv2
 import numpy as np
 from app.config import settings
+from app.pdf.ocr_settings import (
+    OcrRunSettings,
+    apply_manual_rotation,
+    parse_ocr_settings,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +73,8 @@ class BDRCOCREngine:
         self._pipeline = None
         self._ready = False
         self._error: Optional[str] = None
+        self._active_model_name: str | None = None
+        self._model_config_cache: dict[str, Any] = {}
 
     def _load(self) -> None:
         """Load the ONNX models. Called lazily on first use."""
@@ -104,6 +118,8 @@ class BDRCOCREngine:
                 return
 
             self._pipeline = OCRPipeline(platform, ocr_model.config, line_config)
+            self._active_model_name = model_name
+            self._model_config_cache[model_name] = ocr_model.config
             self._ready = True
             logger.info(
                 "BDRC OCR pipeline ready (model=%s, line_detection=%s)",
@@ -125,22 +141,38 @@ class BDRCOCREngine:
     def error(self) -> Optional[str]:
         return self._error
 
-    def run_on_image(self, image: np.ndarray) -> list[OCRLine]:
+    def run_on_image(
+        self,
+        image: np.ndarray,
+        page_settings: dict[str, Any] | None = None,
+    ) -> list[OCRLine]:
         """
         Run OCR on a single page image (numpy array in BGR format, as from cv2).
+
+        ``page_settings`` is the per-page dict from the interactive OCR job
+        store (``settings.json``). When omitted, defaults match the legacy
+        hardcoded run (``k_factor=2.5``, ``bbox_tolerance=3.0``, env
+        ``OCR_MODEL_NAME`` for the model).
+
         Returns a list of OCRLine objects ordered top-to-bottom.
         """
         if not self.ready:
             raise RuntimeError(self._error or "OCR engine not ready")
 
+        run_settings = parse_ocr_settings(
+            page_settings, fallback_model=settings.ocr_model_name
+        )
+        self._ensure_ocr_model(run_settings.model_name)
+
         image = _normalize_to_bgr(image)
+        image = apply_manual_rotation(image, run_settings.rotate)
 
         from BDRC.Data import Encoding, OpStatus
 
         status, result = self._pipeline.run_ocr(
             image=image,
-            k_factor=2.5,
-            bbox_tolerance=3.0,
+            k_factor=run_settings.k_factor,
+            bbox_tolerance=run_settings.bbox_tolerance,
             merge_lines=True,
             use_tps=False,
             target_encoding=Encoding.Unicode,
@@ -166,6 +198,43 @@ class BDRCOCREngine:
             )
 
         return output
+
+    def _ensure_ocr_model(self, model_name: str) -> None:
+        """Load and activate ``model_name`` if it differs from the current one."""
+        if self._active_model_name == model_name:
+            return
+
+        config = self._load_model_config(model_name)
+        if config is None:
+            logger.warning(
+                "OCR model %r not available; keeping active model %r",
+                model_name,
+                self._active_model_name,
+            )
+            return
+
+        self._pipeline.update_ocr_model(config)
+        self._active_model_name = model_name
+        logger.info("Switched BDRC OCR model to %s", model_name)
+
+    def _load_model_config(self, model_name: str) -> Any | None:
+        if model_name in self._model_config_cache:
+            return self._model_config_cache[model_name]
+
+        model_dir = OCR_MODELS_DIR / model_name
+        if not model_dir.is_dir():
+            logger.warning("OCR model directory not found: %s", model_dir)
+            return None
+
+        from BDRC.Utils import import_local_model
+
+        ocr_model = import_local_model(str(model_dir))
+        if ocr_model is None:
+            logger.warning("Failed to load OCR model from %s", model_dir)
+            return None
+
+        self._model_config_cache[model_name] = ocr_model.config
+        return ocr_model.config
 
 
 # Module-level singleton — loaded on first use

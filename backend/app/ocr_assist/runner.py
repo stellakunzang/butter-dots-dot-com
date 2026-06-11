@@ -5,12 +5,14 @@ Wires together the BDRC OCR pipeline, the Phase-1 spellchecker, the Sanskrit
 detector, the page quality scorer, and the filesystem job store. See
 ``docs/planning/INTERACTIVE_OCR_PLAN.md`` § T-05 for the design.
 
-T-05 landed the control flow with no retry loop; T-06 plugs in the Claude
-diagnostician and enables the per-page retry loop (up to
-``max_attempts``, default 3). T-07 will add the vision-OCR fallback. The
-OCR and spellcheck dependencies are injectable so tests (and future
-callers) can run without loading the BDRC models or constructing a real
-``TibetanSpellChecker``.
+T-05 landed the control flow with no retry loop; T-06 plugs in the AI
+diagnostician and enables the per-page retry loop (up to ``max_attempts``,
+default 3); T-07 adds a vision-OCR fallback that runs after retries exhaust
+(or the diagnostician returns ``NeedsHuman``), either finalizing the page
+from the vision transcript or attaching it to the human-review record. The OCR, spellcheck, diagnostician, and vision
+dependencies are all injectable so tests (and future callers) can run
+without loading BDRC models, the spellchecker database, or the Anthropic
+SDK.
 
 Resume is implicit: ``run_all_pages`` skips pages that already have
 ``final.txt`` on disk, so re-running a job picks up where it left off.
@@ -22,11 +24,15 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Literal, Protocol
 
-from app.ocr_assist.diagnostician import (
+from app.ocr_assist.contracts import (
     AccurateAsSanskrit,
+    DiagnosticianCallable,
+    DiagnosticianVerdict,
     NeedsHuman,
     RetryWithSettings,
-    Verdict as DiagnosticianVerdict,
+    VisionTranscriberCallable,
+    VisionTranscript,
+    transcript_to_dict,
     verdict_to_dict,
 )
 from app.ocr_assist.job_store import (
@@ -37,6 +43,7 @@ from app.ocr_assist.job_store import (
     load_page,
     save_attempt_verdict,
     save_page_attempt,
+    save_vision_transcript,
     update_page_settings,
 )
 from app.ocr_assist.quality import (
@@ -49,7 +56,6 @@ from app.ocr_assist.quality import (
 
 
 logger = logging.getLogger(__name__)
-
 
 # Starting thresholds for the runner. T-10 calibrates these against a real
 # target text; until then these mirror the values used in T-03's tests.
@@ -97,25 +103,6 @@ class OcrAdapter(Protocol):
 SpellcheckAdapter = Callable[[str], list[dict[str, Any]]]
 
 
-class DiagnosticianCallable(Protocol):
-    """The diagnostician seam the runner calls when a page scores below accept.
-
-    ``diagnostician.Diagnostician.__call__`` implements this, and tests inject a
-    stub with the same signature; typing it (rather than ``Any``) documents the
-    contract and lets type-checkers verify both. The return is the closed
-    verdict union from ``diagnostician`` (``RetryWithSettings`` /
-    ``AccurateAsSanskrit`` / ``NeedsHuman``).
-    """
-    def __call__(
-        self,
-        *,
-        image_path: Path,
-        ocr_text: str,
-        quality: PageQuality,
-        prior_attempts: list[AttemptRecord],
-    ) -> DiagnosticianVerdict: ...
-
-
 @dataclass(frozen=True)
 class RunResult:
     """Outcome of running a single page through the loop.
@@ -150,23 +137,33 @@ def run_page(
     *,
     thresholds: Thresholds = DEFAULT_THRESHOLDS,
     max_attempts: int = DEFAULT_MAX_ATTEMPTS,
-    claude_diagnostician: DiagnosticianCallable | None = None,
+    diagnostician: DiagnosticianCallable | None = None,
+    vision_transcriber: VisionTranscriberCallable | None = None,
     ocr: OcrAdapter | None = None,
     spellcheck: SpellcheckAdapter | None = None,
 ) -> RunResult:
     """Run OCR for one page; retry under the diagnostician's direction.
 
-    With ``claude_diagnostician=None`` the runner does one OCR attempt and
+    With ``diagnostician=None`` the runner does one OCR attempt and
     either accepts the page or queues it for review (no retries).
 
     With a diagnostician callable, the runner loops up to ``max_attempts``:
     each attempt OCRs with the page's current settings, scores, persists
     the attempt, and either finalizes (``accept``), surfaces for review
-    (``needs_human`` verdict from Claude), or applies the verdict's setting
-    overrides and retries (``retry_with_settings``). The
-    ``accurate_as_sanskrit_accept`` verdict finalizes the current OCR text
-    even though structural rules flagged it — that's the whole point of
-    the verdict.
+    (``needs_human`` verdict), or applies the verdict's setting overrides
+    and retries (``retry_with_settings``). The ``accurate_as_sanskrit_accept``
+    verdict finalizes the current OCR text even though structural rules flagged
+    it — that's the whole point of the verdict.
+
+    With ``vision_transcriber`` also wired, any path that would otherwise
+    return ``needs_review`` (attempts exhausted or ``needs_human`` from the
+    diagnostician) first asks a vision model to read the image directly. The
+    vision transcript is scored with the same quality scorer; if it clears
+    ``accept`` the page finalizes from vision, otherwise the transcript is
+    persisted next to the page (``vision_ocr.json`` / ``vision_quality.json``)
+    so the human review surface can show both engines' reads. Vision is never
+    called on a page that already accepted on a BDRC attempt — the fallback
+    only runs when BDRC failed.
 
     Setting overrides are merged into the page's ``settings.json`` so a
     re-run of this page is deterministic. The page's settings start from
@@ -180,10 +177,22 @@ def run_page(
     ocr_fn = ocr or _default_ocr_adapter()
     spellcheck_fn = spellcheck or _default_spellcheck_adapter()
 
-    if claude_diagnostician is None:
+    if diagnostician is None:
         # No retry loop without a diagnostician: one attempt, accept or queue.
-        return _run_single_attempt(
+        # Vision fallback still runs on a needs_review outcome if configured.
+        result = _run_single_attempt(
             job, page_index, thresholds, ocr_fn, spellcheck_fn
+        )
+        if result.decision == "accept" or vision_transcriber is None:
+            return result
+        return _try_vision_fallback(
+            job,
+            page_index,
+            vision_transcriber,
+            spellcheck_fn,
+            thresholds,
+            bdrc_quality=result.quality,
+            bdrc_verdict=result.verdict,
         )
 
     last_attempt: _AttemptResult | None = None
@@ -211,7 +220,7 @@ def run_page(
         if attempt_index == max_attempts - 1:
             break
 
-        verdict = claude_diagnostician(
+        verdict = diagnostician(
             image_path=page.image_path,
             ocr_text=last_attempt.ocr_text,
             quality=last_attempt.quality,
@@ -234,13 +243,26 @@ def run_page(
                 verdict=last_attempt.verdict,
             )
         if isinstance(verdict, NeedsHuman):
-            return RunResult(
-                page=load_page(job, page_index),
-                decision="needs_review",
-                quality=last_attempt.quality,
-                verdict=last_attempt.verdict,
+            # NeedsHuman means the diagnostician judged the *BDRC retry path*
+            # unrecoverable; vision is a different engine and may still succeed.
+            return _try_vision_fallback(
+                job,
+                page_index,
+                vision_transcriber,
+                spellcheck_fn,
+                thresholds,
+                bdrc_quality=last_attempt.quality,
+                bdrc_verdict=last_attempt.verdict,
+                needs_human_reason=verdict.reason,
             )
         if isinstance(verdict, RetryWithSettings):
+            if not verdict.settings_overrides:
+                logger.warning(
+                    "diagnostician returned retry_with_settings with empty overrides "
+                    "(rationale=%r); skipping redundant OCR",
+                    verdict.rationale,
+                )
+                break
             _apply_settings_overrides(job, page_index, verdict.settings_overrides)
             continue
         # Defensive — diagnostician contract is a closed union.
@@ -248,11 +270,14 @@ def run_page(
 
     # Attempts exhausted without an accept.
     assert last_attempt is not None
-    return RunResult(
-        page=load_page(job, page_index),
-        decision="needs_review",
-        quality=last_attempt.quality,
-        verdict=last_attempt.verdict,
+    return _try_vision_fallback(
+        job,
+        page_index,
+        vision_transcriber,
+        spellcheck_fn,
+        thresholds,
+        bdrc_quality=last_attempt.quality,
+        bdrc_verdict=last_attempt.verdict,
     )
 
 
@@ -330,7 +355,7 @@ def _annotate_attempt_verdict(
     """Attach the diagnostician's verdict to the most recent attempt directory.
 
     ``save_page_attempt`` already wrote the OCR + quality for this attempt;
-    the verdict comes back from Claude after scoring, so we land it in the
+    the verdict comes back from the diagnostician after scoring, so we land it in the
     same numbered folder via ``save_attempt_verdict``.
     """
     save_attempt_verdict(job, page_index, verdict_to_dict(verdict))
@@ -344,12 +369,103 @@ def _apply_settings_overrides(
     update_page_settings(job, page_index, merged)
 
 
+def _try_vision_fallback(
+    job: Job,
+    page_index: int,
+    vision_transcriber: VisionTranscriberCallable | None,
+    spellcheck_fn: SpellcheckAdapter,
+    thresholds: Thresholds,
+    *,
+    bdrc_quality: PageQuality,
+    bdrc_verdict: Verdict,
+    needs_human_reason: str | None = None,
+) -> RunResult:
+    """Run the vision-OCR fallback and route based on its score.
+
+    Returns a needs_review result built from the BDRC last-attempt signals if
+    no vision callable is wired — preserving the pre-T-07 behavior so callers
+    that didn't opt in to vision see no change. Otherwise reads the page
+    image via ``vision_ocr``, scores the transcript with the same scorer, and
+    either finalizes the page from vision or persists the transcript next to
+    the page for human review.
+    """
+    page = load_page(job, page_index)
+
+    if vision_transcriber is None:
+        return RunResult(
+            page=page,
+            decision="needs_review",
+            quality=bdrc_quality,
+            verdict=bdrc_verdict,
+        )
+
+    transcript = vision_transcriber(image_path=page.image_path)
+    spellcheck_errors = spellcheck_fn(transcript.text)
+    # Vision returns a single transcribed string; ``line_count`` comes from
+    # splitting on newlines (the prompt tells the model to preserve line breaks).
+    # Without an ``expected_line_count`` baseline the line-sanity signal stays
+    # neutral, matching what BDRC attempts get today.
+    line_count = len(transcript.text.splitlines()) if transcript.text else 0
+    quality = score_page(
+        transcript.text,
+        spellcheck_errors,
+        OcrDiagnostics(line_count=line_count),
+    )
+    quality_dict = _quality_to_dict(quality)
+    save_vision_transcript(
+        job,
+        page_index,
+        transcript=transcript_to_dict(transcript),
+        quality=quality_dict,
+    )
+    verdict = decide(quality, thresholds)
+
+    if verdict == "accept":
+        notes = _vision_accept_notes(transcript, needs_human_reason)
+        updated = finalize_page(
+            job,
+            page_index,
+            final_text=transcript.text,
+            final_quality=quality_dict,
+            notes=notes,
+        )
+        return RunResult(
+            page=updated,
+            decision="accept",
+            quality=quality,
+            verdict=verdict,
+        )
+
+    # Vision didn't clear accept either — surface to human with both reads on
+    # disk. Carry the BDRC quality on the result so the review surface knows
+    # which engine is dimmer; the vision_quality is loaded separately from the
+    # page state.
+    return RunResult(
+        page=load_page(job, page_index),
+        decision="needs_review",
+        quality=bdrc_quality,
+        verdict=bdrc_verdict,
+    )
+
+
+def _vision_accept_notes(
+    transcript: VisionTranscript, needs_human_reason: str | None
+) -> str:
+    parts = ["accepted via vision fallback"]
+    if transcript.notes:
+        parts.append(f"vision notes: {transcript.notes}")
+    if needs_human_reason:
+        parts.append(f"diagnostician flagged: {needs_human_reason}")
+    return "\n".join(parts)
+
+
 def run_all_pages(
     job: Job,
     *,
     thresholds: Thresholds = DEFAULT_THRESHOLDS,
     max_attempts: int = DEFAULT_MAX_ATTEMPTS,
-    claude_diagnostician: DiagnosticianCallable | None = None,
+    diagnostician: DiagnosticianCallable | None = None,
+    vision_transcriber: VisionTranscriberCallable | None = None,
     ocr: OcrAdapter | None = None,
     spellcheck: SpellcheckAdapter | None = None,
 ) -> list[RunResult]:
@@ -378,7 +494,8 @@ def run_all_pages(
                     index,
                     thresholds=thresholds,
                     max_attempts=max_attempts,
-                    claude_diagnostician=claude_diagnostician,
+                    diagnostician=diagnostician,
+                    vision_transcriber=vision_transcriber,
                     ocr=ocr_fn,
                     spellcheck=spellcheck_fn,
                 )
@@ -419,9 +536,9 @@ def _default_ocr_adapter() -> OcrAdapter:
     """OCR adapter backed by the BDRC singleton.
 
     Lazy import so test runs that inject a fake never touch onnxruntime
-    or trigger the model load. Settings are persisted in the page dir but
-    not yet read here — per-page setting overrides drive OCR variants in
-    T-06, when retries actually exercise them.
+    or trigger the model load. Per-page ``settings`` (from ``settings.json``)
+    are forwarded into ``BDRCOCREngine.run_on_image`` so diagnostician
+    retry overrides actually change OCR behavior.
     """
     def _adapter(image_path: Path, settings: dict[str, Any]) -> OcrResult:
         import cv2
@@ -435,7 +552,7 @@ def _default_ocr_adapter() -> OcrAdapter:
         if image is None:
             raise RuntimeError(f"Failed to read page image at {image_path}")
 
-        lines = engine.run_on_image(image)
+        lines = engine.run_on_image(image, page_settings=settings)
         text = "\n".join(line.text for line in lines if line.text)
         return OcrResult(text=text, line_count=len(lines))
 

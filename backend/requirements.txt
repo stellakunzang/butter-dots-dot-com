@@ -51,3 +51,9 @@ pytest-asyncio==0.23.3
 
 # Claude API (interactive OCR diagnostician — T-06)
 anthropic==0.105.2
+
+# Optional: Gemini vision-OCR provider (install when using VISION_OCR_PROVIDER=gemini)
+#   pip install 'google-genai>=1.0.0'
+# Note: google-genai currently requires httpx>=0.28, which conflicts with this
+# project's pinned httpx for FastAPI TestClient. Resolve before enabling Gemini
+# in CI/production (likely by upgrading fastapi/starlette together).

@@ -1,0 +1,45 @@
+"""Anthropic-specific helpers for OCR assist providers."""
+from __future__ import annotations
+
+import logging
+from pathlib import Path
+from typing import Any
+
+from app.ocr_assist.providers.media import encode_image_base64
+
+
+def anthropic_image_block(
+    image_path: Path, *, cache_control: dict[str, str] | None = None
+) -> dict[str, Any]:
+    image_b64, media_type = encode_image_base64(image_path)
+    block: dict[str, Any] = {
+        "type": "image",
+        "source": {
+            "type": "base64",
+            "media_type": media_type,
+            "data": image_b64,
+        },
+    }
+    if cache_control is not None:
+        block["cache_control"] = cache_control
+    return block
+
+
+def anthropic_tools_with_cache(tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Copy ``tools`` and attach ephemeral cache control to the last entry."""
+    copied = [dict(tool) for tool in tools]
+    copied[-1] = {**copied[-1], "cache_control": {"type": "ephemeral"}}
+    return copied
+
+
+def log_anthropic_usage(logger: logging.Logger, usage: Any, *, label: str) -> None:
+    if usage is None:
+        return
+    logger.info(
+        "%s usage: input=%s cache_read=%s cache_create=%s output=%s",
+        label,
+        getattr(usage, "input_tokens", "?"),
+        getattr(usage, "cache_read_input_tokens", "?"),
+        getattr(usage, "cache_creation_input_tokens", "?"),
+        getattr(usage, "output_tokens", "?"),
+    )

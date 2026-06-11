@@ -1,37 +1,44 @@
 # Interactive Page-by-Page OCR with AI Assistance
 
-**Status:** Plan — not yet implemented.
+**Status:** In progress on `feat/interactive-ocr` — core loop implemented (T-01–T-07, T-05b, T-07b); UI, calibration, and guardrails not yet done.
 **Goal:** Convert a Tibetan text into a Word document, one page at a time, where pages that come out clean auto-advance and pages that don't get an AI-assisted retry loop and (if still bad) surface to a human. No more global-tweak-that-breaks-other-pages.
 **Scope:** Local-only for now. Single-user workflow. Future use case: photos of physical books (not yet in scope but shouldn't be architecturally blocked).
+
+**Related docs:**
+- [INTERACTIVE_OCR_WORKFLOW.md](INTERACTIVE_OCR_WORKFLOW.md) — branching, chat workflow
+- [INTERACTIVE_OCR_LOCAL_SMOKE.md](INTERACTIVE_OCR_LOCAL_SMOKE.md) — post-merge local testing + vision A/B
+- [INTERACTIVE_OCR_MIXED_SCRIPT.md](INTERACTIVE_OCR_MIXED_SCRIPT.md) — T-11 design detail
 
 ---
 
 ## Deployment posture
 
-Anything that calls the Claude API must **not** run in production yet — unbounded per-page costs against an unmetered surface is exactly the failure mode we're avoiding. But several tickets are valuable on their own and safe to ship.
+Anything that calls a paid LLM API must **not** run in production yet — unbounded per-page costs against an unmetered surface is exactly the failure mode we're avoiding. But several tickets are valuable on their own and safe to ship.
 
 Each ticket below carries one of three tags:
 
 - **`deploy: prod`** — pure local computation, no API cost, improves existing functionality. Safe to ship behind the normal merge flow.
 - **`deploy: local-only`** — workflow/state that's only intended for local use right now. The code can live in `main` (it doesn't hurt anything sitting there), but the entry points stay off in prod via env flag or simply by not exposing routes.
-- **`deploy: behind-flag`** — anything that calls the Claude API. Stays local-only until auth lands; then gated by an admin-only flag (e.g., `FEATURE_AI_OCR_ASSIST=true` + admin role check). Even after gating, consider a per-job cost cap.
+- **`deploy: behind-flag`** — anything that calls an LLM API (Anthropic and/or Gemini). Stays local-only until auth lands; then gated by an admin-only flag (e.g., `FEATURE_AI_OCR_ASSIST=true` + admin role check). Even after gating, consider a per-job cost cap.
 
 When auth exists, the plan is: one feature flag (`ai_ocr_assist`) checked at the API layer, restricted to admin users. UI surfaces hide the AI controls when the flag is off. Cost cap (e.g., max-N-API-calls-per-job, or max-spend-per-day) enforced server-side regardless of role.
 
 ### What can ship to prod right now
 
-- **T-01** — OCR engine improvements (strict upgrade)
-- **T-02** — Sanskrit detector (new local module, no integration)
-- **T-02b** — Surface Sanskrit signal in existing spellcheck API/UI (useful to spellcheck users today)
-- **T-03** — Page quality scorer (local module; even if the AI loop isn't deployed, the scorer could power a "page quality" indicator in the existing spellcheck flow if useful)
-- **T-08** — Clean DOCX export with page numbers (extends existing exporter; useful independent of the AI loop)
+- **T-01** — OCR engine improvements ✅
+- **T-02** — Sanskrit detector ✅
+- **T-02b** — Surface Sanskrit signal in existing spellcheck API/UI
+- **T-03** — Page quality scorer ✅
+- **T-05b** — Per-page BDRC settings plumbing ✅
+- **T-08** — Clean DOCX export with page numbers
 
 ### What stays local-only / behind-flag
 
-- **T-04, T-05** — Job store and runner: technically API-free but the interactive workflow isn't ready for prod users
-- **T-06, T-07** — Claude diagnostician and vision fallback: API cost — gated
-- **T-09** — Interactive UI: routes hidden in prod until auth + flag exist
-- **T-10** — Calibration: a one-off local exercise
+- **T-04, T-05** — Job store and runner ✅ (code merged; workflow not prod-ready)
+- **T-06, T-07, T-07b** — Diagnostician, vision fallback, provider abstraction ✅ (API cost — gated)
+- **T-09** — Interactive UI
+- **T-10, T-16** — Calibration and vision A/B (local exercises)
+- **T-11** — Mixed-script guardrails (local computation; reduces API waste once shipped)
 
 ---
 
@@ -39,7 +46,7 @@ When auth exists, the plan is: one feature flag (`ai_ocr_assist`) checked at the
 
 Two existing projects supply the parts:
 
-- **`butter-dots-dot-com`** (this repo): FastAPI + Next.js. Already has the BDRC OCR pipeline vendored at `backend/BDRC/`, a Phase-1/Phase-2 spell-check engine at `backend/app/spellcheck/`, and a DOCX exporter at `backend/app/pdf/docx_exporter.py` that highlights spell-check errors. No Claude integration.
+- **`butter-dots-dot-com`** (this repo): FastAPI + Next.js. BDRC OCR at `backend/BDRC/`, spellcheck at `backend/app/spellcheck/`, interactive OCR loop at `backend/app/ocr_assist/` (job store, runner, quality scorer, LLM providers). DOCX exporter at `backend/app/pdf/docx_exporter.py`.
 - **`../tibetan-ocr-app`** (sibling repo): PySide6 desktop app. Has the more recently improved OCR (rotation-angle fix, TPS singularity guard, `split_tall_contours`, multi-channel image handling) and a `DocxExporter` with `Page N` headings in Tibetan Machine Uni 14pt. No spell-check.
 
 This plan lives in `butter-dots-dot-com` because that's where the spell-check and the web stack are. The sibling repo stays as upstream for OCR engine improvements.
@@ -68,17 +75,20 @@ score >= accept_threshold?  ── yes ──→ save page, next page
   ↓ no
 attempt < max_attempts (default 3)?
   ↓ yes
-ask Claude: { image, ocr_text, quality breakdown, prior attempts }
-  Claude verdict ∈ {
+ask LLM diagnostician: { image, ocr_text, quality breakdown, prior attempts }
+  verdict ∈ {
     "retry_with_settings": { k_factor, rotate, crop, model_variant, ... },
-    "use_this_transcript": "...",          // vision-OCR fallback
     "accurate_as_sanskrit_accept",         // stops the loop cleanly
     "needs_human": "<reason>"
   }
   ↓
 apply verdict, loop
-  ↓ no (attempts exhausted)
-surface to human with: image, current OCR, quality breakdown, Claude's notes
+  ↓ no (attempts exhausted or needs_human)
+vision transcriber reads image directly (Anthropic or Gemini — T-07)
+  ↓
+score vision transcript; accept or attach for human review
+  ↓ still not accepted
+surface to human with: image, BDRC attempts, vision transcript, quality breakdown
 human action ∈ { accept, edit, skip, try different model variant, change settings }
 ```
 
@@ -96,7 +106,7 @@ Weighted blend of:
 - **`line_count_sanity`** — deviation from the page's expected line count (configurable, e.g., median of accepted pages so far).
 - **`encoding_error_count`** — hard floor; any non-zero count is suspicious because it indicates wrong-codepoint substitution.
 
-Two thresholds: `accept` (no AI) and `reject` (escalate). Pages in between queue for human review at the end. Thresholds are calibrated against real pages (see T-09).
+Two thresholds: `accept` (no AI) and `reject` (too damaged to retry profitably). Pages in between enter the AI retry loop. Thresholds are calibrated against real pages (T-10). **Known gap:** intentional English on bilingual pages can trigger retries — see T-11.
 
 ### Sanskrit handling
 
@@ -108,16 +118,16 @@ Two thresholds: `accept` (no AI) and `reject` (escalate). Pages in between queue
 
 Output: per-syllable `sanskrit_likelihood ∈ [0, 1]`. The quality scorer uses this to compute `sanskrit_adjusted_error_ratio`.
 
-**Claude tiebreaker** (T-06): when the AI diagnostician is consulted, one of its allowed verdicts is `accurate_as_sanskrit_accept`. This stops the retry loop without forcing a transcription rewrite.
+**LLM tiebreaker** (T-06): when the AI diagnostician is consulted, one of its allowed verdicts is `accurate_as_sanskrit_accept`. This stops the retry loop without forcing a transcription rewrite.
 
 ### AI role
 
-Claude plays two distinct roles, both invoked only when the local quality score is below `accept`:
+LLM providers (Anthropic default; Gemini optional for vision — T-07b) play two distinct roles, both invoked only when the local quality score is below `accept`:
 
-1. **Quality diagnostician** — given the image + OCR text + quality breakdown + prior attempts, returns one of the verdicts in the loop diagram. Most useful for: detecting skew/multi-column, recommending a different model variant (Modern vs Woodblock vs Ume), confirming Sanskrit content.
-2. **Vision-OCR fallback** — when retries don't converge, Claude reads the image directly. Not expected to beat BDRC on clean pages; expected to help on pathological pages (warped, mixed scripts, faded ink, future physical-book photos).
+1. **Quality diagnostician** (T-06) — given the image + OCR text + quality breakdown + prior attempts, returns one of the verdicts in the loop diagram. Most useful for: detecting skew/multi-column, recommending a different model variant (Modern vs Woodblock vs Ume), confirming Sanskrit content.
+2. **Vision-OCR fallback** (T-07) — when BDRC retries don't converge (or diagnostician returns `needs_human`), a vision model reads the image directly. Not expected to beat BDRC on clean pages; expected to help on pathological pages (warped, faded ink, future physical-book photos). Mixed English+Tibetan pages may waste vision calls too — T-11 addresses this.
 
-Both run against the Claude API using the user's existing account.
+Both are wired via `backend/app/ocr_assist/providers/` and gated behind `--enable-ai` on the CLI. Env: `ANTHROPIC_API_KEY`, optional `GEMINI_API_KEY` + `VISION_OCR_PROVIDER=gemini`.
 
 ### Per-page state model
 
@@ -136,6 +146,8 @@ jobs/<job_id>/
     final.txt                  # accepted text
     final_quality.json
     notes.md                   # human notes if any
+    vision_ocr.json            # vision fallback transcript (if consulted)
+    vision_quality.json
   page-002/
     ...
   output.docx
@@ -154,17 +166,43 @@ Write incrementally as pages are accepted, not all-at-end. A crash mid-job prese
 
 ---
 
-## Open questions to revisit before T-04
+## Open questions to revisit
 
-1. **Model variant selection.** Baseline starts on Modern, but should Claude be allowed to switch to Woodblock/Ume per page? My current lean: yes, it's a per-page setting like any other.
-2. **Vision fallback trigger.** Automatic after N failed retries, or opt-in per page? Lean: automatic; cost is bounded.
-3. **GitHub mirror.** Markdown-only here, or also push tickets to GH issues? Lean: markdown-first, mirror later if desired.
+1. **Model variant selection.** ✅ Lean confirmed: per-page setting; diagnostician may override via `retry_with_settings`. Implemented (T-05b).
+2. **Vision fallback trigger.** ✅ Lean confirmed: automatic after retries exhaust or `needs_human`. Implemented (T-07).
+3. **Vision provider default.** Run T-16 smoke A/B (Claude vs Gemini) on bad pages before picking a default.
+4. **GitHub mirror.** Markdown-first; mirror to GH issues if useful.
+5. **Bilingual page accept semantics.** Keep full OCR text (Tibetan + English) in `final.txt` when T-11 auto-accepts? Lean: yes — see [INTERACTIVE_OCR_MIXED_SCRIPT.md](INTERACTIVE_OCR_MIXED_SCRIPT.md).
 
 ---
 
 ## Tickets
 
 Each ticket below is sized to be a single PR. Dependencies are noted. The order is the suggested implementation order but T-01 and T-02 can run in parallel.
+
+### Status overview (2025-06)
+
+| Ticket | Summary | Status |
+|--------|---------|--------|
+| T-01 | OCR engine port | ✅ Done |
+| T-02 | Sanskrit detector | ✅ Done |
+| T-02b | Sanskrit in spellcheck API/UI | ⬜ Not started |
+| T-03 | Quality scorer | ✅ Done |
+| T-04 | Job store | ✅ Done |
+| T-05 | Runner (no AI) | ✅ Done |
+| T-05b | BDRC settings plumbing | ✅ Done |
+| T-06 | Diagnostician | ✅ Done (2 smoke tests pending) |
+| T-07 | Vision fallback | ✅ Done (1 smoke test pending) |
+| T-07b | LLM provider abstraction | ✅ Done |
+| T-08 | DOCX export | ⬜ Not started |
+| T-09 | Interactive UI | ⬜ Not started |
+| T-10 | Threshold calibration | ⬜ Not started |
+| T-11 | Mixed-script guardrails | ⬜ Not started |
+| T-12 | Provider error resilience | ⬜ Not started |
+| T-13 | Line-count sanity baseline | ⬜ Not started |
+| T-14 | CLI ergonomics | ⬜ Not started |
+| T-15 | Gemini optional dep / httpx | ⬜ Not started |
+| T-16 | Local smoke + vision A/B | 📋 Doc ready — run after merge |
 
 ---
 
@@ -255,7 +293,7 @@ Each ticket below is sized to be a single PR. Dependencies are noted. The order 
 - Composite formula documented in module docstring; weights configurable via constants at top of file
 - `decide(quality: PageQuality, thresholds: Thresholds) -> Literal["accept", "escalate", "reject"]`
 
-**Out of scope:** Threshold tuning (T-09). Phase 2 corpus weight (later, when corpus is populated).
+**Out of scope:** Threshold tuning (T-10). Phase 2 corpus weight (later, when corpus is populated).
 
 **Acceptance criteria:**
 - [x] Module + functions exist with documented composite formula
@@ -295,80 +333,126 @@ Each ticket below is sized to be a single PR. Dependencies are noted. The order 
 
 ### T-05 — Per-page OCR runner with retry loop (no AI yet)
 
-**Deploy:** `local-only`
+**Deploy:** `local-only`  
+**Status:** ✅ Done (superseded in part by T-05b, T-06, T-07 — runner now supports full loop)
+
 **Why:** Get the control flow working before adding the API dependency. With no AI verdicts available, retries are skipped and pages either accept or go straight to human-review queue.
 
 **Scope:**
 - New module: `backend/app/ocr_assist/runner.py`
-- `run_page(job, page_index, claude_diagnostician=None) -> PageState`: executes OCR with current settings, scores, accepts or queues for review
-- When `claude_diagnostician is None`, no retries — accept or escalate-to-human only
-- Wires together: existing OCR (`backend/app/pdf/ocr.py`), spellcheck engine, T-02 Sanskrit scorer, T-03 quality scorer, T-04 job store
-- CLI entry point: `python -m backend.app.ocr_assist.run_job <pdf_path>` for testing without UI
+- `run_page(job, page_index, diagnostician=None, vision_transcriber=None) -> RunResult`
+- When `diagnostician is None`, no retries — accept or escalate-to-human only (vision fallback optional via T-07)
+- Wires together: OCR (`backend/app/pdf/ocr.py`), spellcheck, T-03 quality scorer, T-04 job store
+- CLI: `python -m app.ocr_assist.run_job <pdf_path>` (`--enable-ai` added in T-07b)
 
-**Out of scope:** Claude integration (T-06). Vision fallback (T-07). UI (T-08).
+**Out of scope:** LLM integration (T-06, T-07). Per-page settings reaching BDRC (T-05b). UI (T-09).
 
 **Acceptance criteria:**
 - [x] Can run end-to-end on a small PDF, producing a populated job directory
 - [x] Pages with high score auto-accept; low-score pages have status `needs_review`
-- [x] No retries happen when `claude_diagnostician is None`
+- [x] No retries happen when `diagnostician is None`
 - [x] Existing spellcheck tests still pass
 
 **Dependencies:** T-03, T-04
 
 ---
 
-### T-06 — Claude quality diagnostician
+### T-05b — Per-page BDRC settings plumbing
 
-**Deploy:** `behind-flag` (local-only until auth + admin flag exist)
-**Why:** The retry decision-maker. Sees the image + OCR + quality breakdown and decides what to try next.
+**Deploy:** `prod` (local computation; makes T-06 retries meaningful)  
+**Status:** ✅ Done
+
+**Why:** T-06 persisted diagnostician setting overrides to `settings.json`, but the OCR adapter ignored them — every retry produced identical BDRC output. This ticket wires `settings.json` → `BDRCOCREngine.run_on_image` → `OCRPipeline.run_ocr(k_factor, bbox_tolerance, model_variant, rotate)`.
 
 **Scope:**
-- New module: `backend/app/ocr_assist/diagnostician.py`
-- Reads `ANTHROPIC_API_KEY` from env
-- Function `diagnose(image_bytes, ocr_text, quality: PageQuality, prior_attempts: list[AttemptRecord]) -> Verdict`
-- `Verdict` is a discriminated union:
-  - `RetryWithSettings(settings_overrides: dict, rationale: str)`
-  - `UseTranscript(text: str, rationale: str)` — but actual vision-OCR is T-07; for now the diagnostician should *not* return this verdict
-  - `AccurateAsSanskrit(rationale: str)`
-  - `NeedsHuman(reason: str)`
-- Prompt enforces JSON output with a strict schema; uses prompt caching for the system prompt and tools spec
-- Plug into `run_page` from T-05 as the `claude_diagnostician` argument
-- Cap retries at `max_attempts` (default 3) regardless of verdicts
-
-**Out of scope:** Vision-OCR fallback (T-07).
+- `backend/app/pdf/ocr_settings.py` — parse page settings, map diagnostician aliases (`Ume` → `Ume_Druma`) to OCR model dirs
+- `backend/app/pdf/ocr.py` — accept `page_settings`, swap ONNX models via `update_ocr_model()`, apply manual rotation
+- `runner._default_ocr_adapter` — forward `page.settings` to the engine
 
 **Acceptance criteria:**
-- [x] Module exists and is callable with a real API key
-- [x] Verdicts deserialize into the typed union; malformed responses raise a clear error
-- [x] `run_page` with diagnostician wired in produces retry attempts on a deliberately-bad page
-- [ ] Sanskrit-heavy page produces `AccurateAsSanskrit` verdict (manual smoke test, no need to mock)
-- [ ] System prompt is cached (verify cache_read tokens > 0 on the second call in the same session)
-
-The two unticked items are real-API smoke tests that need a live `ANTHROPIC_API_KEY`. The wiring is in place: the system prompt and last tool both carry `cache_control: {"type": "ephemeral"}`, and the Sanskrit guidance is in the system prompt. They get ticked after running against a real page.
+- [x] `k_factor` / `bbox_tolerance` overrides change `run_ocr` parameters
+- [x] `model_variant` override loads and activates the correct OCRModels directory
+- [x] `rotate` applied before OCR (clockwise per diagnostician convention)
+- [x] Unit tests in `tests/test_ocr_settings.py`
 
 **Dependencies:** T-05
 
 ---
 
-### T-07 — Claude vision-OCR fallback
+### T-06 — LLM quality diagnostician
 
-**Deploy:** `behind-flag` (local-only until auth + admin flag exist)
-**Why:** For pages where retries don't converge, give Claude a chance to read the image directly.
+**Deploy:** `behind-flag` (local-only until auth + admin flag exist)  
+**Status:** ✅ Done — 2 live-API smoke tests pending (see acceptance criteria)
+
+**Why:** The retry decision-maker. Sees the image + OCR + quality breakdown and decides what to try next.
 
 **Scope:**
-- Extend `diagnostician.py` (or add `vision_ocr.py`) with a separate call that asks Claude to transcribe the page
-- Triggered automatically by `run_page` after `max_attempts - 1` failed retries, before declaring `needs_human`
-- The vision-OCR result is scored using the same quality scorer; if it passes `accept`, it's used; if not, page goes to human review with both BDRC and Claude transcripts attached
-- Strict prompt: "Transcribe the Tibetan text exactly as written. Do not correct, normalize, or interpret. Use Unicode."
+- Implementation: `backend/app/ocr_assist/providers/anthropic_diagnostician.py` (re-exported from `diagnostician.py`)
+- Reads `ANTHROPIC_API_KEY` from env
+- Verdict union: `RetryWithSettings`, `AccurateAsSanskrit`, `NeedsHuman`
+- Structured output via Anthropic tool use; prompt caching on system prompt + tools + page image
+- Plugged into `run_page` as the `diagnostician` argument
+- Cap retries at `max_attempts` (default 3)
 
-**Out of scope:** Diff/merge UI between BDRC and Claude transcripts (could be a future ticket if useful).
+**Out of scope:** Vision-OCR fallback (T-07). Provider abstraction (T-07b). Error resilience (T-12).
 
 **Acceptance criteria:**
-- [ ] On a known-bad page that BDRC can't read, Claude vision produces a transcript
-- [ ] Vision transcript is scored and either accepted or attached to the human-review record
-- [ ] No vision call is made on pages that already accept on first OCR attempt
+- [x] Module exists and is callable with a real API key
+- [x] Verdicts deserialize into the typed union; malformed responses raise `DiagnosticianError`
+- [x] `run_page` with diagnostician wired in produces retry attempts on a deliberately-bad page
+- [ ] Sanskrit-heavy page produces `AccurateAsSanskrit` verdict (manual smoke — [INTERACTIVE_OCR_LOCAL_SMOKE.md](INTERACTIVE_OCR_LOCAL_SMOKE.md) Phase C)
+- [ ] System prompt cached (verify `cache_read` tokens > 0 on second call same page — Phase B)
+
+**Dependencies:** T-05, T-05b
+
+---
+
+### T-07 — Vision-OCR fallback
+
+**Deploy:** `behind-flag` (local-only until auth + admin flag exist)  
+**Status:** ✅ Done — 1 live-API smoke test pending
+
+**Why:** For pages where BDRC retries don't converge, give a vision model a chance to read the image directly.
+
+**Scope:**
+- `backend/app/ocr_assist/providers/anthropic_vision.py` (re-exported as `VisionOcr`)
+- Triggered by `run_page` when a page would otherwise be `needs_review` (attempts exhausted or diagnostician `needs_human`)
+- Vision transcript scored with same quality scorer; accept → finalize with provenance note; else persist `vision_ocr.json` + `vision_quality.json`
+- Strict transcription prompt (no normalize/correct)
+
+**Out of scope:** Diff/merge UI. Gemini provider (T-07b). Mixed-script skip logic (T-11).
+
+**Acceptance criteria:**
+- [ ] Known-bad page produces a vision transcript (live API — [INTERACTIVE_OCR_LOCAL_SMOKE.md](INTERACTIVE_OCR_LOCAL_SMOKE.md) Phase B)
+- [x] Vision transcript scored and either accepted or attached to human-review record
+- [x] No vision call on pages that accept on first BDRC attempt
 
 **Dependencies:** T-06
+
+---
+
+### T-07b — LLM provider abstraction
+
+**Deploy:** `behind-flag`  
+**Status:** ✅ Done
+
+**Why:** Swap vision provider (Claude vs Gemini) without touching runner logic; share contracts and Anthropic helpers; prepare for future diagnostician providers.
+
+**Scope:**
+- `backend/app/ocr_assist/contracts.py` — `VisionTranscript`, verdict types, `DiagnosticianCallable`, `VisionTranscriberCallable`
+- `backend/app/ocr_assist/providers/` — Anthropic diagnostician + vision, Gemini vision, factories
+- Runner params renamed: `diagnostician`, `vision_transcriber` (was `claude_*`)
+- CLI: `--enable-ai`, `--diagnostician-provider`, `--vision-provider`
+- Env vars documented in `.env.example`
+
+**Out of scope:** Gemini in requirements.txt (httpx conflict — T-15). Diagnostician on Gemini.
+
+**Acceptance criteria:**
+- [x] `build_diagnostician()` / `build_vision_transcriber()` construct provider implementations
+- [x] `VISION_OCR_PROVIDER=gemini` works when `google-genai` installed + `GEMINI_API_KEY` set
+- [x] Existing diagnostician/vision/runner unit tests pass via compatibility shims
+
+**Dependencies:** T-06, T-07
 
 ---
 
@@ -422,14 +506,17 @@ The two unticked items are real-API smoke tests that need a live `ANTHROPIC_API_
 
 ### T-10 — Threshold calibration on real pages
 
-**Deploy:** `local-only` (one-off exercise; resulting thresholds get committed to code)
+**Deploy:** `local-only` (one-off exercise; resulting thresholds get committed to code)  
+**Status:** ⬜ Not started
+
 **Why:** The composite-score thresholds in T-03 are guesses until calibrated against pages from the actual target text.
 
 **Scope:**
 - Run the pipeline against the user's specific target PDF
 - Collect per-page scores + human accept/reject decisions
 - Tune accept/reject thresholds and per-signal weights to minimize false-accept and false-reject rates
-- Document the chosen thresholds and the page set they were tuned on in `docs/planning/INTERACTIVE_OCR_CALIBRATION.md`
+- Document chosen thresholds in `docs/planning/INTERACTIVE_OCR_CALIBRATION.md`
+- Incorporate bilingual page labels from T-16 / T-11 smoke notes
 
 **Out of scope:** Automated calibration (manual is fine for one text).
 
@@ -437,7 +524,133 @@ The two unticked items are real-API smoke tests that need a live `ANTHROPIC_API_
 - [ ] Thresholds documented with sample size and false-accept/false-reject counts
 - [ ] On the calibration set, < ~5% of accepted pages later turn out to be bad on human review (target — adjust after data)
 
-**Dependencies:** T-09 (need the UI to collect human decisions efficiently)
+**Dependencies:** T-05 minimum (CLI + job store). T-09 UI helpful but not required — filesystem inspection + [INTERACTIVE_OCR_LOCAL_SMOKE.md](INTERACTIVE_OCR_LOCAL_SMOKE.md) suffices. T-11 should land before or alongside calibration if bilingual pages are in the target text.
+
+---
+
+### T-11 — Mixed-script guardrails (English + Tibetan)
+
+**Deploy:** `prod` (local computation — reduces API waste)  
+**Status:** ⬜ Not started
+
+**Why:** Legitimate English on bilingual pages can trigger diagnostician retries and vision calls even when BDRC got the Tibetan right, because `non_tibetan_char_ratio` treats all Latin like OCR garbage. See [INTERACTIVE_OCR_MIXED_SCRIPT.md](INTERACTIVE_OCR_MIXED_SCRIPT.md).
+
+**Scope (layer 1 — ship first):**
+- `tibetan_only_composite_score` on `PageQuality` (score `extract_tibetan(ocr_text)` separately)
+- Runner/diagnostician preflight: if `non_tibetan_char_ratio >= threshold` and Tibetan-only score clears `accept`, auto-accept and skip LLM calls
+- Optional job baseline flag: `expect_mixed_script: true`
+
+**Scope (layer 2 — optional follow-up):**
+- Latin block vs scattered-Latin detection to distinguish intentional English paragraphs from OCR noise
+
+**Acceptance criteria:**
+- [ ] Bilingual fixture (clean Tibetan + English blocks) auto-accepts without diagnostician
+- [ ] Scattered-Latin garbage fixture still escalates
+- [ ] Thresholds documented alongside T-10 calibration
+
+**Dependencies:** T-03, T-05. Best calibrated with T-10/T-16 data.
+
+---
+
+### T-12 — Provider error resilience
+
+**Deploy:** `behind-flag`  
+**Status:** ⬜ Not started
+
+**Why:** `DiagnosticianError`, `VisionTranscriberError`, and vendor API failures currently crash `run_page` instead of falling back to `needs_review`.
+
+**Scope:**
+- Wrap diagnostician and vision calls in `runner.py`
+- On failure: log error, persist reason on page (notes or attempt metadata), return `needs_review` without killing `run_all_pages` batch
+- Unit tests with raising stubs
+
+**Acceptance criteria:**
+- [ ] Malformed LLM response → page queued for review, batch continues
+- [ ] Network/API auth error → same
+
+**Dependencies:** T-06, T-07
+
+---
+
+### T-13 — Line-count sanity baseline
+
+**Deploy:** `prod`  
+**Status:** ⬜ Not started
+
+**Why:** `line_count_sanity` is wired but inert — `expected_line_count` is never set, so the signal always returns 1.0.
+
+**Scope:**
+- Track rolling median line count from accepted pages in a job
+- Pass `expected_line_count` into `OcrDiagnostics` for subsequent pages
+- Optionally use deviation to weight retry decisions
+
+**Acceptance criteria:**
+- [ ] After 3+ accepted pages, a page with half the expected lines scores lower on line sanity
+- [ ] First page of job unchanged (no baseline yet)
+
+**Dependencies:** T-03, T-05
+
+---
+
+### T-14 — CLI ergonomics
+
+**Deploy:** `local-only`  
+**Status:** ⬜ Not started
+
+**Why:** Local smoke and calibration need finer control than "run entire PDF."
+
+**Scope:**
+- `run_job` flags: `--max-attempts`, `--pages 3,7,12` (1-based subset)
+- Re-run a single page: load existing job, clear `final.txt` + attempts for one page, resume
+- Optional: `--threshold-accept` / `--threshold-reject` overrides for T-10 experiments
+
+**Acceptance criteria:**
+- [ ] Can re-OCR page 7 of an existing job without re-creating the job
+- [ ] Page subset runs only listed pages (others untouched)
+
+**Dependencies:** T-04, T-05
+
+---
+
+### T-15 — Gemini optional dependency (httpx conflict)
+
+**Deploy:** `infrastructure`  
+**Status:** ⬜ Not started
+
+**Why:** `google-genai` requires `httpx>=0.28`; project pins `httpx==0.26.0` for FastAPI `TestClient` compatibility. Gemini works locally via manual install but isn't in `requirements.txt`.
+
+**Scope:**
+- Evaluate upgrading `fastapi` / `starlette` / `httpx` together, or document optional extra (`pip install -e ".[gemini]"`)
+- Add Gemini to CI optional job once conflict resolved
+- Update `.env.example` and provider factory error messages
+
+**Acceptance criteria:**
+- [ ] Documented install path that doesn't break `tests/test_api_spellcheck.py`
+- [ ] CI green with or without Gemini installed
+
+**Dependencies:** T-07b
+
+---
+
+### T-16 — Local smoke test + vision A/B
+
+**Deploy:** `local-only` (process, not code)  
+**Status:** 📋 Procedure documented — run after merge
+
+**Why:** Tick remaining T-06/T-07 live-API acceptance criteria; pick default vision provider; feed T-10/T-11 calibration.
+
+**Scope:**
+- Follow [INTERACTIVE_OCR_LOCAL_SMOKE.md](INTERACTIVE_OCR_LOCAL_SMOKE.md) Phases A–E
+- Record results in `docs/planning/INTERACTIVE_OCR_VISION_AB.md` (create during run)
+- Flag bilingual pages that wasted retries → input for T-11
+
+**Acceptance criteria:**
+- [ ] Phase A (BDRC-only) on 5-page sample
+- [ ] Phase B (full Claude loop) with API keys
+- [ ] Phase D (Claude vs Gemini vision) on pages that triggered fallback
+- [ ] T-06/T-07 unticked smoke criteria resolved or issues filed
+
+**Dependencies:** T-07b merged; `ANTHROPIC_API_KEY` in `backend/.env`. Gemini optional.
 
 ---
 
@@ -448,3 +661,15 @@ The two unticked items are real-API smoke tests that need a live `ANTHROPIC_API_
 - **Admin flag for AI features:** once auth exists, add `FEATURE_AI_OCR_ASSIST` env flag + admin role check at the API layer; gate T-06/T-07/T-09 routes accordingly. Include a server-side cost cap (max API calls per job, or daily spend cap) as defense-in-depth.
 - **GitHub mirror:** if useful, sync these tickets to GH issues so you can comment/track status outside markdown.
 - **Multi-text resume:** today the job store is single-tenant. Listing/switching jobs in the UI is a future concern.
+- **Gemini diagnostician:** T-07b only abstracts vision; diagnostician remains Anthropic-only unless demand appears.
+- **PREPARE integration:** style detection ([PREPARE_FEATURE.md](PREPARE_FEATURE.md)) could set `expect_mixed_script` on jobs with detected English Body styles — ties into T-11 long-term.
+
+### Suggested order after merge
+
+1. **T-16** — local smoke + vision A/B (validates what's built)
+2. **T-11** — mixed-script guardrails (if smoke shows wasted retries on bilingual pages)
+3. **T-12** — error resilience (before running full book)
+4. **T-10** — threshold calibration on target PDF
+5. **T-14** — CLI ergonomics (if re-running single pages gets tedious)
+6. **T-08** → **T-09** — DOCX export then review UI
+7. **T-02b**, **T-13**, **T-15** — as needed / parallel
