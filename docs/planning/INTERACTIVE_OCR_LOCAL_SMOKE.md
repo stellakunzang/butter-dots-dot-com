@@ -1,6 +1,6 @@
 # Interactive OCR — Local Smoke & Vision A/B Plan
 
-**Companion to:** [INTERACTIVE_OCR_PLAN.md](INTERACTIVE_OCR_PLAN.md), [INTERACTIVE_OCR_WORKFLOW.md](INTERACTIVE_OCR_WORKFLOW.md)  
+**Companion to:** [INTERACTIVE_OCR_PLAN.md](INTERACTIVE_OCR_PLAN.md), [INTERACTIVE_OCR_WORKFLOW.md](INTERACTIVE_OCR_WORKFLOW.md), [INTERACTIVE_OCR_SMOKE_FINDINGS.md](INTERACTIVE_OCR_SMOKE_FINDINGS.md)  
 **Purpose:** Step-by-step guide for trying the full AI loop locally after the integration branch merges. Covers Claude diagnostician + vision fallback, and the Gemini vs Claude vision comparison (#3 from the implementation sequence).
 
 **When to use this:** After `feat/interactive-ocr` (or your merge target) includes T-05–T-07, settings plumbing (#1), and provider abstraction (#2).
@@ -113,6 +113,8 @@ page-001/
 - Clean pages → `accept`, `final.txt` written.
 - Bad pages → `needs_review`, attempts persisted, no `final.txt`.
 - `settings.json` reflects `--model` baseline.
+
+**Fixture pages:** Human-labeled failures from the first Phase A run (pages 14, 17, 19 on `pages_for_ocr_test.pdf`) are documented in [INTERACTIVE_OCR_SMOKE_FINDINGS.md](INTERACTIVE_OCR_SMOKE_FINDINGS.md) for T-10/T-11/T-13.
 
 **Optional — verify retry settings actually change OCR:** Pick one bad page, manually edit `page-NNN/settings.json` (e.g. `"k_factor": 3.5`, `"model_variant": "Ume"`), delete any attempts/final, re-run with a one-page PDF. OCR output should differ from the baseline run.
 

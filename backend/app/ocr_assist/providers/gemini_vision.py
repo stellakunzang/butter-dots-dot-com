@@ -3,11 +3,11 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 from pathlib import Path
 from typing import Any
 
 from app.ocr_assist.contracts import VisionTranscript
+from app.ocr_assist.providers.credentials import resolve_gemini_api_key
 from app.ocr_assist.providers.media import guess_media_type
 
 
@@ -67,7 +67,7 @@ class GeminiVisionTranscriber:
                 "Install with: pip install 'google-genai>=1.0.0'"
             ) from exc
 
-        resolved = api_key or os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+        resolved = resolve_gemini_api_key(api_key)
         return genai.Client(api_key=resolved)
 
     def __call__(self, *, image_path: Path) -> VisionTranscript:

@@ -20,7 +20,8 @@ Resume is implicit: ``run_all_pages`` skips pages that already have
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+import statistics
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Literal, Protocol
 
@@ -37,6 +38,7 @@ from app.ocr_assist.contracts import (
 )
 from app.ocr_assist.job_store import (
     AttemptRecord,
+    FINAL_TEXT_FILE,
     Job,
     PageState,
     finalize_page,
@@ -47,8 +49,10 @@ from app.ocr_assist.job_store import (
     update_page_settings,
 )
 from app.ocr_assist.quality import (
+    MIN_LINE_COUNT_BASELINE,
     OcrDiagnostics,
     PageQuality,
+    ScoringContext,
     Thresholds,
     decide,
     score_page,
@@ -57,14 +61,54 @@ from app.ocr_assist.quality import (
 
 logger = logging.getLogger(__name__)
 
-# Starting thresholds for the runner. T-10 calibrates these against a real
-# target text; until then these mirror the values used in T-03's tests.
+# Calibrated on pages_for_ocr_test.pdf (T-10) with T-11/T-13 hard floors.
+# See docs/planning/INTERACTIVE_OCR_CALIBRATION.md.
 DEFAULT_THRESHOLDS = Thresholds(accept=0.85, reject=0.5)
 
 # Hard cap on OCR attempts per page when the diagnostician is wired in,
 # matching the plan's default. Bounds API cost in the absence of a separate
 # per-job budget (a future ticket).
 DEFAULT_MAX_ATTEMPTS = 3
+
+
+@dataclass
+class _LineCountBaseline:
+    """Rolling median line count from accepted pages in the current job (T-13)."""
+    min_pages: int = MIN_LINE_COUNT_BASELINE
+    _counts: list[int] = field(default_factory=list)
+
+    def record_accept(self, line_count: int) -> None:
+        if line_count > 0:
+            self._counts.append(line_count)
+
+    def expected_line_count(self) -> int | None:
+        if len(self._counts) < self.min_pages:
+            return None
+        return int(statistics.median(self._counts))
+
+
+def _scoring_context(job: Job) -> ScoringContext:
+    expect_mixed = bool(job.baseline_settings.get("expect_mixed_script", False))
+    return ScoringContext(expect_mixed_script=expect_mixed)
+
+
+def _seed_line_baseline(job: Job, baseline: _LineCountBaseline) -> None:
+    """On resume, include line counts from pages finalized in prior runs."""
+    for index in range(1, job.page_count + 1):
+        page = load_page(job, index)
+        if page.final_text is None or not page.attempts:
+            continue
+        quality = page.attempts[-1].quality or {}
+        line_count = quality.get("line_count")
+        if isinstance(line_count, int) and line_count > 0:
+            baseline.record_accept(line_count)
+
+
+def _job_has_finalized_pages(job: Job) -> bool:
+    for index in range(1, job.page_count + 1):
+        if (job.root / f"page-{index:03d}" / FINAL_TEXT_FILE).is_file():
+            return True
+    return False
 
 
 # The runner's coarse outcome for a page. ``error`` is reserved for pages that
@@ -141,6 +185,7 @@ def run_page(
     vision_transcriber: VisionTranscriberCallable | None = None,
     ocr: OcrAdapter | None = None,
     spellcheck: SpellcheckAdapter | None = None,
+    line_baseline: _LineCountBaseline | None = None,
 ) -> RunResult:
     """Run OCR for one page; retry under the diagnostician's direction.
 
@@ -176,13 +221,23 @@ def run_page(
 
     ocr_fn = ocr or _default_ocr_adapter()
     spellcheck_fn = spellcheck or _default_spellcheck_adapter()
+    scoring_ctx = _scoring_context(job)
+    baseline = line_baseline if line_baseline is not None else _LineCountBaseline()
 
     if diagnostician is None:
         # No retry loop without a diagnostician: one attempt, accept or queue.
         # Vision fallback still runs on a needs_review outcome if configured.
         result = _run_single_attempt(
-            job, page_index, thresholds, ocr_fn, spellcheck_fn
+            job,
+            page_index,
+            thresholds,
+            ocr_fn,
+            spellcheck_fn,
+            baseline,
+            scoring_ctx,
         )
+        if result.decision == "accept":
+            _record_line_baseline_from_result(result, baseline)
         if result.decision == "accept" or vision_transcriber is None:
             return result
         return _try_vision_fallback(
@@ -191,6 +246,8 @@ def run_page(
             vision_transcriber,
             spellcheck_fn,
             thresholds,
+            baseline,
+            scoring_ctx,
             bdrc_quality=result.quality,
             bdrc_verdict=result.verdict,
         )
@@ -199,15 +256,25 @@ def run_page(
     for attempt_index in range(max_attempts):
         page = load_page(job, page_index)
         last_attempt = _attempt_once(
-            job, page_index, page, ocr_fn, spellcheck_fn, thresholds
+            job,
+            page_index,
+            page,
+            ocr_fn,
+            spellcheck_fn,
+            thresholds,
+            baseline,
+            scoring_ctx,
         )
 
         if last_attempt.verdict == "accept":
+            _record_line_baseline_from_attempt(last_attempt, baseline)
             updated = finalize_page(
                 job,
                 page_index,
                 final_text=last_attempt.ocr_text,
-                final_quality=_quality_to_dict(last_attempt.quality),
+                final_quality=_quality_to_dict(
+                    last_attempt.quality, line_count=last_attempt.line_count
+                ),
             )
             return RunResult(
                 page=updated,
@@ -233,7 +300,9 @@ def run_page(
                 job,
                 page_index,
                 final_text=last_attempt.ocr_text,
-                final_quality=_quality_to_dict(last_attempt.quality),
+                final_quality=_quality_to_dict(
+                    last_attempt.quality, line_count=last_attempt.line_count
+                ),
                 notes=f"accepted as Sanskrit: {verdict.rationale}",
             )
             return RunResult(
@@ -251,6 +320,8 @@ def run_page(
                 vision_transcriber,
                 spellcheck_fn,
                 thresholds,
+                baseline,
+                scoring_ctx,
                 bdrc_quality=last_attempt.quality,
                 bdrc_verdict=last_attempt.verdict,
                 needs_human_reason=verdict.reason,
@@ -276,6 +347,8 @@ def run_page(
         vision_transcriber,
         spellcheck_fn,
         thresholds,
+        baseline,
+        scoring_ctx,
         bdrc_quality=last_attempt.quality,
         bdrc_verdict=last_attempt.verdict,
     )
@@ -286,6 +359,29 @@ class _AttemptResult:
     ocr_text: str
     quality: PageQuality
     verdict: Verdict
+    line_count: int
+
+
+def _record_line_baseline_from_result(
+    result: RunResult, baseline: _LineCountBaseline
+) -> None:
+    if result.page.attempts:
+        quality = result.page.attempts[-1].quality or {}
+        line_count = quality.get("line_count")
+        if isinstance(line_count, int):
+            baseline.record_accept(line_count)
+
+
+def _record_line_baseline_from_attempt(
+    attempt: _AttemptResult, baseline: _LineCountBaseline
+) -> None:
+    baseline.record_accept(attempt.line_count)
+
+
+def _record_line_baseline_from_line_count(
+    line_count: int, baseline: _LineCountBaseline
+) -> None:
+    baseline.record_accept(line_count)
 
 
 def _run_single_attempt(
@@ -294,15 +390,26 @@ def _run_single_attempt(
     thresholds: Thresholds,
     ocr_fn: OcrAdapter,
     spellcheck_fn: SpellcheckAdapter,
+    baseline: _LineCountBaseline,
+    scoring_ctx: ScoringContext,
 ) -> RunResult:
     page = load_page(job, page_index)
-    attempt = _attempt_once(job, page_index, page, ocr_fn, spellcheck_fn, thresholds)
+    attempt = _attempt_once(
+        job,
+        page_index,
+        page,
+        ocr_fn,
+        spellcheck_fn,
+        thresholds,
+        baseline,
+        scoring_ctx,
+    )
     if attempt.verdict == "accept":
         updated = finalize_page(
             job,
             page_index,
             final_text=attempt.ocr_text,
-            final_quality=_quality_to_dict(attempt.quality),
+            final_quality=_quality_to_dict(attempt.quality, line_count=attempt.line_count),
         )
         return RunResult(
             page=updated,
@@ -325,27 +432,29 @@ def _attempt_once(
     ocr_fn: OcrAdapter,
     spellcheck_fn: SpellcheckAdapter,
     thresholds: Thresholds,
+    baseline: _LineCountBaseline,
+    scoring_ctx: ScoringContext,
 ) -> _AttemptResult:
     result = ocr_fn(page.image_path, page.settings)
     spellcheck_errors = spellcheck_fn(result.text)
-    quality = score_page(
-        result.text,
-        spellcheck_errors,
-        # line_count is plumbed through but currently inert: with no
-        # expected_line_count baseline, quality._line_count_sanity returns 1.0,
-        # so the W_LINE_SANITY term contributes nothing to the composite. The
-        # signal becomes live once a per-page baseline exists; wiring it now
-        # means no signature churn when that lands.
-        OcrDiagnostics(line_count=result.line_count),
+    diagnostics = OcrDiagnostics(
+        line_count=result.line_count,
+        expected_line_count=baseline.expected_line_count(),
     )
+    quality = score_page(result.text, spellcheck_errors, diagnostics)
     save_page_attempt(
         job,
         page_index,
         ocr_text=result.text,
-        quality=_quality_to_dict(quality),
+        quality=_quality_to_dict(quality, line_count=result.line_count),
     )
     return _AttemptResult(
-        ocr_text=result.text, quality=quality, verdict=decide(quality, thresholds)
+        ocr_text=result.text,
+        quality=quality,
+        verdict=decide(
+            quality, thresholds, context=scoring_ctx, ocr_diagnostics=diagnostics
+        ),
+        line_count=result.line_count,
     )
 
 
@@ -375,6 +484,8 @@ def _try_vision_fallback(
     vision_transcriber: VisionTranscriberCallable | None,
     spellcheck_fn: SpellcheckAdapter,
     thresholds: Thresholds,
+    baseline: _LineCountBaseline,
+    scoring_ctx: ScoringContext,
     *,
     bdrc_quality: PageQuality,
     bdrc_verdict: Verdict,
@@ -406,19 +517,25 @@ def _try_vision_fallback(
     # Without an ``expected_line_count`` baseline the line-sanity signal stays
     # neutral, matching what BDRC attempts get today.
     line_count = len(transcript.text.splitlines()) if transcript.text else 0
+    diagnostics = OcrDiagnostics(
+        line_count=line_count,
+        expected_line_count=baseline.expected_line_count(),
+    )
     quality = score_page(
         transcript.text,
         spellcheck_errors,
-        OcrDiagnostics(line_count=line_count),
+        diagnostics,
     )
-    quality_dict = _quality_to_dict(quality)
+    quality_dict = _quality_to_dict(quality, line_count=line_count)
     save_vision_transcript(
         job,
         page_index,
         transcript=transcript_to_dict(transcript),
         quality=quality_dict,
     )
-    verdict = decide(quality, thresholds)
+    verdict = decide(
+        quality, thresholds, context=scoring_ctx, ocr_diagnostics=diagnostics
+    )
 
     if verdict == "accept":
         notes = _vision_accept_notes(transcript, needs_human_reason)
@@ -429,6 +546,7 @@ def _try_vision_fallback(
             final_quality=quality_dict,
             notes=notes,
         )
+        _record_line_baseline_from_line_count(line_count, baseline)
         return RunResult(
             page=updated,
             decision="accept",
@@ -479,6 +597,9 @@ def run_all_pages(
     """
     ocr_fn = ocr or _default_ocr_adapter()
     spellcheck_fn = spellcheck or _default_spellcheck_adapter()
+    baseline = _LineCountBaseline()
+    if _job_has_finalized_pages(job):
+        _seed_line_baseline(job, baseline)
 
     results: list[RunResult] = []
     for index in range(1, job.page_count + 1):
@@ -498,6 +619,7 @@ def run_all_pages(
                     vision_transcriber=vision_transcriber,
                     ocr=ocr_fn,
                     spellcheck=spellcheck_fn,
+                    line_baseline=baseline,
                 )
             )
         except Exception as exc:  # noqa: BLE001 — one bad page must not sink the batch
@@ -519,8 +641,8 @@ def run_all_pages(
     return results
 
 
-def _quality_to_dict(quality: PageQuality) -> dict[str, Any]:
-    return {
+def _quality_to_dict(quality: PageQuality, *, line_count: int | None = None) -> dict[str, Any]:
+    payload: dict[str, Any] = {
         "non_tibetan_char_ratio": quality.non_tibetan_char_ratio,
         "structural_error_ratio": quality.structural_error_ratio,
         "sanskrit_adjusted_error_ratio": quality.sanskrit_adjusted_error_ratio,
@@ -529,7 +651,15 @@ def _quality_to_dict(quality: PageQuality) -> dict[str, Any]:
         "unknown_word_ratio": quality.unknown_word_ratio,
         "composite_score": quality.composite_score,
         "breakdown": dict(quality.breakdown),
+        "tibetan_only_composite_score": quality.tibetan_only_composite_score,
+        "tibetan_syllable_count": quality.tibetan_syllable_count,
+        "latin_letter_count": quality.latin_letter_count,
+        "repetition_run_length": quality.repetition_run_length,
+        "repetition_char": quality.repetition_char,
     }
+    if line_count is not None:
+        payload["line_count"] = line_count
+    return payload
 
 
 def _default_ocr_adapter() -> OcrAdapter:

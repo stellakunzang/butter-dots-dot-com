@@ -10,6 +10,7 @@ from app.ocr_assist.contracts import (
 )
 from app.ocr_assist.providers.anthropic_diagnostician import AnthropicDiagnostician
 from app.ocr_assist.providers.anthropic_vision import AnthropicVisionTranscriber
+from app.ocr_assist.providers.credentials import resolve_anthropic_api_key, resolve_gemini_api_key
 from app.ocr_assist.providers.gemini_vision import GeminiVisionTranscriber
 
 
@@ -20,6 +21,7 @@ def build_diagnostician(
     """Construct a diagnostician for ``provider`` (default: env or anthropic)."""
     name = _normalize_provider(provider or os.environ.get("DIAGNOSTICIAN_PROVIDER", "anthropic"))
     if name == "anthropic":
+        kwargs.setdefault("api_key", resolve_anthropic_api_key())
         return AnthropicDiagnostician(**kwargs)
     raise ValueError(f"Unknown diagnostician provider: {name!r}")
 
@@ -31,8 +33,10 @@ def build_vision_transcriber(
     """Construct a vision transcriber for ``provider`` (default: env or anthropic)."""
     name = _normalize_provider(provider or os.environ.get("VISION_OCR_PROVIDER", "anthropic"))
     if name == "anthropic":
+        kwargs.setdefault("api_key", resolve_anthropic_api_key())
         return AnthropicVisionTranscriber(**kwargs)
     if name == "gemini":
+        kwargs.setdefault("api_key", resolve_gemini_api_key())
         return GeminiVisionTranscriber(**kwargs)
     raise ValueError(f"Unknown vision OCR provider: {name!r}")
 

@@ -192,19 +192,29 @@ class TestRawVerdict:
 
     def test_escalate_page_carries_escalate_verdict(self, job):
         # Garbled all-non-Tibetan text scores composite=0.75, between the
-        # default reject=0.5 and accept=0.85 → escalate (folded into
+        # default reject=0.5 and accept=0.9 → escalate (folded into
         # needs_review). The raw verdict still distinguishes it from reject.
         result = run_page(job, 1, ocr=garbled_ocr, spellcheck=no_errors)
         assert result.decision == "needs_review"
         assert result.verdict == "escalate"
 
     def test_reject_page_carries_reject_verdict(self, job):
-        # Push reject above the garbled page's 0.75 composite so it genuinely
-        # rejects rather than escalates — exercising the path that is otherwise
-        # indistinguishable from escalate through `decision` alone.
-        strict = Thresholds(accept=0.85, reject=0.8)
+        # Push reject above a low composite while keeping enough Tibetan
+        # syllables to avoid the minimum-content hard floor.
+        strict = Thresholds(accept=0.9, reject=0.8)
+
+        def bad_spellcheck(text: str) -> list[dict]:
+            return [
+                {
+                    "word": "བཀྲ",
+                    "error_type": "invalid_subscript_combination",
+                    "severity": "critical",
+                }
+                for _ in range(12)
+            ]
+
         result = run_page(
-            job, 1, ocr=garbled_ocr, spellcheck=no_errors, thresholds=strict
+            job, 1, ocr=clean_ocr, spellcheck=bad_spellcheck, thresholds=strict
         )
         assert result.decision == "needs_review"
         assert result.verdict == "reject"
@@ -293,21 +303,24 @@ class TestMaxAttemptsGuard:
 
 
 class TestThresholdsOverride:
-    def test_lax_thresholds_accept_garbled(self, job):
-        # The garbled page is rejected under DEFAULT_THRESHOLDS (see
-        # TestRunPageNeedsReview); lowering accept to 0 flips it to accept.
+    def test_lax_thresholds_accept_noisy_but_long_tibetan(self, job):
+        # Hard floors still apply at accept=0; use Tibetan-only content so the
+        # Latin contamination floor does not override lax thresholds.
+        noisy = (CLEAN_TEXT + "\n") * 3
+
+        def noisy_ocr(image_path: Path, settings: dict) -> OcrResult:
+            return OcrResult(text=noisy, line_count=6)
+
         lax = Thresholds(accept=0.0, reject=0.0)
         result = run_page(
-            job, 1, ocr=garbled_ocr, spellcheck=no_errors, thresholds=lax
+            job, 1, ocr=noisy_ocr, spellcheck=no_errors, thresholds=lax
         )
         assert result.decision == "accept"
-        assert result.page.final_text == GARBLED_TEXT
+        assert result.page.final_text == noisy
 
 
 class TestDefaultThresholds:
-    def test_defaults_match_t03_test_values(self):
-        # Sanity guard: T-10 calibrates these — when that ticket lands,
-        # the new values should be documented and this test updated.
+    def test_defaults_match_calibration_doc(self):
         assert DEFAULT_THRESHOLDS.accept == 0.85
         assert DEFAULT_THRESHOLDS.reject == 0.5
 

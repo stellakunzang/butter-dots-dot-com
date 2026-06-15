@@ -7,6 +7,7 @@
 **Related docs:**
 - [INTERACTIVE_OCR_WORKFLOW.md](INTERACTIVE_OCR_WORKFLOW.md) — branching, chat workflow
 - [INTERACTIVE_OCR_LOCAL_SMOKE.md](INTERACTIVE_OCR_LOCAL_SMOKE.md) — post-merge local testing + vision A/B
+- [INTERACTIVE_OCR_SMOKE_FINDINGS.md](INTERACTIVE_OCR_SMOKE_FINDINGS.md) — Phase A labels + fixture pages (T-10/T-11/T-13 input)
 - [INTERACTIVE_OCR_MIXED_SCRIPT.md](INTERACTIVE_OCR_MIXED_SCRIPT.md) — T-11 design detail
 
 ---
@@ -202,7 +203,7 @@ Each ticket below is sized to be a single PR. Dependencies are noted. The order 
 | T-13 | Line-count sanity baseline | ⬜ Not started |
 | T-14 | CLI ergonomics | ⬜ Not started |
 | T-15 | Gemini optional dep / httpx | ⬜ Not started |
-| T-16 | Local smoke + vision A/B | 📋 Doc ready — run after merge |
+| T-16 | Local smoke + vision A/B | 📋 Phase A findings recorded — see [INTERACTIVE_OCR_SMOKE_FINDINGS.md](INTERACTIVE_OCR_SMOKE_FINDINGS.md) |
 
 ---
 
@@ -642,6 +643,7 @@ Each ticket below is sized to be a single PR. Dependencies are noted. The order 
 **Scope:**
 - Follow [INTERACTIVE_OCR_LOCAL_SMOKE.md](INTERACTIVE_OCR_LOCAL_SMOKE.md) Phases A–E
 - Record results in `docs/planning/INTERACTIVE_OCR_VISION_AB.md` (create during run)
+- Record Phase A scorer gaps and human-labeled pages in [INTERACTIVE_OCR_SMOKE_FINDINGS.md](INTERACTIVE_OCR_SMOKE_FINDINGS.md)
 - Flag bilingual pages that wasted retries → input for T-11
 
 **Acceptance criteria:**

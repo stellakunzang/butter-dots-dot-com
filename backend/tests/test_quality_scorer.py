@@ -15,8 +15,11 @@ import unicodedata
 import pytest
 
 from app.ocr_assist.quality import (
+    ACHA_CHAR,
+    MIN_TIBETAN_SYLLABLES,
     OcrDiagnostics,
     PageQuality,
+    ScoringContext,
     Thresholds,
     W_PHASE2_UNKNOWN,
     decide,
@@ -193,7 +196,16 @@ class TestPhase2Captured:
 class TestDecide:
     THRESHOLDS = Thresholds(accept=0.85, reject=0.5)
 
-    def _q(self, composite: float, encoding_errors: int = 0) -> PageQuality:
+    def _q(
+        self,
+        composite: float,
+        encoding_errors: int = 0,
+        *,
+        latin_letter_count: int = 0,
+        tibetan_syllable_count: int = 10,
+        repetition_run_length: int = 0,
+        repetition_char: str = "",
+    ) -> PageQuality:
         return PageQuality(
             non_tibetan_char_ratio=0.0,
             structural_error_ratio=0.0,
@@ -203,6 +215,11 @@ class TestDecide:
             unknown_word_ratio=0.0,
             composite_score=composite,
             breakdown={},
+            tibetan_only_composite_score=composite,
+            tibetan_syllable_count=tibetan_syllable_count,
+            latin_letter_count=latin_letter_count,
+            repetition_run_length=repetition_run_length,
+            repetition_char=repetition_char,
         )
 
     def test_high_score_accepts(self):
@@ -229,6 +246,48 @@ class TestDecide:
     def test_boundary_at_reject_threshold(self):
         # composite == reject threshold → escalate (strict <)
         assert decide(self._q(0.5), self.THRESHOLDS) == "escalate"
+
+    def test_latin_hard_floor_blocks_accept(self):
+        assert (
+            decide(
+                self._q(0.95, latin_letter_count=1),
+                self.THRESHOLDS,
+                context=ScoringContext(expect_mixed_script=False),
+            )
+            == "escalate"
+        )
+
+    def test_latin_allowed_on_mixed_script_job(self):
+        assert (
+            decide(
+                self._q(0.95, latin_letter_count=1),
+                self.THRESHOLDS,
+                context=ScoringContext(expect_mixed_script=True),
+            )
+            == "accept"
+        )
+
+    def test_minimum_syllable_floor_blocks_accept(self):
+        assert (
+            decide(
+                self._q(1.0, tibetan_syllable_count=MIN_TIBETAN_SYLLABLES - 1),
+                self.THRESHOLDS,
+            )
+            == "escalate"
+        )
+
+    def test_acha_repetition_blocks_accept(self):
+        assert (
+            decide(
+                self._q(
+                    0.97,
+                    repetition_run_length=10,
+                    repetition_char=ACHA_CHAR,
+                ),
+                self.THRESHOLDS,
+            )
+            == "escalate"
+        )
 
 
 class TestNormalizationRoundtrip:
@@ -283,5 +342,20 @@ class TestEmptyText:
         assert q.non_tibetan_char_ratio == 0.0
         assert q.structural_error_ratio == 0.0
         assert q.sanskrit_adjusted_error_ratio == 0.0
-        # No expected line count → sanity defaults to 1.0, composite stays 1.0.
+        # No expected line count → sanity defaults to 1.0; minimum-syllable hard
+        # floor blocks accept in decide(), not composite itself.
         assert q.composite_score == 1.0
+        assert q.tibetan_syllable_count == 0
+        assert decide(q, Thresholds(accept=0.85, reject=0.5)) == "escalate"
+
+
+class TestRepetitionSignal:
+    def test_acha_run_detected_on_page_17_fixture(self):
+        from pathlib import Path
+
+        path = Path(__file__).resolve().parent / "fixtures" / "ocr_smoke" / "page-017.txt"
+        text = path.read_text()
+        q = score_page(text, [], OcrDiagnostics(line_count=15))
+        assert q.repetition_char == ACHA_CHAR
+        assert q.repetition_run_length >= 8
+        assert q.breakdown["repetition_penalty"] > 0
