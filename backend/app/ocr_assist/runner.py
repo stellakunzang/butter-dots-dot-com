@@ -62,7 +62,7 @@ from app.ocr_assist.quality import (
 logger = logging.getLogger(__name__)
 
 # Calibrated on pages_for_ocr_test.pdf (T-10) with T-11/T-13 hard floors.
-# See docs/planning/INTERACTIVE_OCR_CALIBRATION.md.
+# See docs/planning/INTERACTIVE_OCR_PLAN.md § Quality scorer calibration.
 DEFAULT_THRESHOLDS = Thresholds(accept=0.85, reject=0.5)
 
 # Hard cap on OCR attempts per page when the diagnostician is wired in,

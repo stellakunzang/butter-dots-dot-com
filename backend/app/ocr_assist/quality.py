@@ -27,7 +27,7 @@ present in the composite with weight ``W_PHASE2_UNKNOWN = 0.0`` until the
 word corpus is populated. The signature does not need to change when
 Phase 2 is enabled — only the weight.
 
-Hard floors (T-10/T-11/T-13 calibration — see INTERACTIVE_OCR_CALIBRATION.md)
+Hard floors (T-10/T-11/T-13 calibration — see INTERACTIVE_OCR_PLAN.md § Quality scorer calibration)
 ------------------------------------------------------------------------------
 
 ``decide`` blocks ``accept`` regardless of composite when:

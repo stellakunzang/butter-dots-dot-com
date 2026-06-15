@@ -1,7 +1,8 @@
 """
 Calibration regression tests for T-10/T-11/T-13 on scanned-pecha fixtures.
 
-Uses human-labeled pages from ``docs/planning/INTERACTIVE_OCR_SMOKE_FINDINGS.md``
+Uses human-labeled pages from the calibration fixtures documented in
+``docs/planning/INTERACTIVE_OCR_PLAN.md`` § Quality scorer calibration.
 (job ``4bed0eb14c9f``, ``pages_for_ocr_test.pdf``). Word bilingual PDFs are
 out of scope — these fixtures are scanned pecha only.
 """
