@@ -9,12 +9,14 @@
 
 ## What you're validating
 
-| Layer | What it does | API cost? |
-|-------|----------------|-----------|
-| BDRC OCR + quality scorer | Per-page accept / escalate / reject | No |
-| Diagnostician (Anthropic) | Retry with settings, Sanskrit accept, needs-human | Yes — up to 2 calls per bad page |
-| Vision fallback (Anthropic or Gemini) | Read image directly when BDRC fails | Yes — at most 1 call per failed page |
-| Job store | Persist attempts, verdicts, vision transcripts | No |
+
+| Layer                                 | What it does                                      | API cost?                            |
+| ------------------------------------- | ------------------------------------------------- | ------------------------------------ |
+| BDRC OCR + quality scorer             | Per-page accept / escalate / reject               | No                                   |
+| Diagnostician (Anthropic)             | Retry with settings, Sanskrit accept, needs-human | Yes — up to 2 calls per bad page     |
+| Vision fallback (Anthropic or Gemini) | Read image directly when BDRC fails               | Yes — at most 1 call per failed page |
+| Job store                             | Persist attempts, verdicts, vision transcripts    | No                                   |
+
 
 You're **not** validating T-09 (UI) or T-08 (DOCX export) here — CLI + filesystem inspection only.
 
@@ -75,7 +77,7 @@ venv/bin/python -m app.ocr_assist.run_job /path/to/sample.pdf \
 
 Regression: `venv/bin/pytest tests/test_ocr_calibration.py -q`
 
-See [INTERACTIVE_OCR_PLAN.md § Quality scorer calibration](INTERACTIVE_OCR_PLAN.md#quality-scorer-calibration-t-10) for thresholds and fixture pages.
+See [INTERACTIVE_OCR_PLAN.md § Quality scorer calibration](INTERACTIVE_OCR_PLAN.md#quality-scorer-calibration-t-10) for thresholds, hard floors, and false-accept counts.
 
 ---
 
@@ -111,7 +113,7 @@ Pick a page that is **mostly Sanskrit/mantra** and scores below accept on first 
 
 **Pass criterion:**
 
-- [ ] `ai_verdict.json` contains `"tool": "accurate_as_sanskrit_accept"` OR documented rationale for retry instead.
+- [x] `ai_verdict.json` contains `"tool": "accurate_as_sanskrit_accept"` OR documented rationale for retry instead.
 
 ---
 
@@ -131,16 +133,18 @@ For a 100-page pecha where 90% accept on first OCR: ~10 pages × (2 diag + 1 vis
 
 ## Filesystem cheat sheet
 
-| Path | Meaning |
-|------|---------|
-| `manifest.json` | Job metadata, page count |
-| `baseline_settings.json` | Frozen job baseline |
-| `page-NNN/settings.json` | Per-page settings (mutated by retries) |
-| `attempts/NN/ocr.txt` | BDRC output |
-| `attempts/NN/quality.json` | Scorer breakdown + composite |
-| `attempts/NN/ai_verdict.json` | Diagnostician verdict |
-| `vision_ocr.json` | Vision transcript |
-| `final.txt` | Accepted text |
+
+| Path                          | Meaning                                |
+| ----------------------------- | -------------------------------------- |
+| `manifest.json`               | Job metadata, page count               |
+| `baseline_settings.json`      | Frozen job baseline                    |
+| `page-NNN/settings.json`      | Per-page settings (mutated by retries) |
+| `attempts/NN/ocr.txt`         | BDRC output                            |
+| `attempts/NN/quality.json`    | Scorer breakdown + composite           |
+| `attempts/NN/ai_verdict.json` | Diagnostician verdict                  |
+| `vision_ocr.json`             | Vision transcript                      |
+| `final.txt`                   | Accepted text                          |
+
 
 ---
 
@@ -166,3 +170,4 @@ python -m app.ocr_assist.run_job book.pdf --jobs-root ./jobs --enable-ai -v
 # Claude diagnostician + Gemini vision
 python -m app.ocr_assist.run_job book.pdf --jobs-root ./jobs --enable-ai --vision-provider gemini -v
 ```
+

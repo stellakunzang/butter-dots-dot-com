@@ -289,6 +289,39 @@ class TestDecide:
             == "escalate"
         )
 
+    def test_short_page_hard_floor_blocks_accept(self):
+        quality = self._q(0.95)
+        diagnostics = OcrDiagnostics(line_count=6, expected_line_count=14)
+        assert (
+            decide(quality, self.THRESHOLDS, ocr_diagnostics=diagnostics)
+            == "escalate"
+        )
+
+    def test_mixed_script_accepts_on_tibetan_only_score(self):
+        quality = PageQuality(
+            non_tibetan_char_ratio=0.30,
+            structural_error_ratio=0.0,
+            sanskrit_adjusted_error_ratio=0.0,
+            line_count_sanity=1.0,
+            encoding_error_count=0,
+            unknown_word_ratio=0.0,
+            composite_score=0.70,
+            breakdown={},
+            tibetan_only_composite_score=0.90,
+            tibetan_syllable_count=10,
+            latin_letter_count=20,
+            repetition_run_length=0,
+            repetition_char="",
+        )
+        assert (
+            decide(
+                quality,
+                self.THRESHOLDS,
+                context=ScoringContext(expect_mixed_script=True),
+            )
+            == "accept"
+        )
+
 
 class TestNormalizationRoundtrip:
     """Integration: check_text output must match score_page syllable splitting.

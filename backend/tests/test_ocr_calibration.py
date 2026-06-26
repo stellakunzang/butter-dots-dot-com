@@ -100,6 +100,18 @@ class TestSmokeFalseAcceptFixtures:
         assert quality.line_count_sanity < 0.2
         assert verdict != "accept"
 
+    def test_page_20_minimal_content_escalates_despite_high_composite(self, checker):
+        # TIF-style partial page: ~2 syllables, composite can still read 1.0.
+        quality, verdict = _score_fixture(
+            checker,
+            20,
+            line_count=1,
+            ocr_text="འོད་གསལ",
+        )
+        assert quality.tibetan_syllable_count < 3
+        assert quality.composite_score >= 0.9
+        assert verdict != "accept"
+
 
 class TestStrayLatinRegression:
     @pytest.mark.parametrize("page", [2, 6, 15])

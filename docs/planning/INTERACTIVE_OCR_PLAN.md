@@ -8,6 +8,8 @@
 - [INTERACTIVE_OCR_WORKFLOW.md](INTERACTIVE_OCR_WORKFLOW.md) — branching, chat workflow
 - [INTERACTIVE_OCR_LOCAL_SMOKE.md](INTERACTIVE_OCR_LOCAL_SMOKE.md) — local AI-loop smoke + vision A/B (Phases B–E)
 
+Calibration thresholds, hard floors, and false-accept counts: [§ Quality scorer calibration](#quality-scorer-calibration-t-10) below.
+
 ---
 
 ## Deployment posture

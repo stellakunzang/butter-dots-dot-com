@@ -42,6 +42,7 @@ from app.ocr_assist.quality import Thresholds
 from app.ocr_assist.runner import (
     DEFAULT_THRESHOLDS,
     OcrResult,
+    _LineCountBaseline,
     run_all_pages,
     run_page,
 )
@@ -192,7 +193,7 @@ class TestRawVerdict:
 
     def test_escalate_page_carries_escalate_verdict(self, job):
         # Garbled all-non-Tibetan text scores composite=0.75, between the
-        # default reject=0.5 and accept=0.9 → escalate (folded into
+        # default reject=0.5 and accept=0.85 → escalate (folded into
         # needs_review). The raw verdict still distinguishes it from reject.
         result = run_page(job, 1, ocr=garbled_ocr, spellcheck=no_errors)
         assert result.decision == "needs_review"
@@ -756,6 +757,52 @@ class TestVisionFallbackAfterNeedsHuman:
         assert result.decision == "needs_review"
         page = load_page(job, 1)
         assert page.vision_transcript is None
+
+
+class TestLineCountBaseline:
+    """T-13: rolling median line count from accepted pages gates short pages."""
+
+    def test_short_page_escalates_after_baseline_established(
+        self, tmp_path: Path, monkeypatch
+    ):
+        def _fake_render(pdf_bytes: bytes, *, dpi: int):
+            return [Image.new("RGB", (40, 40), "white") for _ in range(4)]
+
+        monkeypatch.setattr(job_store, "_render_pdf", _fake_render)
+        job = create_job(
+            b"fake-pdf-bytes",
+            source_file="sample.pdf",
+            baseline_settings={"model_variant": "Modern"},
+            jobs_root=tmp_path,
+        )
+        baseline = _LineCountBaseline()
+
+        def good_ocr(image_path: Path, settings: dict) -> OcrResult:
+            return OcrResult(text=CLEAN_TEXT, line_count=14)
+
+        for index in range(1, 4):
+            result = run_page(
+                job,
+                index,
+                ocr=good_ocr,
+                spellcheck=no_errors,
+                line_baseline=baseline,
+            )
+            assert result.decision == "accept"
+
+        def short_ocr(image_path: Path, settings: dict) -> OcrResult:
+            return OcrResult(text=CLEAN_TEXT, line_count=6)
+
+        result = run_page(
+            job,
+            4,
+            ocr=short_ocr,
+            spellcheck=no_errors,
+            line_baseline=baseline,
+        )
+        assert result.decision == "needs_review"
+        assert result.verdict == "escalate"
+        assert result.page.final_text is None
 
 
 class TestRunAllPagesPassesVision:
