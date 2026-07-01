@@ -37,6 +37,10 @@ postgres_data/
 uploads/
 results/
 
+# Local OCR calibration PDFs (generated via scripts/combine_to_pdf.py)
+backend/pages_for_ocr_test.pdf
+backend/combined_ocr_test.pdf
+
 # BDRC OCR model files (downloaded via scripts/download_models.py — too large for git)
 backend/OCRModels/
 backend/Models/Lines/*.onnx
