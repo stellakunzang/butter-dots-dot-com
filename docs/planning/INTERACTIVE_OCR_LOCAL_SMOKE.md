@@ -18,7 +18,12 @@
 | Job store                             | Persist attempts, verdicts, vision transcripts    | No                                   |
 
 
-You're **not** validating T-09 (UI) or T-08 (DOCX export) here — CLI + filesystem inspection only.
+You're **not** required to use the old full-job `--enable-ai` path for vision A/B
+anymore — the local `/ocr-assist` UI can **Compare vision** on a single page after
+BDRC. This guide still covers CLI Phases B–E for diagnostician smoke and cost
+checks.
+
+**Also see:** root README § Interactive OCR CLI / browser UI.
 
 ---
 
@@ -27,7 +32,7 @@ You're **not** validating T-09 (UI) or T-08 (DOCX export) here — CLI + filesys
 ### 1. Branch and backend env
 
 ```bash
-git checkout feat/ocr-scorer-calibration   # or your merge target
+git checkout feat/interactive-ocr   # or your PR2 branch after merge
 cd backend
 source venv/bin/activate
 ```
