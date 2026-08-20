@@ -69,6 +69,7 @@ ATTEMPT_VERDICT_FILE = "ai_verdict.json"
 # review surface needs both BDRC attempts and the vision read side-by-side.
 VISION_TRANSCRIPT_FILE = "vision_ocr.json"
 VISION_QUALITY_FILE = "vision_quality.json"
+OUTPUT_DOCX_FILE = "output.docx"
 
 JOB_STATUS_IN_PROGRESS = "in_progress"
 JOB_STATUS_COMPLETE = "complete"
@@ -353,7 +354,12 @@ def finalize_page(
     final_quality: dict[str, Any] | None = None,
     notes: str | None = None,
 ) -> PageState:
-    """Mark a page as finalized: write ``final.txt`` (+ quality, notes)."""
+    """Mark a page as finalized: write ``final.txt`` (+ quality, notes).
+
+    Also rebuilds ``output.docx`` from every finalized page so the Word
+    artifact stays in sync after each accept (crash-safe: prior finals are
+    always re-read from disk).
+    """
     page_dir = job.root / _page_dir_name(page_index)
     if not page_dir.is_dir():
         raise FileNotFoundError(f"No page directory: {page_dir}")
@@ -364,7 +370,71 @@ def finalize_page(
     if notes is not None:
         _atomic_write_text(page_dir / NOTES_FILE, notes)
 
+    # Late import avoids a circular dependency: docx_export imports job helpers.
+    from app.ocr_assist.docx_export import write_clean_docx
+
+    write_clean_docx(job)
     return load_page(job, page_index)
+
+
+def reset_page(
+    job: Job,
+    page_index: int,
+    *,
+    clear_attempts: bool = False,
+    clear_vision: bool = False,
+) -> PageState:
+    """Clear finalized state so ``run_page`` / resume can re-OCR this page.
+
+    Removes ``final.txt`` / ``final_quality.json`` / ``notes.md`` so the page
+    is eligible to run again. Keeps ``image.png``, ``settings.json``, and — by
+    default — ``attempts/`` plus vision artifacts so automatic troubleshooting
+    history remains visible and a later diagnostician/retry can avoid repeating
+    the same moves. Pass ``clear_attempts=True`` / ``clear_vision=True`` for a
+    hard wipe. Rebuilds ``output.docx`` from remaining finalized pages (or
+    deletes it if none).
+    """
+    import shutil
+
+    page_dir = job.root / _page_dir_name(page_index)
+    if not page_dir.is_dir():
+        raise FileNotFoundError(f"No page directory: {page_dir}")
+
+    for name in (FINAL_TEXT_FILE, FINAL_QUALITY_FILE, NOTES_FILE):
+        (page_dir / name).unlink(missing_ok=True)
+
+    if clear_attempts:
+        attempts_dir = page_dir / ATTEMPTS_DIR
+        if attempts_dir.is_dir():
+            shutil.rmtree(attempts_dir)
+        attempts_dir.mkdir(exist_ok=True)
+
+    if clear_vision:
+        (page_dir / VISION_TRANSCRIPT_FILE).unlink(missing_ok=True)
+        (page_dir / VISION_QUALITY_FILE).unlink(missing_ok=True)
+        # Provider-keyed vision files (PR 2); safe no-ops if absent.
+        for path in page_dir.glob("vision_*.json"):
+            path.unlink(missing_ok=True)
+
+    from app.ocr_assist.docx_export import write_clean_docx
+
+    write_clean_docx(job)
+    return load_page(job, page_index)
+
+
+def iter_finalized_pages(job: Job) -> list[tuple[int, str]]:
+    """Return ``(page_index, final_text)`` for every page with ``final.txt``.
+
+    Ordered by page index. Pages without a final are omitted (not empty
+    strings) so DOCX export only includes accepted pages.
+    """
+    pages: list[tuple[int, str]] = []
+    for index in range(1, job.page_count + 1):
+        final_path = job.root / _page_dir_name(index) / FINAL_TEXT_FILE
+        if not final_path.is_file():
+            continue
+        pages.append((index, final_path.read_text(encoding="utf-8")))
+    return pages
 
 
 def list_jobs(jobs_root: Path) -> list[Job]:

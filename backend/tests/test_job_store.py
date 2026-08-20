@@ -22,13 +22,17 @@ from app.ocr_assist.job_store import (
     FINAL_TEXT_FILE,
     JOB_STATUS_IN_PROGRESS,
     MANIFEST_FILE,
+    OUTPUT_DOCX_FILE,
     PAGE_IMAGE_FILE,
     create_job,
     finalize_page,
+    iter_finalized_pages,
     list_jobs,
     load_job,
     load_page,
+    reset_page,
     save_page_attempt,
+    save_vision_transcript,
 )
 
 
@@ -176,6 +180,95 @@ class TestFinalizePage:
         assert page.final_text == "བཀྲ་ཤིས།"
         assert page.final_quality == {"composite_score": 0.92}
         assert page.notes == "reviewed by human"
+
+    def test_rebuilds_output_docx_from_finalized_pages(self, created_job):
+        from docx import Document
+
+        jobs_root, job_id = created_job
+        job = load_job(jobs_root, job_id)
+        finalize_page(job, 1, final_text="page one")
+        finalize_page(job, 3, final_text="page three")
+
+        docx_path = job.root / OUTPUT_DOCX_FILE
+        assert docx_path.is_file()
+        doc = Document(str(docx_path))
+        headings = [p.text for p in doc.paragraphs if p.style.name.startswith("Heading")]
+        assert headings == ["Page 1", "Page 3"]
+        body = [p.text for p in doc.paragraphs if not p.style.name.startswith("Heading")]
+        assert "page one" in body
+        assert "page three" in body
+
+
+class TestResetPage:
+    def test_clears_final_keeps_attempts_image_settings(self, created_job):
+        jobs_root, job_id = created_job
+        job = load_job(jobs_root, job_id)
+        save_page_attempt(job, 1, ocr_text="attempt", quality={"composite_score": 0.5})
+        finalize_page(job, 1, final_text="final", final_quality={"composite_score": 0.9})
+        assert (job.root / OUTPUT_DOCX_FILE).is_file()
+
+        page = reset_page(job, 1)
+        page_dir = job.root / "page-001"
+        assert page.final_text is None
+        assert not (page_dir / FINAL_TEXT_FILE).is_file()
+        assert not (page_dir / FINAL_QUALITY_FILE).is_file()
+        assert len(page.attempts) == 1
+        assert page.attempts[0].ocr_text == "attempt"
+        assert (page_dir / PAGE_IMAGE_FILE).is_file()
+        assert (page_dir / "settings.json").is_file()
+        # No remaining finals → docx removed
+        assert not (job.root / OUTPUT_DOCX_FILE).is_file()
+
+    def test_rebuilds_docx_from_remaining_finals(self, created_job):
+        from docx import Document
+
+        jobs_root, job_id = created_job
+        job = load_job(jobs_root, job_id)
+        finalize_page(job, 1, final_text="keep")
+        finalize_page(job, 2, final_text="drop")
+        reset_page(job, 2)
+
+        doc = Document(str(job.root / OUTPUT_DOCX_FILE))
+        headings = [p.text for p in doc.paragraphs if p.style.name.startswith("Heading")]
+        assert headings == ["Page 1"]
+
+    def test_preserves_vision_by_default(self, created_job):
+        jobs_root, job_id = created_job
+        job = load_job(jobs_root, job_id)
+        save_vision_transcript(
+            job, 1, transcript={"text": "vision"}, quality={"composite_score": 0.4}
+        )
+        page_dir = job.root / "page-001"
+        (page_dir / "vision_gemini.json").write_text('{"text": "g"}', encoding="utf-8")
+        reset_page(job, 1)
+        assert (page_dir / "vision_ocr.json").is_file()
+        assert (page_dir / "vision_quality.json").is_file()
+        assert (page_dir / "vision_gemini.json").is_file()
+
+    def test_hard_wipe_clears_attempts_and_vision(self, created_job):
+        jobs_root, job_id = created_job
+        job = load_job(jobs_root, job_id)
+        save_page_attempt(job, 1, ocr_text="attempt", quality={"composite_score": 0.5})
+        save_vision_transcript(
+            job, 1, transcript={"text": "vision"}, quality={"composite_score": 0.4}
+        )
+        page_dir = job.root / "page-001"
+        (page_dir / "vision_gemini.json").write_text('{"text": "g"}', encoding="utf-8")
+
+        page = reset_page(job, 1, clear_attempts=True, clear_vision=True)
+        assert list(page.attempts) == []
+        assert not (page_dir / "vision_ocr.json").is_file()
+        assert not (page_dir / "vision_quality.json").is_file()
+        assert not (page_dir / "vision_gemini.json").is_file()
+
+
+class TestIterFinalizedPages:
+    def test_ordered_and_skips_unfinalized(self, created_job):
+        jobs_root, job_id = created_job
+        job = load_job(jobs_root, job_id)
+        finalize_page(job, 3, final_text="third")
+        finalize_page(job, 1, final_text="first")
+        assert iter_finalized_pages(job) == [(1, "first"), (3, "third")]
 
 
 class TestLoadJobRoundTrip:
