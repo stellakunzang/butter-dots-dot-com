@@ -13,6 +13,7 @@ and this project uses
 ### Added
 
 - Local OCR QA CLI and clean DOCX export (feature-branch / local-dev only): reset a page without wiping attempts by default, rebuild `output.docx` on finalize, and run jobs with `--pages`, `--job-id`, `--rerun-pages`, and `--max-attempts` (BDRC-only by default).
+- Local OCR Assist browser path (feature-branch / local-dev only): `/api/v1/ocr-assist` gated by `OCR_ASSIST_LOCAL`, minimal `/ocr-assist` UI for upload/review/accept/edit/retry/DOCX download, and on-demand Claude vs Gemini vision compare per page (bulk jobs stay BDRC-only).
 
 ### Changed
 
