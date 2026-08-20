@@ -184,6 +184,24 @@ class TestRunAllPages:
         # Pre-finalized text is preserved.
         assert load_page(job, 2).final_text == "manually finalized"
 
+    def test_page_indices_runs_subset_only(self, job):
+        ocr_calls: list[Path] = []
+
+        def counting_ocr(image_path: Path, settings: dict) -> OcrResult:
+            ocr_calls.append(image_path)
+            return OcrResult(text=CLEAN_TEXT, line_count=2)
+
+        results = run_all_pages(
+            job, ocr=counting_ocr, spellcheck=no_errors, page_indices=[1, 3]
+        )
+        assert {r.page.index for r in results} == {1, 3}
+        assert len(ocr_calls) == 2
+        assert load_page(job, 2).final_text is None
+
+    def test_page_indices_out_of_range_raises(self, job):
+        with pytest.raises(ValueError, match="out of range"):
+            run_all_pages(job, ocr=clean_ocr, spellcheck=no_errors, page_indices=[1, 99])
+
 
 class TestRawVerdict:
     def test_accept_page_carries_accept_verdict(self, job):

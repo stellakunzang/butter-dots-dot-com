@@ -4,14 +4,16 @@ CLI entry point for the interactive OCR runner.
 Usage::
 
     python -m app.ocr_assist.run_job <pdf_path> [--jobs-root DIR] [--model NAME]
+    python -m app.ocr_assist.run_job book.pdf --pages 3,7,12
+    python -m app.ocr_assist.run_job --job-id <id> --rerun-pages 7
     python -m app.ocr_assist.run_job book.pdf --enable-ai
-    python -m app.ocr_assist.run_job book.pdf --enable-ai --vision-provider gemini
 
-Creates a fresh job under ``--jobs-root`` (default ``./jobs``), renders the
-PDF to per-page PNGs, then runs every page through ``runner.run_page``.
-Prints a summary of how each page resolved: ``accept`` or ``needs_review``.
+Creates a fresh job under ``--jobs-root`` (default ``./jobs``), or loads an
+existing job via ``--job-id``, then runs pages through ``runner.run_page``.
+Default path is BDRC + quality scorer only (no LLM). Prints a summary of how
+each page resolved: ``accept``, ``needs_review``, or ``error``.
 
-Provider selection (when ``--enable-ai`` is set):
+Provider selection (when ``--enable-ai`` is set — CLI experiment only):
   ``DIAGNOSTICIAN_PROVIDER`` / ``--diagnostician-provider`` — default ``anthropic``
   ``VISION_OCR_PROVIDER`` / ``--vision-provider`` — ``anthropic`` or ``gemini``
 """
@@ -24,16 +26,27 @@ import sys
 from pathlib import Path
 
 from app.config import settings
-from app.ocr_assist.job_store import create_job
+from app.ocr_assist.job_store import create_job, load_job, reset_page
 from app.ocr_assist.providers import build_diagnostician, build_vision_transcriber
 from app.ocr_assist.providers.credentials import resolve_anthropic_api_key, resolve_gemini_api_key
-from app.ocr_assist.runner import RunResult, run_all_pages, DEFAULT_THRESHOLDS
+from app.ocr_assist.runner import (
+    DEFAULT_MAX_ATTEMPTS,
+    DEFAULT_THRESHOLDS,
+    RunResult,
+    run_all_pages,
+)
 from app.ocr_assist.quality import Thresholds
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Run interactive OCR on a PDF.")
-    parser.add_argument("pdf_path", type=Path, help="Path to the source PDF.")
+    parser.add_argument(
+        "pdf_path",
+        type=Path,
+        nargs="?",
+        default=None,
+        help="Path to the source PDF (required unless --job-id is set).",
+    )
     parser.add_argument(
         "--jobs-root",
         type=Path,
@@ -41,17 +54,44 @@ def main(argv: list[str] | None = None) -> int:
         help="Directory to hold per-job state (default: ./jobs).",
     )
     parser.add_argument(
+        "--job-id",
+        default=None,
+        help="Load an existing job under --jobs-root instead of creating one.",
+    )
+    parser.add_argument(
+        "--pages",
+        default=None,
+        help="Comma-separated 1-based page numbers to run (e.g. 3,7,12).",
+    )
+    parser.add_argument(
+        "--rerun-pages",
+        default=None,
+        help=(
+            "Comma-separated 1-based pages to reset (clear finals) then run. "
+            "Requires --job-id. Keeps prior attempts/settings by default."
+        ),
+    )
+    parser.add_argument(
         "--model",
         default=settings.ocr_model_name,
         help=(
-            "Baseline OCR model variant to record on the job "
+            "Baseline OCR model variant to record on a new job "
             f"(default: {settings.ocr_model_name} from OCR_MODEL_NAME)."
         ),
     )
     parser.add_argument(
+        "--max-attempts",
+        type=int,
+        default=DEFAULT_MAX_ATTEMPTS,
+        help=f"Max BDRC/diagnostician attempts per page (default: {DEFAULT_MAX_ATTEMPTS}).",
+    )
+    parser.add_argument(
         "--enable-ai",
         action="store_true",
-        help="Wire in AI diagnostician + vision fallback via provider factories.",
+        help=(
+            "Wire in AI diagnostician + vision fallback (CLI experiment). "
+            "Not used by the local QA UI bulk path."
+        ),
     )
     parser.add_argument(
         "--diagnostician-provider",
@@ -67,13 +107,19 @@ def main(argv: list[str] | None = None) -> int:
         "--threshold-accept",
         type=float,
         default=DEFAULT_THRESHOLDS.accept,
-        help=f"Composite score at or above which a page auto-accepts (default: {DEFAULT_THRESHOLDS.accept}).",
+        help=(
+            "Composite score at or above which a page auto-accepts "
+            f"(default: {DEFAULT_THRESHOLDS.accept})."
+        ),
     )
     parser.add_argument(
         "--threshold-reject",
         type=float,
         default=DEFAULT_THRESHOLDS.reject,
-        help=f"Composite score below which a page rejects without retry (default: {DEFAULT_THRESHOLDS.reject}).",
+        help=(
+            "Composite score below which a page rejects without retry "
+            f"(default: {DEFAULT_THRESHOLDS.reject})."
+        ),
     )
     parser.add_argument(
         "--verbose", "-v", action="store_true", help="Verbose logging."
@@ -85,8 +131,14 @@ def main(argv: list[str] | None = None) -> int:
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
 
-    if not args.pdf_path.is_file():
-        print(f"error: PDF not found at {args.pdf_path}", file=sys.stderr)
+    if args.rerun_pages and not args.job_id:
+        print("error: --rerun-pages requires --job-id", file=sys.stderr)
+        return 1
+    if args.job_id is None and args.pdf_path is None:
+        print("error: pdf_path is required unless --job-id is set", file=sys.stderr)
+        return 1
+    if args.max_attempts < 1:
+        print("error: --max-attempts must be >= 1", file=sys.stderr)
         return 1
 
     try:
@@ -95,15 +147,58 @@ def main(argv: list[str] | None = None) -> int:
         print(f"error: invalid thresholds: {exc}", file=sys.stderr)
         return 1
 
+    try:
+        pages = _parse_page_list(args.pages) if args.pages else None
+        rerun_pages = _parse_page_list(args.rerun_pages) if args.rerun_pages else None
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
     args.jobs_root.mkdir(parents=True, exist_ok=True)
-    pdf_bytes = args.pdf_path.read_bytes()
-    job = create_job(
-        pdf_bytes,
-        source_file=str(args.pdf_path),
-        baseline_settings={"model_variant": args.model},
-        jobs_root=args.jobs_root,
-    )
-    print(f"created job {job.id} with {job.page_count} pages → {job.root}")
+
+    if args.job_id:
+        try:
+            job = load_job(args.jobs_root, args.job_id)
+        except FileNotFoundError:
+            print(
+                f"error: job {args.job_id!r} not found under {args.jobs_root}",
+                file=sys.stderr,
+            )
+            return 1
+        print(f"loaded job {job.id} with {job.page_count} pages → {job.root}")
+    else:
+        assert args.pdf_path is not None
+        if not args.pdf_path.is_file():
+            print(f"error: PDF not found at {args.pdf_path}", file=sys.stderr)
+            return 1
+        pdf_bytes = args.pdf_path.read_bytes()
+        job = create_job(
+            pdf_bytes,
+            source_file=str(args.pdf_path),
+            baseline_settings={"model_variant": args.model},
+            jobs_root=args.jobs_root,
+        )
+        print(f"created job {job.id} with {job.page_count} pages → {job.root}")
+
+    if rerun_pages is not None:
+        for index in rerun_pages:
+            if index < 1 or index > job.page_count:
+                print(
+                    f"error: --rerun-pages index {index} out of range "
+                    f"(job has {job.page_count} pages)",
+                    file=sys.stderr,
+                )
+                return 1
+            reset_page(job, index)
+            print(f"reset page {index} (finals cleared; attempts/settings kept)")
+
+    # Rerun implies those pages; --pages can further restrict a new/loaded job.
+    if rerun_pages is not None and pages is None:
+        page_indices = rerun_pages
+    elif pages is not None and rerun_pages is not None:
+        page_indices = [p for p in pages if p in set(rerun_pages)] or rerun_pages
+    else:
+        page_indices = pages
 
     diagnostician = None
     vision_transcriber = None
@@ -137,14 +232,38 @@ def main(argv: list[str] | None = None) -> int:
             f"vision={args.vision_provider}"
         )
 
-    results = run_all_pages(
-        job,
-        thresholds=thresholds,
-        diagnostician=diagnostician,
-        vision_transcriber=vision_transcriber,
-    )
+    try:
+        results = run_all_pages(
+            job,
+            thresholds=thresholds,
+            max_attempts=args.max_attempts,
+            diagnostician=diagnostician,
+            vision_transcriber=vision_transcriber,
+            page_indices=page_indices,
+        )
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
     _print_summary(results)
     return 0
+
+
+def _parse_page_list(raw: str) -> list[int]:
+    """Parse ``'3,7,12'`` into a list of positive ints."""
+    parts = [p.strip() for p in raw.split(",") if p.strip()]
+    if not parts:
+        raise ValueError("page list must not be empty")
+    pages: list[int] = []
+    for part in parts:
+        try:
+            n = int(part)
+        except ValueError as exc:
+            raise ValueError(f"invalid page number {part!r}") from exc
+        if n < 1:
+            raise ValueError(f"page numbers must be >= 1 (got {n})")
+        pages.append(n)
+    return pages
 
 
 def _print_summary(results: list[RunResult]) -> None:

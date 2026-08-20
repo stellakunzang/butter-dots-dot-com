@@ -23,7 +23,7 @@ import logging
 import statistics
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Literal, Protocol
+from typing import Any, Callable, Literal, Protocol, Sequence
 
 from app.ocr_assist.contracts import (
     AccurateAsSanskrit,
@@ -586,8 +586,13 @@ def run_all_pages(
     vision_transcriber: VisionTranscriberCallable | None = None,
     ocr: OcrAdapter | None = None,
     spellcheck: SpellcheckAdapter | None = None,
+    page_indices: Sequence[int] | None = None,
 ) -> list[RunResult]:
-    """Run every page in the job; skip pages already finalized on disk.
+    """Run pages in the job; skip pages already finalized on disk.
+
+    When ``page_indices`` is set, only those 1-based page numbers are
+    considered (others are left untouched). Invalid indices raise
+    ``ValueError`` before any page runs.
 
     A page that raises (e.g. the OCR engine is unavailable or one image is
     unreadable) is recorded as a ``decision="error"`` ``RunResult`` and the run
@@ -595,6 +600,7 @@ def run_all_pages(
     pages that already finalized stay persisted. ``run_page`` itself still
     raises — only the batch surface swallows-and-records.
     """
+    indices = _resolve_page_indices(job, page_indices)
     ocr_fn = ocr or _default_ocr_adapter()
     spellcheck_fn = spellcheck or _default_spellcheck_adapter()
     baseline = _LineCountBaseline()
@@ -602,7 +608,7 @@ def run_all_pages(
         _seed_line_baseline(job, baseline)
 
     results: list[RunResult] = []
-    for index in range(1, job.page_count + 1):
+    for index in indices:
         existing = load_page(job, index)
         if existing.final_text is not None:
             # Resume: page was finalized in a prior run, leave it alone.
@@ -639,6 +645,28 @@ def run_all_pages(
                 )
             )
     return results
+
+
+def _resolve_page_indices(job: Job, page_indices: Sequence[int] | None) -> list[int]:
+    if page_indices is None:
+        return list(range(1, job.page_count + 1))
+    resolved = [int(i) for i in page_indices]
+    if not resolved:
+        raise ValueError("page_indices must not be empty")
+    bad = [i for i in resolved if i < 1 or i > job.page_count]
+    if bad:
+        raise ValueError(
+            f"page indices out of range for job with {job.page_count} pages: {bad}"
+        )
+    # Preserve caller order but drop duplicates so a typo like 7,7 doesn't
+    # double-OCR.
+    seen: set[int] = set()
+    unique: list[int] = []
+    for i in resolved:
+        if i not in seen:
+            seen.add(i)
+            unique.append(i)
+    return unique
 
 
 def _quality_to_dict(quality: PageQuality, *, line_count: int | None = None) -> dict[str, Any]:
