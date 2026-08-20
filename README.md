@@ -272,9 +272,18 @@ If you previously `pip install`'d `google-genai` for Gemini trials, re-pin
 
 ### Browser UI
 
-A local `/ocr-assist` review UI (accept / edit / BDRC retry / on-demand Claude vs
-Gemini vision / DOCX download) is planned next on this branch; it is not on
-`main`.
+With the backend flag on, open
+[http://localhost:3000/ocr-assist](http://localhost:3000/ocr-assist) (not linked
+from main nav). Upload a PDF, wait for BDRC, then accept / edit / retry / compare
+vision per page and download DOCX.
+
+```bash
+# backend/.env
+OCR_ASSIST_LOCAL=true
+# optional keys only when you click Compare vision:
+# ANTHROPIC_API_KEY=...
+# GEMINI_API_KEY=...
+```
 
 ## Architecture
 

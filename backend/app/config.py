@@ -36,6 +36,10 @@ class Settings(BaseSettings):
     diagnostician_provider: str = "anthropic"
     vision_ocr_provider: str = "anthropic"
 
+    # Local QA UI/API for interactive OCR. Off by default — never enable in prod.
+    ocr_assist_local: bool = False
+    ocr_assist_jobs_root: str = "jobs"
+
     model_config = {
         "env_file": ".env",
         "env_file_encoding": "utf-8",
