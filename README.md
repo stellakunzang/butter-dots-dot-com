@@ -199,7 +199,7 @@ GitHub Actions runs all tests automatically on push and pull request.
 
 Per-page BDRC OCR with a filesystem job store and quality scoring. Default runs
 use **no LLM** (BDRC + scorer only). Optional `--enable-ai` is a CLI experiment
-only — the planned browser UI will also keep bulk jobs BDRC-only and invoke
+only. The browser UI (`/ocr-assist`) also keeps bulk jobs BDRC-only and invokes
 vision per page on demand.
 
 ### Prerequisites
