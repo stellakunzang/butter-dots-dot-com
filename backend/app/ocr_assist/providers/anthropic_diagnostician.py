@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 from typing import Any
 
 from pathlib import Path
@@ -21,6 +20,7 @@ from app.ocr_assist.providers.anthropic_common import (
     anthropic_tools_with_cache,
     log_anthropic_usage,
 )
+from app.ocr_assist.providers.credentials import resolve_anthropic_api_key
 
 
 logger = logging.getLogger(__name__)
@@ -146,7 +146,7 @@ class AnthropicDiagnostician:
     def _build_client(api_key: str | None) -> Any:
         import anthropic
 
-        return anthropic.Anthropic(api_key=api_key or os.environ.get("ANTHROPIC_API_KEY"))
+        return anthropic.Anthropic(api_key=resolve_anthropic_api_key(api_key))
 
     def __call__(
         self,

@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import logging
-import os
 from typing import Any
 
 from pathlib import Path
@@ -13,6 +12,7 @@ from app.ocr_assist.providers.anthropic_common import (
     anthropic_tools_with_cache,
     log_anthropic_usage,
 )
+from app.ocr_assist.providers.credentials import resolve_anthropic_api_key
 
 
 logger = logging.getLogger(__name__)
@@ -85,7 +85,7 @@ class AnthropicVisionTranscriber:
         import anthropic
 
         return anthropic.Anthropic(
-            api_key=api_key or os.environ.get("ANTHROPIC_API_KEY")
+            api_key=resolve_anthropic_api_key(api_key)
         )
 
     def __call__(self, *, image_path: Path) -> VisionTranscript:

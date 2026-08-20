@@ -26,7 +26,9 @@ from pathlib import Path
 from app.config import settings
 from app.ocr_assist.job_store import create_job
 from app.ocr_assist.providers import build_diagnostician, build_vision_transcriber
-from app.ocr_assist.runner import RunResult, run_all_pages
+from app.ocr_assist.providers.credentials import resolve_anthropic_api_key, resolve_gemini_api_key
+from app.ocr_assist.runner import RunResult, run_all_pages, DEFAULT_THRESHOLDS
+from app.ocr_assist.quality import Thresholds
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -62,6 +64,18 @@ def main(argv: list[str] | None = None) -> int:
         help="Vision OCR backend: anthropic or gemini (default: anthropic).",
     )
     parser.add_argument(
+        "--threshold-accept",
+        type=float,
+        default=DEFAULT_THRESHOLDS.accept,
+        help=f"Composite score at or above which a page auto-accepts (default: {DEFAULT_THRESHOLDS.accept}).",
+    )
+    parser.add_argument(
+        "--threshold-reject",
+        type=float,
+        default=DEFAULT_THRESHOLDS.reject,
+        help=f"Composite score below which a page rejects without retry (default: {DEFAULT_THRESHOLDS.reject}).",
+    )
+    parser.add_argument(
         "--verbose", "-v", action="store_true", help="Verbose logging."
     )
     args = parser.parse_args(argv)
@@ -73,6 +87,12 @@ def main(argv: list[str] | None = None) -> int:
 
     if not args.pdf_path.is_file():
         print(f"error: PDF not found at {args.pdf_path}", file=sys.stderr)
+        return 1
+
+    try:
+        thresholds = Thresholds(accept=args.threshold_accept, reject=args.threshold_reject)
+    except ValueError as exc:
+        print(f"error: invalid thresholds: {exc}", file=sys.stderr)
         return 1
 
     args.jobs_root.mkdir(parents=True, exist_ok=True)
@@ -88,6 +108,28 @@ def main(argv: list[str] | None = None) -> int:
     diagnostician = None
     vision_transcriber = None
     if args.enable_ai:
+        diag_provider = args.diagnostician_provider.strip().lower()
+        vision_provider = args.vision_provider.strip().lower()
+        if diag_provider in {"anthropic", "claude"} and not resolve_anthropic_api_key():
+            print(
+                "error: ANTHROPIC_API_KEY not set (export it or add to backend/.env)",
+                file=sys.stderr,
+            )
+            return 1
+        if vision_provider in {"anthropic", "claude"} and not resolve_anthropic_api_key():
+            print(
+                "error: ANTHROPIC_API_KEY not set for vision provider "
+                "(export it or add to backend/.env)",
+                file=sys.stderr,
+            )
+            return 1
+        if vision_provider in {"gemini", "google"} and not resolve_gemini_api_key():
+            print(
+                "error: GEMINI_API_KEY or GOOGLE_API_KEY not set "
+                "(export it or add GEMINI_API_KEY to backend/.env)",
+                file=sys.stderr,
+            )
+            return 1
         diagnostician = build_diagnostician(args.diagnostician_provider)
         vision_transcriber = build_vision_transcriber(args.vision_provider)
         print(
@@ -97,6 +139,7 @@ def main(argv: list[str] | None = None) -> int:
 
     results = run_all_pages(
         job,
+        thresholds=thresholds,
         diagnostician=diagnostician,
         vision_transcriber=vision_transcriber,
     )
