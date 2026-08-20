@@ -42,6 +42,26 @@ class TestBuildVisionTranscriber:
             build_vision_transcriber("openai")
 
 
+class TestProviderCredentials:
+    def test_anthropic_key_from_settings_when_env_unset(self, monkeypatch):
+        monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+        import app.config as config_module
+
+        monkeypatch.setattr(config_module.settings, "anthropic_api_key", "settings-key")
+        from app.ocr_assist.providers import credentials
+
+        assert credentials.resolve_anthropic_api_key() == "settings-key"
+
+    def test_anthropic_env_takes_precedence_over_settings(self, monkeypatch):
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "env-key")
+        import app.config as config_module
+
+        monkeypatch.setattr(config_module.settings, "anthropic_api_key", "settings-key")
+        from app.ocr_assist.providers import credentials
+
+        assert credentials.resolve_anthropic_api_key() == "env-key"
+
+
 class TestGeminiVisionTranscriber:
     def test_parses_structured_json_response(self, tmp_path):
         from app.ocr_assist.providers.gemini_vision import GeminiVisionTranscriber
