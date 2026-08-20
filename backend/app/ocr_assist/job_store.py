@@ -70,6 +70,9 @@ ATTEMPT_VERDICT_FILE = "ai_verdict.json"
 VISION_TRANSCRIPT_FILE = "vision_ocr.json"
 VISION_QUALITY_FILE = "vision_quality.json"
 OUTPUT_DOCX_FILE = "output.docx"
+# On-demand Claude vs Gemini compare (QA UI) writes provider-keyed files
+# alongside the legacy single-provider paths above.
+VISION_PROVIDER_NAMES = ("anthropic", "gemini")
 
 JOB_STATUS_IN_PROGRESS = "in_progress"
 JOB_STATUS_COMPLETE = "complete"
@@ -88,11 +91,10 @@ class AttemptRecord:
 class PageState:
     """All persisted state for one page of a job.
 
-    ``vision_transcript`` / ``vision_quality`` are populated when the T-07
-    Claude vision-OCR fallback ran on this page; they sit next to the BDRC
-    attempts list rather than inside it so the human review UI can show both
-    engines' reads side-by-side. Both are ``None`` on pages where vision was
-    never consulted (the common case — most pages accept on first OCR).
+    ``vision_transcript`` / ``vision_quality`` are the legacy single-provider
+    T-07 fallback paths (``vision_ocr.json``). ``vision_by_provider`` holds
+    on-demand compare results keyed by provider name (``anthropic``,
+    ``gemini``), each value ``{"transcript": dict, "quality": dict|None}``.
     """
     index: int
     image_path: Path
@@ -103,6 +105,7 @@ class PageState:
     notes: str | None = None
     vision_transcript: dict[str, Any] | None = None
     vision_quality: dict[str, Any] | None = None
+    vision_by_provider: dict[str, dict[str, Any]] = field(default_factory=dict)
 
 
 @dataclass
@@ -232,6 +235,8 @@ def load_page(job: Job, page_index: int) -> PageState:
         else None
     )
 
+    vision_by_provider = _load_vision_by_provider(page_dir)
+
     return PageState(
         index=page_index,
         image_path=page_dir / PAGE_IMAGE_FILE,
@@ -242,6 +247,7 @@ def load_page(job: Job, page_index: int) -> PageState:
         notes=notes,
         vision_transcript=vision_transcript,
         vision_quality=vision_quality,
+        vision_by_provider=vision_by_provider,
     )
 
 
@@ -309,21 +315,31 @@ def save_vision_transcript(
     *,
     transcript: dict[str, Any],
     quality: dict[str, Any] | None = None,
+    provider: str | None = None,
 ) -> None:
-    """Persist a T-07 vision-OCR transcript + its quality next to the page.
+    """Persist a vision-OCR transcript + quality next to the page.
 
     Distinct from ``save_page_attempt`` because vision results come from a
     different engine than the BDRC attempts; storing them at the page level
     (not under ``attempts/NN/``) keeps the BDRC retry log semantically clean
     and gives the review UI a single well-known path for the fallback read.
 
-    ``transcript`` is the serialized ``VisionTranscript`` (text + optional
-    notes). ``quality`` follows the same shape ``save_page_attempt`` writes
-    for BDRC attempts so the UI can render either with the same code.
+    When ``provider`` is set (``anthropic`` / ``gemini``), writes
+    ``vision_<provider>.json`` (+ quality). When omitted, writes the legacy
+    ``vision_ocr.json`` paths used by the batch runner's single-provider
+    fallback.
     """
     page_dir = job.root / _page_dir_name(page_index)
     if not page_dir.is_dir():
         raise FileNotFoundError(f"No page directory: {page_dir}")
+
+    if provider:
+        name = provider.strip().lower()
+        _atomic_write_json(page_dir / _vision_provider_transcript_file(name), transcript)
+        if quality is not None:
+            _atomic_write_json(page_dir / _vision_provider_quality_file(name), quality)
+        return
+
     _atomic_write_json(page_dir / VISION_TRANSCRIPT_FILE, transcript)
     if quality is not None:
         _atomic_write_json(page_dir / VISION_QUALITY_FILE, quality)
@@ -460,6 +476,33 @@ def _page_dir_name(index: int) -> str:
 
 def _attempt_dir_name(n: int) -> str:
     return f"{n:02d}"
+
+
+def _vision_provider_transcript_file(provider: str) -> str:
+    return f"vision_{provider}.json"
+
+
+def _vision_provider_quality_file(provider: str) -> str:
+    return f"vision_{provider}_quality.json"
+
+
+def _load_vision_by_provider(page_dir: Path) -> dict[str, dict[str, Any]]:
+    """Load provider-keyed vision artifacts if present."""
+    out: dict[str, dict[str, Any]] = {}
+    for provider in VISION_PROVIDER_NAMES:
+        transcript_path = page_dir / _vision_provider_transcript_file(provider)
+        if not transcript_path.is_file():
+            continue
+        quality_path = page_dir / _vision_provider_quality_file(provider)
+        out[provider] = {
+            "transcript": json.loads(transcript_path.read_text(encoding="utf-8")),
+            "quality": (
+                json.loads(quality_path.read_text(encoding="utf-8"))
+                if quality_path.is_file()
+                else None
+            ),
+        }
+    return out
 
 
 def _next_attempt_number(attempts_dir: Path) -> int:

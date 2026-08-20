@@ -1,14 +1,31 @@
 # Interactive Page-by-Page OCR with AI Assistance
 
-**Status:** In progress on `feat/interactive-ocr` — core loop, scorer calibration (T-10/T-11 layer 1/T-13), and guardrails implemented; UI and AI smoke (T-16 Phases B–E) not yet done.
+**Status:** Local QA slice landed on PRs [#65](https://github.com/stellakunzang/butter-dots-dot-com/pull/65) / [#66](https://github.com/stellakunzang/butter-dots-dot-com/pull/66) (stacks into `feat/interactive-ocr`) — BDRC CLI, clean DOCX, minimal `/ocr-assist` UI with on-demand Claude vs Gemini compare. Bulk jobs stay BDRC-only; AI is per-page only. You still run T-16 smoke on your real PDF.
 **Goal:** Convert a Tibetan text into a Word document, one page at a time, where pages that come out clean auto-advance and pages that don't get an AI-assisted retry loop and (if still bad) surface to a human. No more global-tweak-that-breaks-other-pages.
 **Scope:** Local-only for now. Single-user workflow. Future use case: photos of physical books (not yet in scope but shouldn't be architecturally blocked).
 
 **Related docs:**
 - [INTERACTIVE_OCR_WORKFLOW.md](INTERACTIVE_OCR_WORKFLOW.md) — branching, chat workflow
 - [INTERACTIVE_OCR_LOCAL_SMOKE.md](INTERACTIVE_OCR_LOCAL_SMOKE.md) — local AI-loop smoke + vision A/B (Phases B–E)
+- Root [README.md](../../README.md) § “Interactive OCR CLI” / browser UI — copy-paste local QA
 
 Calibration thresholds, hard floors, and false-accept counts: [§ Quality scorer calibration](#quality-scorer-calibration-t-10) below.
+
+### Local QA quick start (after PRs merge to your working branch)
+
+```bash
+# backend/.env
+OCR_ASSIST_LOCAL=true
+# ANTHROPIC_API_KEY=...   # only for Compare vision / optional CLI --enable-ai
+# GEMINI_API_KEY=...      # only for Compare vision (pip install 'google-genai>=1.0.0')
+
+cd backend && python scripts/download_models.py   # once
+# CLI (BDRC-only):
+venv/bin/python -m app.ocr_assist.run_job /path/to/book.pdf --jobs-root ./jobs --model Woodblock -v
+# UI: start backend + frontend, open http://localhost:3000/ocr-assist
+```
+
+Hard rule: no job-level “run all pages through AI.” Vision compare is explicit and per-page.
 
 ---
 
@@ -243,15 +260,15 @@ Each ticket below is sized to be a single PR. Dependencies are noted. The order 
 | T-06 | Diagnostician | ✅ Done (2 smoke tests pending) |
 | T-07 | Vision fallback | ✅ Done (1 smoke test pending) |
 | T-07b | LLM provider abstraction | ✅ Done |
-| T-08 | DOCX export | ⬜ Not started |
-| T-09 | Interactive UI | ⬜ Not started |
+| T-08 | DOCX export | ✅ Done (clean `output.docx` on finalize; local QA slice) |
+| T-09 | Interactive UI | ✅ Minimal local `/ocr-assist` done (accept/edit/retry/vision A/B); SSE/settings UI deferred |
 | T-10 | Threshold calibration | ✅ Done (scanned pecha) |
 | T-11 | Mixed-script guardrails | ✅ Layer 1 done; layer 2 (block detector) not started |
-| T-12 | Provider error resilience | ⬜ Not started |
+| T-12 | Provider error resilience | ⬜ Not started (skip until QA needs it) |
 | T-13 | Line-count sanity baseline | ✅ Done |
-| T-14 | CLI ergonomics | ⬜ Partial (`--threshold-*` done) |
-| T-15 | Gemini optional dep / httpx | ⬜ Not started |
-| T-16 | Local smoke + vision A/B | 📋 Phase A done; Phases B–E pending — [INTERACTIVE_OCR_LOCAL_SMOKE.md](INTERACTIVE_OCR_LOCAL_SMOKE.md) |
+| T-14 | CLI ergonomics | ✅ Done (`--pages`, `--job-id`, `--rerun-pages`, `--max-attempts`) |
+| T-15 | Gemini optional dep / httpx | ⬜ Not started (manual `pip install google-genai` + re-pin httpx==0.26.0) |
+| T-16 | Local smoke + vision A/B | 📋 Phase A done; Phases B–E = your QA (UI compare covers much of Phase D) — [INTERACTIVE_OCR_LOCAL_SMOKE.md](INTERACTIVE_OCR_LOCAL_SMOKE.md) |
 
 ---
 
@@ -711,7 +728,7 @@ Each ticket below is sized to be a single PR. Dependencies are noted. The order 
 
 ## Future / not yet ticketed
 
-- **Physical-book photos:** different baseline preset (perspective correction, glare detection, possibly different model variant). Architecturally accommodated by the per-page settings model.
+- **Physical-book photos:** different baseline preset (perspective correction, glare detection, possibly different model variant). Architecturally accommodated by the per-page settings model. Live capture design + Continuity Camera spike: [LIVE_PECHA_CAPTURE.md](LIVE_PECHA_CAPTURE.md).
 - **Phase-2 corpus weight:** wire `unknown_word` rate back into the quality scorer once the corpus is populated. The hook is already in T-03's function signature.
 - **Admin flag for AI features:** once auth exists, add `FEATURE_AI_OCR_ASSIST` env flag + admin role check at the API layer; gate T-06/T-07/T-09 routes accordingly. Include a server-side cost cap (max API calls per job, or daily spend cap) as defense-in-depth.
 - **GitHub mirror:** if useful, sync these tickets to GH issues so you can comment/track status outside markdown.
@@ -721,9 +738,8 @@ Each ticket below is sized to be a single PR. Dependencies are noted. The order 
 
 ### Suggested order after merge
 
-1. **T-16** Phases B–E — AI loop smoke + vision A/B
-2. **T-12** — error resilience (before running full book)
-3. **T-11 layer 2** — if bilingual PDFs waste retries (Word exports: use copy-paste)
-4. **T-14** — remaining CLI ergonomics (`--pages`, single-page re-run)
-5. **T-08** → **T-09** — DOCX export then review UI
-6. **T-02b**, **T-15** — as needed / parallel
+1. **T-16** — run your real PDF via `/ocr-assist` (BDRC bulk) + on-demand vision compare; optionally CLI Phases B–E in [INTERACTIVE_OCR_LOCAL_SMOKE.md](INTERACTIVE_OCR_LOCAL_SMOKE.md)
+2. **T-12** — only if provider failures are opaque during QA
+3. **T-11 layer 2** — if bilingual pages waste retries
+4. **T-09 polish** — SSE, BDRC settings UI, job list (as needed)
+5. **T-02b**, **T-15** — as needed / parallel
