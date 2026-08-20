@@ -39,6 +39,11 @@ def _quality(composite: float = 0.6) -> PageQuality:
         unknown_word_ratio=0.0,
         composite_score=composite,
         breakdown={"non_tibetan_penalty": 0.05},
+        tibetan_only_composite_score=composite,
+        tibetan_syllable_count=10,
+        latin_letter_count=0,
+        repetition_run_length=0,
+        repetition_char="",
     )
 
 

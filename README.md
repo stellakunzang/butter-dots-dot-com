@@ -192,6 +192,90 @@ cd backend && pytest && cd ../frontend && yarn test:ci
 
 GitHub Actions runs all tests automatically on push and pull request.
 
+## Interactive OCR CLI (local / feature branch)
+
+> **Feature-branch only.** This workflow lives on `feat/interactive-ocr` for
+> local development and QA. It is **not** available on `main` / production.
+
+Per-page BDRC OCR with a filesystem job store and quality scoring. Default runs
+use **no LLM** (BDRC + scorer only). Optional `--enable-ai` is a CLI experiment
+only — the planned browser UI will also keep bulk jobs BDRC-only and invoke
+vision per page on demand.
+
+### Prerequisites
+
+```bash
+cd backend
+source venv/bin/activate   # or: venv\Scripts\activate on Windows
+python scripts/download_models.py   # one-time; needs Woodblock/Modern under OCRModels/
+```
+
+Jobs are written under `backend/jobs/` by default (gitignored).
+
+### BDRC-only full PDF (default QA path)
+
+```bash
+cd backend
+venv/bin/python -m app.ocr_assist.run_job /path/to/book.pdf \
+  --jobs-root ./jobs \
+  --model Woodblock \
+  -v
+```
+
+Note the printed `job id`. Inspect results:
+
+```text
+jobs/<job_id>/
+  manifest.json
+  output.docx          # rebuilt as pages finalize (Tibetan Machine Uni 14pt)
+  page-001/
+    image.png
+    settings.json
+    attempts/01/ocr.txt
+    attempts/01/quality.json
+    final.txt            # present when auto-accepted
+    final_quality.json
+```
+
+### Page subset and single-page re-run
+
+```bash
+# Only OCR pages 3, 7, and 12 of a new job
+venv/bin/python -m app.ocr_assist.run_job /path/to/book.pdf \
+  --jobs-root ./jobs --pages 3,7,12 -v
+
+# Re-OCR page 7 of an existing job (clears final.txt; keeps attempts/settings)
+venv/bin/python -m app.ocr_assist.run_job \
+  --jobs-root ./jobs \
+  --job-id <job_id> \
+  --rerun-pages 7 \
+  -v
+```
+
+Other useful flags: `--max-attempts N`, `--threshold-accept`, `--threshold-reject`,
+`--model`.
+
+### Optional CLI AI experiment
+
+Not part of the default QA bulk path. See
+[`docs/planning/INTERACTIVE_OCR_LOCAL_SMOKE.md`](docs/planning/INTERACTIVE_OCR_LOCAL_SMOKE.md).
+
+```bash
+# Requires ANTHROPIC_API_KEY in backend/.env
+venv/bin/python -m app.ocr_assist.run_job /path/to/book.pdf \
+  --jobs-root ./jobs --enable-ai -v
+```
+
+If you previously `pip install`'d `google-genai` for Gemini trials, re-pin
+`httpx==0.26.0` afterward so FastAPI’s TestClient keeps working
+(`pip install 'httpx==0.26.0'`).
+
+### Browser UI
+
+A local `/ocr-assist` review UI (accept / edit / BDRC retry / on-demand Claude vs
+Gemini vision / DOCX download) is planned next on this branch; it is not on
+`main`.
+
 ## Architecture
 
 - **Frontend**: Next.js, React, TypeScript, Tailwind CSS

@@ -10,6 +10,10 @@ and this project uses
 
 ## [Unreleased]
 
+### Added
+
+- Local OCR QA CLI and clean DOCX export (feature-branch / local-dev only): reset a page without wiping attempts by default, rebuild `output.docx` on finalize, and run jobs with `--pages`, `--job-id`, `--rerun-pages`, and `--max-attempts` (BDRC-only by default).
+
 ### Changed
 
 - Lexicon data is stored relationally: `word`, `source`, `word_source`, and `definition` replace JSONB on the old spelling list; `lexicon_staging_line` is there for upcoming ingest. Existing databases can run `database/migrations/002_lexicon_schema.sql`; fresh installs use the updated `schema.sql`. `DictionaryService`, `build_corpus.py`, and `seed_corpus.py` target the new tables.
