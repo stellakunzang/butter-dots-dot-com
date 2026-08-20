@@ -7,11 +7,16 @@ from typing import Any
 
 from app.ocr_assist.providers.media import encode_image_base64
 
+# Anthropic Messages API rejects images whose width or height exceeds 8000px.
+ANTHROPIC_MAX_IMAGE_DIMENSION = 8000
+
 
 def anthropic_image_block(
     image_path: Path, *, cache_control: dict[str, str] | None = None
 ) -> dict[str, Any]:
-    image_b64, media_type = encode_image_base64(image_path)
+    image_b64, media_type = encode_image_base64(
+        image_path, max_dimension=ANTHROPIC_MAX_IMAGE_DIMENSION
+    )
     block: dict[str, Any] = {
         "type": "image",
         "source": {
