@@ -13,7 +13,7 @@ from app.ocr_assist.providers.media import guess_media_type
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_MODEL = "gemini-2.5-pro"
+DEFAULT_MODEL = "gemini-3.1-pro-preview"
 
 _SYSTEM_PROMPT = """You are a Tibetan-script OCR system. Transcribe the page image exactly as written. \
 Do not correct spelling, do not normalize variant glyphs, do not expand abbreviations, do not interpret meaning. \
