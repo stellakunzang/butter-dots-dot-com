@@ -222,7 +222,8 @@ venv/bin/python -m app.ocr_assist.run_job /path/to/book.pdf \
   -v
 ```
 
-Note the printed `job id`. Inspect results:
+Note the printed ``job-id`` and absolute ``directory`` / ``docx`` paths at the
+start and end of the run — copy those when you need to reopen results.
 
 ```text
 jobs/<job_id>/

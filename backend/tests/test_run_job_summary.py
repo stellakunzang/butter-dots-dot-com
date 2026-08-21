@@ -1,14 +1,11 @@
 """Unit tests for run_job._print_summary."""
-from io import StringIO
+from datetime import datetime, timezone
 from pathlib import Path
-from unittest.mock import patch
 
-import pytest
-
-from app.ocr_assist.job_store import PageState
+from app.ocr_assist.job_store import Job, PageState
 from app.ocr_assist.quality import PageQuality
 from app.ocr_assist.runner import RunResult
-from app.ocr_assist.run_job import _print_summary
+from app.ocr_assist.run_job import _print_job_banner, _print_summary
 
 
 def _make_page(index: int) -> PageState:
@@ -33,14 +30,27 @@ def _make_quality(score: float = 0.9) -> PageQuality:
     )
 
 
-def test_print_summary_mixed(capsys):
+def test_print_summary_mixed(capsys, tmp_path):
+    job_root = tmp_path / "abc123def456"
+    job_root.mkdir()
+    job = Job(
+        id="abc123def456",
+        root=job_root,
+        source_file="book.pdf",
+        baseline_settings={},
+        created_at=datetime.now(timezone.utc),
+        page_count=3,
+        status="in_progress",
+    )
+    (job_root / "output.docx").write_bytes(b"PK")
+
     results = [
         RunResult(page=_make_page(0), decision="accept", quality=_make_quality(0.95), verdict="accept"),
         RunResult(page=_make_page(1), decision="needs_review", quality=_make_quality(0.42), verdict="escalate"),
         RunResult(page=_make_page(2), decision="error", quality=None, error="timeout"),
     ]
 
-    _print_summary(results)
+    _print_summary(results, job=job)
 
     captured = capsys.readouterr().out
     assert "1 accepted" in captured
@@ -53,3 +63,27 @@ def test_print_summary_mixed(capsys):
     lines = [l for l in captured.splitlines() if "page   2" in l]
     assert len(lines) == 1
     assert "composite" not in lines[0]
+    assert "job-id:     abc123def456" in captured
+    assert "docx:" in captured
+    assert str((job_root / "output.docx").resolve()) in captured
+
+
+def test_print_job_banner(capsys, tmp_path):
+    job_root = tmp_path / "jobdir"
+    job_root.mkdir()
+    job = Job(
+        id="deadbeefcafe",
+        root=job_root,
+        source_file="x.pdf",
+        baseline_settings={},
+        created_at=datetime.now(timezone.utc),
+        page_count=2,
+        status="in_progress",
+    )
+    _print_job_banner("created", job)
+    out = capsys.readouterr().out
+    assert "created job" in out
+    assert "job-id:     deadbeefcafe" in out
+    assert "directory:" in out
+    assert str(job_root.resolve()) in out
+    assert "output.docx" in out

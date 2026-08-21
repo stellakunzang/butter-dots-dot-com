@@ -68,7 +68,7 @@ def write_clean_docx(job: Job) -> Path | None:
     _atomic_write_bytes(out_path, payload)
     logger.info(
         "wrote %s (%d finalized page(s))",
-        out_path.name,
+        out_path.resolve(),
         len(pages),
     )
     return out_path

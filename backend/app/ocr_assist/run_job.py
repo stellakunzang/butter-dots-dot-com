@@ -26,7 +26,7 @@ import sys
 from pathlib import Path
 
 from app.config import settings
-from app.ocr_assist.job_store import create_job, load_job, reset_page
+from app.ocr_assist.job_store import create_job, load_job, reset_page, OUTPUT_DOCX_FILE, Job
 from app.ocr_assist.providers import build_diagnostician, build_vision_transcriber
 from app.ocr_assist.providers.credentials import resolve_anthropic_api_key, resolve_gemini_api_key
 from app.ocr_assist.runner import (
@@ -154,6 +154,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 1
 
+    args.jobs_root = args.jobs_root.expanduser().resolve()
     args.jobs_root.mkdir(parents=True, exist_ok=True)
 
     if args.job_id:
@@ -165,7 +166,7 @@ def main(argv: list[str] | None = None) -> int:
                 file=sys.stderr,
             )
             return 1
-        print(f"loaded job {job.id} with {job.page_count} pages → {job.root}")
+        _print_job_banner("loaded", job)
     else:
         assert args.pdf_path is not None
         if not args.pdf_path.is_file():
@@ -174,11 +175,11 @@ def main(argv: list[str] | None = None) -> int:
         pdf_bytes = args.pdf_path.read_bytes()
         job = create_job(
             pdf_bytes,
-            source_file=str(args.pdf_path),
+            source_file=str(args.pdf_path.resolve()),
             baseline_settings={"model_variant": args.model},
             jobs_root=args.jobs_root,
         )
-        print(f"created job {job.id} with {job.page_count} pages → {job.root}")
+        _print_job_banner("created", job)
 
     if rerun_pages is not None:
         for index in rerun_pages:
@@ -245,7 +246,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 1
 
-    _print_summary(results)
+    _print_summary(results, job=job)
     return 0
 
 
@@ -266,7 +267,21 @@ def _parse_page_list(raw: str) -> list[int]:
     return pages
 
 
-def _print_summary(results: list[RunResult]) -> None:
+def _job_root_abs(job: Job) -> Path:
+    return job.root.expanduser().resolve()
+
+
+def _print_job_banner(verb: str, job: Job) -> None:
+    """Print job id + absolute paths so CLI output is easy to find later."""
+    root = _job_root_abs(job)
+    print(f"{verb} job")
+    print(f"  job-id:     {job.id}")
+    print(f"  pages:      {job.page_count}")
+    print(f"  directory:  {root}")
+    print(f"  docx (when pages finalize):  {root / OUTPUT_DOCX_FILE}")
+
+
+def _print_summary(results: list[RunResult], *, job: Job | None = None) -> None:
     accepted = sum(1 for r in results if r.decision == "accept")
     needs_review = sum(1 for r in results if r.decision == "needs_review")
     errored = sum(1 for r in results if r.decision == "error")
@@ -281,6 +296,20 @@ def _print_summary(results: list[RunResult]) -> None:
             score = r.quality.composite_score
             print(f"  page {r.page.index:>3}: {r.decision:<13} composite={score:.3f}")
 
+    if job is None:
+        return
+    root = _job_root_abs(job)
+    docx_path = root / OUTPUT_DOCX_FILE
+    print("\nartifacts")
+    print(f"  job-id:     {job.id}")
+    print(f"  directory:  {root}")
+    if docx_path.is_file():
+        print(f"  docx:       {docx_path}")
+    else:
+        print(
+            f"  docx:       (not written yet — no finalized pages; "
+            f"expected at {docx_path})"
+        )
 
 if __name__ == "__main__":
     raise SystemExit(main())
