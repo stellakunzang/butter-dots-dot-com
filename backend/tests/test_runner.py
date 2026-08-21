@@ -50,7 +50,9 @@ from app.ocr_assist.contracts import VisionTranscript
 
 
 CLEAN_TEXT = "བཀྲ་ཤིས་བདེ་ལེགས།\nདགེ་བའི་བཤེས་གཉེན།"
-GARBLED_TEXT = "xxxx hello yyy zzz totally not tibetan at all"
+# Enough Tibetan to clear the near-empty reject floor, plus Latin so the
+# pecha hard floor escalates (mid-band / AI-retry path — not blank reject).
+GARBLED_TEXT = CLEAN_TEXT + "\nxxxx hello yyy zzz totally not tibetan at all"
 
 
 @pytest.fixture
@@ -111,8 +113,7 @@ class TestRunPageAccept:
 
 class TestRunPageNeedsReview:
     def test_low_score_page_does_not_finalize(self, job):
-        # All-non-Tibetan text pegs non_tibetan_char_ratio at 1.0 → composite=0.75
-        # (penalty 0.25), between reject=0.5 and accept=0.85, so decide() escalates.
+        # Tibetan + Latin → pecha latin hard floor escalates (not blank reject).
         result = run_page(job, 1, ocr=garbled_ocr, spellcheck=no_errors)
 
         assert result.decision == "needs_review"
@@ -210,9 +211,7 @@ class TestRawVerdict:
         assert result.verdict == "accept"
 
     def test_escalate_page_carries_escalate_verdict(self, job):
-        # Garbled all-non-Tibetan text scores composite=0.75, between the
-        # default reject=0.5 and accept=0.85 → escalate (folded into
-        # needs_review). The raw verdict still distinguishes it from reject.
+        # Tibetan + Latin on a pecha job → escalate (latin hard floor), not reject.
         result = run_page(job, 1, ocr=garbled_ocr, spellcheck=no_errors)
         assert result.decision == "needs_review"
         assert result.verdict == "escalate"
@@ -728,6 +727,31 @@ class TestVisionFallbackAfterAttemptsExhausted:
         assert result.decision == "accept"
         assert len(vision.calls) == 1
         assert load_page(job, 1).final_text == CLEAN_TEXT
+
+    def test_reject_blank_page_skips_vision_and_diagnostician(self, job):
+        # Folio-only / near-empty pages reject — no AI spend.
+        def folio_ocr(image_path: Path, settings: dict) -> OcrResult:
+            return OcrResult(text="༡༢", line_count=1)
+
+        diagnostician = _stub_diagnostician([])
+        vision = _stub_vision([])
+
+        result = run_page(
+            job,
+            1,
+            ocr=folio_ocr,
+            spellcheck=no_errors,
+            diagnostician=diagnostician,
+            vision_transcriber=vision,
+            max_attempts=3,
+        )
+
+        assert result.decision == "needs_review"
+        assert result.verdict == "reject"
+        assert diagnostician.calls == []
+        assert vision.calls == []
+        assert load_page(job, 1).final_text is None
+        assert load_page(job, 1).vision_transcript is None
 
 
 class TestVisionFallbackAfterNeedsHuman:

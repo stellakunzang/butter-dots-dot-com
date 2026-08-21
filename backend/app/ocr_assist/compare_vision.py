@@ -129,8 +129,11 @@ def _quality_to_dict(quality: PageQuality, *, line_count: int | None = None) -> 
         "tibetan_only_composite_score": quality.tibetan_only_composite_score,
         "tibetan_syllable_count": quality.tibetan_syllable_count,
         "latin_letter_count": quality.latin_letter_count,
+        "plus_sign_count": quality.plus_sign_count,
         "repetition_run_length": quality.repetition_run_length,
         "repetition_char": quality.repetition_char,
+        "mean_syllables_per_line": quality.mean_syllables_per_line,
+        "short_line_ratio": quality.short_line_ratio,
     }
     if line_count is not None:
         payload["line_count"] = line_count

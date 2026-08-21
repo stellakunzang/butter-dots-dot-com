@@ -22,22 +22,27 @@ The sanskrit-adjusted error ratio is used (not the raw structural ratio)
 so legitimate Sanskrit blocks — which deliberately break Tibetan stacking
 rules — don't dominate the penalty.
 
-Phase-2 (corpus lookup) input is captured as ``unknown_word_ratio`` and is
-present in the composite with weight ``W_PHASE2_UNKNOWN = 0.0`` until the
-word corpus is populated. The signature does not need to change when
-Phase 2 is enabled — only the weight.
+Phase-2 (corpus lookup) input is captured as ``unknown_word_ratio`` and
+weighted by ``W_PHASE2_UNKNOWN`` (corpus syllable inventory).
 
 Hard floors (T-10/T-11/T-13 calibration — see INTERACTIVE_OCR_PLAN.md § Quality scorer calibration)
 ------------------------------------------------------------------------------
 
-``decide`` blocks ``accept`` regardless of composite when:
+``decide`` returns ``reject`` (skip AI — straight to human review) when:
+
+- ``tibetan_syllable_count < MIN_TIBETAN_SYLLABLES`` (blank / folio-number-only
+  pages; retries and vision waste money)
+
+``decide`` blocks ``accept`` (``escalate``) regardless of composite when:
 
 - ``encoding_error_count > 0`` (existing)
-- ``tibetan_syllable_count < MIN_TIBETAN_SYLLABLES`` (minimum-content floor)
 - ``repetition_run_length`` exceeds the threshold for the repeated char
   (``ཨ`` stacks — page 17 failure mode)
 - ``latin_letter_count >= 1`` on pages **not** flagged ``expect_mixed_script``
   (stray Latin on scanned pecha — T-11 layer 1)
+- ``plus_sign_count >= 1`` (``+`` / forbidden ASCII — T-11 layer 2)
+- line count much shorter **or** much longer than the job median baseline
+- OCR lines look fragmented (many lines with only 1–2 syllables)
 
 T-11 layer 1 also exposes ``tibetan_only_composite_score`` and auto-accepts
 bilingual pages when ``expect_mixed_script`` is set and the Tibetan portion
@@ -65,8 +70,8 @@ W_NON_TIBETAN: float = 0.25
 W_STRUCTURAL: float = 0.50
 W_LINE_SANITY: float = 0.25
 W_REPETITION: float = 0.20
-# TODO(phase-2): raise above 0 once the word corpus is populated.
-W_PHASE2_UNKNOWN: float = 0.0
+# Phase-2 corpus lookup (unknown_word). Raised once the word corpus is loaded.
+W_PHASE2_UNKNOWN: float = 0.35
 
 # Hard-floor / guardrail constants (T-10/T-11/T-13).
 MIN_TIBETAN_SYLLABLES: int = 3
@@ -76,6 +81,13 @@ ACHA_RUN_THRESHOLD: int = 8
 GENERAL_CHAR_RUN_THRESHOLD: int = 20
 LINE_COUNT_SANITY_FLOOR: float = 0.65  # composite signal only (not a hard floor)
 SHORT_LINE_COUNT_RATIO: float = 0.50  # hard floor when line_count/expected below this
+LONG_LINE_COUNT_RATIO: float = 2.0  # hard floor when line_count/expected above this
+# Fragmentation: shredded lines (e.g. 5 real rows → 25 one-syllable OCR lines).
+FRAGMENT_MAX_SYLLABLES_PER_LINE: int = 2
+FRAGMENT_SHORT_LINE_RATIO: float = 0.50  # escalate when this share of lines are tiny
+FRAGMENT_MIN_LINES: int = 4  # ignore short pages (folio markers, titles)
+# ASCII punctuation that never belongs in pecha OCR; any hit forces escalate.
+FORBIDDEN_OCR_CHARS: frozenset[str] = frozenset({"+", "S"})
 
 # Severity → weight multiplier for the structural error ratio numerator.
 # Critical errors (encoding errors) count harder than ordinary structural
@@ -146,8 +158,11 @@ class PageQuality:
     tibetan_only_composite_score: float
     tibetan_syllable_count: int
     latin_letter_count: int
+    plus_sign_count: int
     repetition_run_length: int
     repetition_char: str
+    mean_syllables_per_line: float
+    short_line_ratio: float
 
 
 _parser = TibetanSyllableParser()
@@ -164,8 +179,8 @@ def score_page(
 
     ``spellcheck_result`` is the output of ``TibetanSpellChecker.check_text``;
     both Phase-1 structural errors and Phase-2 ``unknown_word`` errors may be
-    present. Phase 2 entries are surfaced as ``unknown_word_ratio`` but are
-    weighted at 0 in the composite for now.
+    present. Phase 2 entries feed ``unknown_word_ratio`` and the composite
+    via ``W_PHASE2_UNKNOWN``.
     """
     _ = context  # reserved for future per-page overrides; hard floors use decide()
     core = _score_core(ocr_text, spellcheck_result, ocr_diagnostics)
@@ -173,11 +188,15 @@ def score_page(
     tibetan_only_composite = _tibetan_only_composite_score(
         ocr_text, spellcheck_result, ocr_diagnostics
     )
+    mean_syl_per_line, short_line_ratio = _line_fragmentation(ocr_text)
 
     return PageQuality(
         **core,
         tibetan_only_composite_score=tibetan_only_composite,
         latin_letter_count=_latin_letter_count(ocr_text),
+        plus_sign_count=_plus_sign_count(ocr_text),
+        mean_syllables_per_line=mean_syl_per_line,
+        short_line_ratio=short_line_ratio,
     )
 
 
@@ -255,6 +274,10 @@ def decide(
     """Bucket a page: auto-accept, escalate to AI retry, or queue for human."""
     ctx = context or ScoringContext()
 
+    # Near-empty / folio-only: not worth AI spend — human review only.
+    if quality.tibetan_syllable_count < MIN_TIBETAN_SYLLABLES:
+        return "reject"
+
     if quality.encoding_error_count > 0:
         if quality.composite_score < thresholds.reject:
             return "reject"
@@ -283,13 +306,17 @@ def _hard_floor_blocks_accept(
     context: ScoringContext,
     ocr_diagnostics: OcrDiagnostics | None = None,
 ) -> bool:
-    if quality.tibetan_syllable_count < MIN_TIBETAN_SYLLABLES:
-        return True
     if _repetition_exceeds_threshold(quality.repetition_run_length, quality.repetition_char):
         return True
     if not context.expect_mixed_script and quality.latin_letter_count >= 1:
         return True
+    if quality.plus_sign_count >= 1:
+        return True
     if _is_suspiciously_short_page(ocr_diagnostics):
+        return True
+    if _is_suspiciously_long_page(ocr_diagnostics):
+        return True
+    if _is_fragmented_page(quality):
         return True
     return False
 
@@ -301,6 +328,38 @@ def _is_suspiciously_short_page(diagnostics: OcrDiagnostics | None) -> bool:
     if expected is None or expected <= 0:
         return False
     return diagnostics.line_count / expected < SHORT_LINE_COUNT_RATIO
+
+
+def _is_suspiciously_long_page(diagnostics: OcrDiagnostics | None) -> bool:
+    if diagnostics is None:
+        return False
+    expected = diagnostics.expected_line_count
+    if expected is None or expected <= 0:
+        return False
+    return diagnostics.line_count / expected > LONG_LINE_COUNT_RATIO
+
+
+def _is_fragmented_page(quality: PageQuality) -> bool:
+    """True when OCR output looks shredded into tiny per-line fragments."""
+    return (
+        quality.short_line_ratio >= FRAGMENT_SHORT_LINE_RATIO
+        and quality.mean_syllables_per_line <= FRAGMENT_MAX_SYLLABLES_PER_LINE
+    )
+
+
+def _line_fragmentation(ocr_text: str) -> tuple[float, float]:
+    """Return ``(mean_syllables_per_line, short_line_ratio)``.
+
+    Empty / very short pages return ``(0.0, 0.0)`` so the fragmentation hard
+    floor does not fire — those are handled by the near-empty ``reject`` path.
+    """
+    lines = [ln for ln in ocr_text.splitlines() if ln.strip()]
+    if len(lines) < FRAGMENT_MIN_LINES:
+        return 0.0, 0.0
+    counts = [len(_split_tibetan_syllables(ln)) for ln in lines]
+    mean = sum(counts) / len(counts)
+    short = sum(1 for count in counts if count <= FRAGMENT_MAX_SYLLABLES_PER_LINE)
+    return mean, short / len(counts)
 
 
 def _repetition_exceeds_threshold(run_length: int, char: str) -> bool:
@@ -360,6 +419,9 @@ def _weighted_error_score(errors: Sequence[dict]) -> float:
 def _latin_letter_count(text: str) -> int:
     return sum(1 for ch in text if "A" <= ch <= "Z" or "a" <= ch <= "z")
 
+
+def _plus_sign_count(text: str) -> int:
+    return sum(1 for ch in text if ch in FORBIDDEN_OCR_CHARS)
 
 def _non_tibetan_char_ratio(text: str) -> float:
     total = sum(1 for ch in text if not ch.isspace())

@@ -49,6 +49,21 @@ class TestSignals:
         assert quality.non_tibetan_char_ratio > 0.3
         assert quality.composite_score < score_page(CLEAN_TEXT, [], OcrDiagnostics()).composite_score
 
+    def test_plus_sign_counted_and_escalates(self):
+        # A single ``+`` must not auto-accept even when composite would pass.
+        text = CLEAN_TEXT + " +"
+        quality = score_page(text, [], OcrDiagnostics())
+        assert quality.plus_sign_count >= 1
+        assert decide(quality, Thresholds(accept=0.85, reject=0.5)) == "escalate"
+
+    def test_fragmented_lines_escalate(self):
+        # Five real rows shredded into many one-syllable OCR lines.
+        text = "\n".join(["བཀྲ", "ཤིས", "བདེ", "ལེགས", "དགེ", "བའི", "བཤེས", "གཉེན"])
+        quality = score_page(text, [], OcrDiagnostics(line_count=8))
+        assert quality.short_line_ratio >= 0.5
+        assert quality.mean_syllables_per_line <= 2.0
+        assert decide(quality, Thresholds(accept=0.85, reject=0.5)) == "escalate"
+
     def test_structural_errors_lower_score(self):
         errors = [err("བཀྲ"), err("ཤིས"), err("བདེ")]
         quality = score_page(CLEAN_TEXT, errors, OcrDiagnostics())
@@ -178,17 +193,15 @@ class TestEncodingErrors:
 
 
 class TestPhase2Captured:
-    def test_unknown_word_ratio_captured_but_weighted_zero(self):
-        # Sanity guard on the TODO marker for the corpus-populated future.
-        assert W_PHASE2_UNKNOWN == 0.0
+    def test_unknown_word_ratio_lowers_composite(self):
+        assert W_PHASE2_UNKNOWN > 0.0
 
         unknown = err("བཀྲ", error_type="unknown_word", severity="warning")
         with_unknown = score_page(CLEAN_TEXT, [unknown], OcrDiagnostics())
         without = score_page(CLEAN_TEXT, [], OcrDiagnostics())
 
         assert with_unknown.unknown_word_ratio > 0.0
-        # Composite must be unaffected while the weight is 0.
-        assert with_unknown.composite_score == without.composite_score
+        assert with_unknown.composite_score < without.composite_score
         # Unknown words are excluded from the Phase-1 structural ratio.
         assert with_unknown.structural_error_ratio == 0.0
 
@@ -202,9 +215,12 @@ class TestDecide:
         encoding_errors: int = 0,
         *,
         latin_letter_count: int = 0,
+        plus_sign_count: int = 0,
         tibetan_syllable_count: int = 10,
         repetition_run_length: int = 0,
         repetition_char: str = "",
+        mean_syllables_per_line: float = 10.0,
+        short_line_ratio: float = 0.0,
     ) -> PageQuality:
         return PageQuality(
             non_tibetan_char_ratio=0.0,
@@ -218,8 +234,11 @@ class TestDecide:
             tibetan_only_composite_score=composite,
             tibetan_syllable_count=tibetan_syllable_count,
             latin_letter_count=latin_letter_count,
+            plus_sign_count=plus_sign_count,
             repetition_run_length=repetition_run_length,
             repetition_char=repetition_char,
+            mean_syllables_per_line=mean_syllables_per_line,
+            short_line_ratio=short_line_ratio,
         )
 
     def test_high_score_accepts(self):
@@ -267,12 +286,54 @@ class TestDecide:
             == "accept"
         )
 
-    def test_minimum_syllable_floor_blocks_accept(self):
+    def test_plus_sign_hard_floor_blocks_accept(self):
+        assert (
+            decide(
+                self._q(0.95, plus_sign_count=1),
+                self.THRESHOLDS,
+            )
+            == "escalate"
+        )
+
+    def test_plus_sign_blocks_accept_even_on_mixed_script_job(self):
+        # ``+`` is OCR garbage, not legitimate bilingual English.
+        assert (
+            decide(
+                self._q(0.95, plus_sign_count=1),
+                self.THRESHOLDS,
+                context=ScoringContext(expect_mixed_script=True),
+            )
+            == "escalate"
+        )
+
+    def test_minimum_syllable_floor_rejects(self):
+        # Blank / folio-only → reject (skip AI), not escalate.
         assert (
             decide(
                 self._q(1.0, tibetan_syllable_count=MIN_TIBETAN_SYLLABLES - 1),
                 self.THRESHOLDS,
             )
+            == "reject"
+        )
+
+    def test_fragmentation_hard_floor_blocks_accept(self):
+        assert (
+            decide(
+                self._q(
+                    0.95,
+                    mean_syllables_per_line=1.2,
+                    short_line_ratio=0.8,
+                ),
+                self.THRESHOLDS,
+            )
+            == "escalate"
+        )
+
+    def test_long_page_hard_floor_blocks_accept(self):
+        quality = self._q(0.95)
+        diagnostics = OcrDiagnostics(line_count=30, expected_line_count=10)
+        assert (
+            decide(quality, self.THRESHOLDS, ocr_diagnostics=diagnostics)
             == "escalate"
         )
 
@@ -310,8 +371,11 @@ class TestDecide:
             tibetan_only_composite_score=0.90,
             tibetan_syllable_count=10,
             latin_letter_count=20,
+            plus_sign_count=0,
             repetition_run_length=0,
             repetition_char="",
+            mean_syllables_per_line=10.0,
+            short_line_ratio=0.0,
         )
         assert (
             decide(
@@ -379,7 +443,7 @@ class TestEmptyText:
         # floor blocks accept in decide(), not composite itself.
         assert q.composite_score == 1.0
         assert q.tibetan_syllable_count == 0
-        assert decide(q, Thresholds(accept=0.85, reject=0.5)) == "escalate"
+        assert decide(q, Thresholds(accept=0.85, reject=0.5)) == "reject"
 
 
 class TestRepetitionSignal:

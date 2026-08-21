@@ -100,8 +100,9 @@ class TestSmokeFalseAcceptFixtures:
         assert quality.line_count_sanity < 0.2
         assert verdict != "accept"
 
-    def test_page_20_minimal_content_escalates_despite_high_composite(self, checker):
+    def test_page_20_minimal_content_rejects_despite_high_composite(self, checker):
         # TIF-style partial page: ~2 syllables, composite can still read 1.0.
+        # Reject (not escalate) so blank/folio pages skip AI spend.
         quality, verdict = _score_fixture(
             checker,
             20,
@@ -110,7 +111,7 @@ class TestSmokeFalseAcceptFixtures:
         )
         assert quality.tibetan_syllable_count < 3
         assert quality.composite_score >= 0.9
-        assert verdict != "accept"
+        assert verdict == "reject"
 
 
 class TestStrayLatinRegression:
@@ -121,22 +122,31 @@ class TestStrayLatinRegression:
 
 
 class TestMinimumContentFloor:
-    def test_two_syllable_page_escalates(self, checker):
+    def test_two_syllable_page_rejects(self, checker):
         text = "བཀྲ་ཤིས"
         errors = checker.check_text(text)
         quality = score_page(text, errors, OcrDiagnostics(line_count=1))
         assert quality.tibetan_syllable_count < 3
-        assert decide(quality, THRESHOLDS, context=PECHA_CONTEXT) != "accept"
+        assert decide(quality, THRESHOLDS, context=PECHA_CONTEXT) == "reject"
 
 
 class TestGoodPagesStillAccept:
-    @pytest.mark.parametrize("page", [1, 4, 12])
+    @pytest.mark.parametrize("page", [1])
     def test_representative_clean_pages_accept(self, checker, page: int):
         quality, verdict = _score_fixture(checker, page, line_count=14)
         assert quality.latin_letter_count == 0
+        assert quality.plus_sign_count == 0
         assert quality.repetition_run_length < 8 or quality.repetition_char != "\u0f68"
         assert quality.composite_score >= THRESHOLDS.accept
         assert verdict == "accept"
+
+    @pytest.mark.parametrize("page", [4, 12])
+    def test_pages_with_plus_sign_noise_do_not_accept(self, checker, page: int):
+        # Former "good" fixtures contain ``+`` OCR garbage; that hard floor
+        # must block auto-accept (HITL preference).
+        quality, verdict = _score_fixture(checker, page, line_count=14)
+        assert quality.plus_sign_count >= 1
+        assert verdict != "accept"
 
 
 class TestMixedScriptLayer1:

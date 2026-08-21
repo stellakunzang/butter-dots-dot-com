@@ -200,15 +200,12 @@ def run_page(
     verdict finalizes the current OCR text even though structural rules flagged
     it — that's the whole point of the verdict.
 
-    With ``vision_transcriber`` also wired, any path that would otherwise
-    return ``needs_review`` (attempts exhausted or ``needs_human`` from the
-    diagnostician) first asks a vision model to read the image directly. The
-    vision transcript is scored with the same quality scorer; if it clears
-    ``accept`` the page finalizes from vision, otherwise the transcript is
-    persisted next to the page (``vision_ocr.json`` / ``vision_quality.json``)
-    so the human review surface can show both engines' reads. Vision is never
-    called on a page that already accepted on a BDRC attempt — the fallback
-    only runs when BDRC failed.
+    With ``vision_transcriber`` also wired, paths that would otherwise return
+    ``needs_review`` after **escalate**/retry exhaustion (or diagnostician
+    ``needs_human``) first ask a vision model to read the image. A scorer
+    ``reject`` (e.g. blank / folio-only) skips diagnostician **and** vision —
+    straight to human review. Vision is never called on a page that already
+    accepted on a BDRC attempt.
 
     Setting overrides are merged into the page's ``settings.json`` so a
     re-run of this page is deterministic. The page's settings start from
@@ -226,7 +223,8 @@ def run_page(
 
     if diagnostician is None:
         # No retry loop without a diagnostician: one attempt, accept or queue.
-        # Vision fallback still runs on a needs_review outcome if configured.
+        # Vision fallback runs on escalate→needs_review, but never on reject
+        # (blank/folio — not worth the API call).
         result = _run_single_attempt(
             job,
             page_index,
@@ -238,7 +236,11 @@ def run_page(
         )
         if result.decision == "accept":
             _record_line_baseline_from_result(result, baseline)
-        if result.decision == "accept" or vision_transcriber is None:
+        if (
+            result.decision == "accept"
+            or result.verdict == "reject"
+            or vision_transcriber is None
+        ):
             return result
         return _try_vision_fallback(
             job,
@@ -279,6 +281,15 @@ def run_page(
             return RunResult(
                 page=updated,
                 decision="accept",
+                quality=last_attempt.quality,
+                verdict=last_attempt.verdict,
+            )
+
+        # Reject = too empty / not worth AI. Skip diagnostician and vision.
+        if last_attempt.verdict == "reject":
+            return RunResult(
+                page=load_page(job, page_index),
+                decision="needs_review",
                 quality=last_attempt.quality,
                 verdict=last_attempt.verdict,
             )
@@ -447,6 +458,7 @@ def _attempt_once(
         page_index,
         ocr_text=result.text,
         quality=_quality_to_dict(quality, line_count=result.line_count),
+        spellcheck_errors=list(spellcheck_errors),
     )
     return _AttemptResult(
         ocr_text=result.text,
@@ -682,8 +694,11 @@ def _quality_to_dict(quality: PageQuality, *, line_count: int | None = None) -> 
         "tibetan_only_composite_score": quality.tibetan_only_composite_score,
         "tibetan_syllable_count": quality.tibetan_syllable_count,
         "latin_letter_count": quality.latin_letter_count,
+        "plus_sign_count": quality.plus_sign_count,
         "repetition_run_length": quality.repetition_run_length,
         "repetition_char": quality.repetition_char,
+        "mean_syllables_per_line": quality.mean_syllables_per_line,
+        "short_line_ratio": quality.short_line_ratio,
     }
     if line_count is not None:
         payload["line_count"] = line_count
