@@ -41,6 +41,7 @@ class TestParseOcrSettings:
             bbox_tolerance=DEFAULT_BBOX_TOLERANCE,
             rotate=0.0,
             model_name="Woodblock",
+            use_tps=False,
         )
 
     def test_reads_page_overrides(self):
@@ -50,6 +51,7 @@ class TestParseOcrSettings:
                 "bbox_tolerance": 4.0,
                 "rotate": 1.5,
                 "model_variant": "Ume",
+                "use_tps": True,
             },
             fallback_model="Modern",
         )
@@ -57,6 +59,11 @@ class TestParseOcrSettings:
         assert parsed.bbox_tolerance == 4.0
         assert parsed.rotate == 1.5
         assert parsed.model_name == "Ume_Druma"
+        assert parsed.use_tps is True
+
+    def test_use_tps_defaults_false(self):
+        parsed = parse_ocr_settings({"k_factor": 2.5}, fallback_model="Modern")
+        assert parsed.use_tps is False
 
 
 class TestApplyManualRotation:
@@ -95,6 +102,7 @@ class TestBDRCOCREngineSettings:
                             "k_factor": 3.1,
                             "bbox_tolerance": 2.2,
                             "model_variant": "Woodblock",
+                            "use_tps": True,
                         },
                     )
 
@@ -102,6 +110,7 @@ class TestBDRCOCREngineSettings:
         _, kwargs = pipeline.run_ocr.call_args
         assert kwargs["k_factor"] == 3.1
         assert kwargs["bbox_tolerance"] == 2.2
+        assert kwargs["use_tps"] is True
 
     def test_ensure_ocr_model_swaps_when_variant_changes(self):
         from app.pdf.ocr import BDRCOCREngine

@@ -35,6 +35,11 @@ def run_tps(image: npt.NDArray, input_pts, output_pts, add_corners=True, alpha=0
     Returns:
         Dewarped image array
     """
+    if ThinPlateSpline is None:
+        raise ImportError(
+            "thin-plate-spline is required for use_tps=True "
+            "(pip install thin-plate-spline)"
+        )
     if len(image.shape) == 3:
         height, width, _ = image.shape
     else:

@@ -34,6 +34,7 @@ class OcrRunSettings:
     bbox_tolerance: float
     rotate: float
     model_name: str
+    use_tps: bool = False
 
 
 def resolve_model_variant(variant: str | None, *, fallback: str) -> str:
@@ -59,11 +60,13 @@ def parse_ocr_settings(
     bbox_tolerance = float(raw.get("bbox_tolerance", DEFAULT_BBOX_TOLERANCE))
     rotate = float(raw.get("rotate", 0.0))
     model_name = resolve_model_variant(raw.get("model_variant"), fallback=fallback_model)
+    use_tps = bool(raw.get("use_tps", False))
     return OcrRunSettings(
         k_factor=k_factor,
         bbox_tolerance=bbox_tolerance,
         rotate=rotate,
         model_name=model_name,
+        use_tps=use_tps,
     )
 
 
