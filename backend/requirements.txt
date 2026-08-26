@@ -1,9 +1,11 @@
 # Web framework
-fastapi==0.109.0
+# FastAPI 0.115+ ships Starlette that supports httpx>=0.28 (needed for google-genai / T-15)
+fastapi==0.115.6
 uvicorn[standard]==0.27.0
 
 # Data validation
-pydantic==2.5.3
+# pydantic>=2.9 required by google-genai (T-15)
+pydantic==2.10.6
 pydantic-settings==2.1.0
 
 # Database
@@ -47,15 +49,13 @@ python-docx==1.1.0
 Pillow==10.2.0
 
 # HTTP client / testing
-httpx==0.26.0
+# httpx>=0.28.1 required by google-genai (T-15); FastAPI TestClient OK on 0.28.x
+httpx==0.28.1
 pytest==7.4.4
 pytest-asyncio==0.23.3
 
 # Claude API (interactive OCR diagnostician — T-06)
 anthropic==0.105.2
 
-# Optional: Gemini vision-OCR provider (install when using VISION_OCR_PROVIDER=gemini)
-#   pip install 'google-genai>=1.0.0'
-# Note: google-genai currently requires httpx>=0.28, which conflicts with this
-# project's pinned httpx for FastAPI TestClient. Resolve before enabling Gemini
-# in CI/production (likely by upgrading fastapi/starlette together).
+# Gemini vision-OCR provider (T-07 / T-15) — used when GEMINI_API_KEY is set
+google-genai==2.8.0

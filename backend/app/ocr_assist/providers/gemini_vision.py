@@ -64,7 +64,7 @@ class GeminiVisionTranscriber:
         except ImportError as exc:
             raise RuntimeError(
                 "Gemini vision provider requires google-genai. "
-                "Install with: pip install 'google-genai>=1.0.0'"
+                "Install backend deps: pip install -r requirements.txt"
             ) from exc
 
         resolved = resolve_gemini_api_key(api_key)
