@@ -48,6 +48,11 @@ backend/OCRModels/
 backend/Models/Lines/*.onnx
 backend/Models/Layout/*.onnx
 
+# Word corpus source dumps (download/copy locally — see backend/data/README.md)
+backend/data/monlam-lexicon-*.txt
+backend/data/botok-dictionary.json
+backend/data/MONLAM_LICENSE.txt
+
 # IDE
 .vscode/
 .idea/
