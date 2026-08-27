@@ -30,6 +30,16 @@ class Settings(BaseSettings):
     # (Phase 1) validation runs.  Set to a postgres:// DSN for full Phase 2 support.
     database_url: str | None = None
 
+    # Interactive OCR assist (local-only; used by app.ocr_assist when --enable-ai).
+    anthropic_api_key: str | None = None
+    gemini_api_key: str | None = None
+    diagnostician_provider: str = "anthropic"
+    vision_ocr_provider: str = "anthropic"
+
+    # Local QA UI/API for interactive OCR. Off by default — never enable in prod.
+    ocr_assist_local: bool = False
+    ocr_assist_jobs_root: str = "jobs"
+
     model_config = {
         "env_file": ".env",
         "env_file_encoding": "utf-8",
