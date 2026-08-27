@@ -63,6 +63,9 @@ class TestProviderCredentials:
 
 
 class TestGeminiVisionTranscriber:
+    @pytest.mark.skip(
+        reason="google-genai not pinned until T-15 lands; re-enable with that PR"
+    )
     def test_parses_structured_json_response(self, tmp_path):
         from app.ocr_assist.providers.gemini_vision import GeminiVisionTranscriber
 
