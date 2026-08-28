@@ -81,6 +81,19 @@ class TestTibetanCharacterValidation:
         assert is_tibetan_char("་") is True  # tsheg (syllable separator)
         assert is_tibetan_char("།") is True  # shad (sentence ender)
         assert is_tibetan_char("༎") is True  # double shad
+
+    def test_is_tibetan_punctuation_char(self):
+        from app.spellcheck.normalizer import is_tibetan_punctuation_char
+
+        for char in ("་", "།", "༎", "༔", "༈", "༑", "༄", "ཿ"):
+            assert is_tibetan_punctuation_char(char) is True, char
+        # Spellable content and numerals are not punctuation
+        assert is_tibetan_punctuation_char("བ") is False
+        assert is_tibetan_punctuation_char("ི") is False
+        assert is_tibetan_punctuation_char("༢") is False
+        assert is_tibetan_punctuation_char("ཾ") is False  # anusvara stays on syllable
+        # Combining marks attach to the letter — not syllable boundaries
+        assert is_tibetan_punctuation_char("༹") is False  # tsa-phru
     
     def test_is_not_tibetan(self):
         """Non-Tibetan characters should be rejected"""

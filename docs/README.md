@@ -23,6 +23,9 @@ Planning documents and feature specifications. The live backlog is tracked in
 
 - `BACKLOG.md` - Archived feature backlog (superseded by GitHub Projects)
 - `WORD_CORPUS_PLAN.md` - Strategy for building the Tibetan word corpus
+- `INTERACTIVE_OCR_PLAN.md` - Interactive OCR architecture, tickets, **quality/HITL living decisions** (weights, hard floors, Phase-2 corpus)
+- `INTERACTIVE_OCR_LOCAL_SMOKE.md` - Local smoke / vision A/B checklist
+- `INTERACTIVE_OCR_WORKFLOW.md` - How to work tickets without drifting the plan
 
 ### `/archive` - Historical/Completed
 Completed migration summaries and historical documentation.
@@ -42,6 +45,7 @@ Research materials, reference implementations, and third-party resources.
 
 **Just getting started?** → `/guides/ARCHITECTURE.md`  
 **Working on spellchecker?** → `/adr/SPELLCHECKER_DECISIONS.md`  
+**Working on interactive OCR / quality tuning?** → `/planning/INTERACTIVE_OCR_PLAN.md` (§ Living decisions)  
 **Working on frontend?** → `/guides/COMPONENTS.md` + `/guides/TAILWIND_GUIDE.md`  
 **Understanding Tibetan rules?** → `/research/SCRIPT_ANALYSIS.md`  
 **OCR attribution?** → See `Acknowledgments` in the root `README.md`

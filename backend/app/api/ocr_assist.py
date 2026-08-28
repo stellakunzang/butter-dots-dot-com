@@ -115,12 +115,14 @@ def _serialize_page(job: Job, page_index: int) -> dict[str, Any]:
         "notes": page.notes,
         "latest_ocr_text": latest.ocr_text if latest else None,
         "latest_quality": latest.quality if latest else None,
+        "latest_spellcheck_errors": latest.spellcheck_errors if latest else None,
         "attempts": [
             {
                 "number": a.number,
                 "ocr_text": a.ocr_text,
                 "quality": a.quality,
                 "ai_verdict": a.ai_verdict,
+                "spellcheck_errors": a.spellcheck_errors,
             }
             for a in page.attempts
         ],

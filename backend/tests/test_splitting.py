@@ -79,6 +79,35 @@ class TestPunctuationHandling:
         assert "ཡིག" in syllables
         assert "སྐད" in syllables
 
+    def test_gter_tsheg_does_not_mash_neighbors(self):
+        """Gter tsheg (༔) is a boundary, not part of either neighbor"""
+        assert split_syllables("བོད༔ཡིག") == ["བོད", "ཡིག"]
+        assert split_syllables("མ༔") == ["མ"]
+        assert "༔" not in split_syllables("བོད་ཡིག༔བོད་ཡིག")
+
+    def test_sbrul_shad_does_not_mash_neighbors(self):
+        """Sbrul shad (༈) separates syllables"""
+        assert split_syllables("དང་༈གཡོན") == ["དང", "གཡོན"]
+        assert "༈" not in split_syllables("དང་༈གཡོན")
+
+    def test_rnam_bcad_does_not_mash_neighbors(self):
+        """Rnam bcad / visarga (ཿ) acts as phrase punctuation in liturgical text"""
+        assert split_syllables("ལསཿསྨན") == ["ལས", "སྨན"]
+        assert split_syllables("སོཿན") == ["སོ", "ན"]
+        assert split_syllables("ཐབསཿཧྲཱྀཿགནས") == ["ཐབས", "ཧྲཱྀ", "གནས"]
+        assert "ཿ" not in split_syllables("ལསཿསྨན")
+
+    def test_decorative_shad_variants_are_delimiters(self):
+        for mark in ("༑", "༒", "༏", "༐"):
+            assert split_syllables(f"བོད{mark}ཡིག") == ["བོད", "ཡིག"], mark
+
+    def test_tsa_phru_stays_attached_to_syllable(self):
+        """Tsa-phru (༹) is a combining mark, not a delimiter."""
+        assert split_syllables("ཕ༹ཀལ") == ["ཕ༹ཀལ"]
+        assert split_syllables_with_position("ཕ༹ཀལ") == [
+            {"syllable": "ཕ༹ཀལ", "position": 0},
+        ]
+
 
 class TestPositionTracking:
     """Test syllable position tracking for error reporting"""
@@ -123,6 +152,13 @@ class TestPositionTracking:
         # Should track positions correctly even with punctuation
         assert len(result) >= 2
         assert all("position" in item for item in result)
+
+    def test_position_across_rnam_bcad(self):
+        result = split_syllables_with_position("ལསཿསྨན")
+        assert result == [
+            {"syllable": "ལས", "position": 0},
+            {"syllable": "སྨན", "position": 3},
+        ]
 
 
 class TestEdgeCases:

@@ -146,9 +146,13 @@ For a 100-page pecha where 90% accept on first OCR: ~10 pages × (2 diag + 1 vis
 | `page-NNN/settings.json`      | Per-page settings (mutated by retries) |
 | `attempts/NN/ocr.txt`         | BDRC output                            |
 | `attempts/NN/quality.json`    | Scorer breakdown + composite           |
+| `attempts/NN/spellcheck.json` | Phase-1/2 errors for HITL highlights   |
 | `attempts/NN/ai_verdict.json` | Diagnostician verdict                  |
 | `vision_ocr.json`             | Vision transcript                      |
 | `final.txt`                   | Accepted text                          |
+
+
+**HITL UI:** `/ocr-assist` shows spellcheck-style underlines (red structural / yellow unknown) from `spellcheck.json`. Tunables and rationale: [INTERACTIVE_OCR_PLAN.md](INTERACTIVE_OCR_PLAN.md) § Living decisions.
 
 
 ---

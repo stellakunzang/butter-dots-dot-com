@@ -17,7 +17,7 @@ Calibration thresholds, hard floors, and false-accept counts: [§ Quality scorer
 # backend/.env
 OCR_ASSIST_LOCAL=true
 # ANTHROPIC_API_KEY=...   # only for Compare vision / optional CLI --enable-ai
-# GEMINI_API_KEY=...      # only for Compare vision (pip install 'google-genai>=1.0.0')
+# GEMINI_API_KEY=...      # only for Compare vision (google-genai in requirements.txt)
 
 cd backend && python scripts/download_models.py   # once
 # CLI (BDRC-only):
@@ -73,7 +73,7 @@ This plan lives in `butter-dots-dot-com` because that's where the spell-check an
 
 ## Constraints from current state
 
-- **Corpus is unpopulated.** Phase 2 of spellcheck (dictionary lookup) is effectively a no-op right now. Quality scoring must rely on **Phase 1 only** (structural validation, pattern checks, stacking rules) plus OCR-level signals (non-Tibetan char ratio, line count sanity, BDRC diagnostics). When the corpus is later populated, Phase 2 becomes an additional weighted input — the score interface should already accommodate it.
+- **Corpus is populated (local/dev).** Phase 2 spellcheck (`unknown_word` via syllable inventory) is live when Postgres has the word/syllable tables loaded (`scripts/build_corpus.py`; see `backend/data/README.md`). Quality scoring uses Phase 1 **plus** a weighted Phase-2 term (`W_PHASE2_UNKNOWN`). Caveat: the inventory is **syllable-level**, not word-segmented — many gibberish syllables still look “known,” so Phase 2 is a soft signal, not a hard reject. Tune in § Living decisions below.
 - **Sanskrit transliteration appears in real texts.** Mantras, dharanis, and proper names deliberately break Tibetan stacking rules. Without handling, every Sanskrit run will trip the retry loop. Handled at two layers (local detector + Claude tiebreaker — see below).
 
 ---
@@ -114,17 +114,18 @@ human action ∈ { accept, edit, skip, try different model variant, change setti
 
 Settings are **per-page**, never per-job. Each page has its own settings struct that starts as a copy of the job's baseline. Retries mutate only the page's copy. The baseline is frozen for the duration of the job. A page that needed `k_factor=3.0` doesn't propagate that to the next page. Every page's final settings, OCR output, and verdicts are persisted, so a re-run of the same page is deterministic.
 
-### Quality score (Phase-1-only for now)
+### Quality score
 
 Weighted blend of:
 
 - **`non_tibetan_char_ratio`** — proportion of non-Tibetan codepoints in the page. Strong "OCR confused" signal. Latin letters and unexpected ASCII punctuation drive this.
-- **`structural_error_ratio`** — Phase-1 spell-check errors / total syllables, weighted by severity (critical > error > warning > info). Excludes `unknown_word` (Phase 2) for now.
-- **`sanskrit_adjusted_error_ratio`** — same as above but with Sanskrit-flagged syllables removed from the numerator.
+- **`structural_error_ratio`** — Phase-1 spell-check errors / total syllables, weighted by severity (critical > error > warning > info). Excludes `unknown_word` (Phase 2 is tracked separately).
+- **`sanskrit_adjusted_error_ratio`** — same as above but with Sanskrit-flagged syllables removed from the numerator (this is what enters the composite via `W_STRUCTURAL`).
 - **`line_count_sanity`** — deviation from the page's expected line count (configurable, e.g., median of accepted pages so far).
+- **`unknown_word_ratio`** — Phase-2 corpus misses / total syllables. Weighted by `W_PHASE2_UNKNOWN` (see § Living decisions).
 - **`encoding_error_count`** — hard floor; any non-zero count is suspicious because it indicates wrong-codepoint substitution.
 
-Two thresholds: `accept` (no AI) and `reject` (too damaged to retry profitably). Pages in between enter the AI retry loop. Thresholds are calibrated against real pages (T-10). **Known gap:** intentional English on bilingual pages can trigger retries — see T-11.
+Two thresholds: `accept` (no AI) and `reject` (too damaged / blank — skip AI). Pages in between enter the AI retry loop. Thresholds are calibrated against real pages (T-10). **Known gap:** intentional English on bilingual pages can trigger retries — see T-11.
 
 ### Sanskrit handling
 
@@ -159,7 +160,7 @@ jobs/<job_id>/
     image.png
     settings.json              # page-local settings (baseline + overrides)
     attempts/
-      01/{ocr.txt, quality.json, ai_verdict.json}
+      01/{ocr.txt, quality.json, spellcheck.json, ai_verdict.json}
       02/...
     final.txt                  # accepted text
     final_quality.json
@@ -212,11 +213,17 @@ venv/bin/python -m app.ocr_assist.run_job pages_for_ocr_test.pdf \
 |-----------|-------|----------|
 | `accept` / `reject` | **0.85** / **0.50** | `runner.DEFAULT_THRESHOLDS` |
 | `W_NON_TIBETAN` / `W_STRUCTURAL` / `W_LINE_SANITY` / `W_REPETITION` | 0.25 / 0.50 / 0.25 / 0.20 | `quality.py` |
-| `MIN_TIBETAN_SYLLABLES` | 3 | minimum-content hard floor |
+| `W_PHASE2_UNKNOWN` | **0.35** | `quality.py` (corpus soft signal) |
+| `MIN_TIBETAN_SYLLABLES` | 3 | near-empty → **escalate** (try rotate/crop) |
+| `NEAR_EMPTY_COMPOSITE_CAP` | **0.60** | cap so almost-empty OCR does not display as 1.0 |
 | `MIXED_SCRIPT_THRESHOLD` | 0.15 | T-11 bilingual auto-accept |
 | `ACHA_RUN_THRESHOLD` | 8 | ཨ spaced/stacked repetition |
 | `MIN_LINE_COUNT_BASELINE` | 3 | pages before T-13 median is published |
 | `SHORT_LINE_COUNT_RATIO` | 0.50 | hard floor when `line_count/expected` below this |
+| `LONG_LINE_COUNT_RATIO` | 2.0 | hard floor when `line_count/expected` above this |
+| Fragmentation (`mean_syllables_per_line` / `short_line_ratio`) | ≤2 syl/line and ≥50% short lines (min 4 lines) | shredded OCR escalate |
+| `FORBIDDEN_OCR_CHARS` | `+`, `S` | any hit → escalate |
+| `use_tps` | default `False` | `OcrRunSettings` — diagnostician retry lever |
 
 CLI overrides: `--threshold-accept`, `--threshold-reject` on `run_job`.
 
@@ -224,13 +231,45 @@ CLI overrides: `--threshold-accept`, `--threshold-reject` on `run_job`.
 
 Applied in `quality.decide()` before composite thresholds:
 
-1. **Encoding errors** — any `encoding_error_count > 0`.
-2. **Minimum content** — fewer than 3 Tibetan syllables.
-3. **Stray Latin** — any `A–Z` / `a–z` when `expect_mixed_script` is false (scanned pecha).
-4. **ཨ repetition** — longest spaced/stacked ཨ run ≥ 8 on any line.
-5. **Short page vs baseline** — `line_count / expected_line_count < 0.50` once T-13 median exists.
+1. **Encoding errors** — any `encoding_error_count > 0` → escalate (or reject if composite already below reject).
+2. **Near-empty OCR** — fewer than 3 Tibetan syllables → **escalate** for human review (view rotate + Retry) or diagnostician/vision; do **not** silently rewrite ``rotate`` in the runner. Composite capped at `NEAR_EMPTY_COMPOSITE_CAP`.
+3. **Stray Latin** — any `A–Z` / `a–z` when `expect_mixed_script` is false (scanned pecha) → escalate.
+4. **Forbidden ASCII** — any `+` or `S` in OCR text → escalate (common OCR garbage).
+5. **ཨ repetition** — longest spaced/stacked ཨ run ≥ 8 on any line → escalate.
+6. **Short page vs baseline** — `line_count / expected_line_count < 0.50` once T-13 median exists → escalate.
+7. **Long / shredded page** — `line_count / expected > 2.0`, or fragmentation heuristic (many tiny lines) → escalate.
 
 T-11 layer 1: `tibetan_only_composite_score` + auto-accept when `expect_mixed_script: true` and Tibetan portion clears `accept`.
+
+### Living decisions — Phase 2 corpus + HITL highlighting
+
+Record of choices that are **likely to be retuned**. Code constants live in `backend/app/ocr_assist/quality.py`; corpus load in `backend/scripts/build_corpus.py` + `backend/data/README.md`.
+
+| Decision | Current choice | Why | Fine-tune when |
+|----------|----------------|-----|----------------|
+| Corpus sources | monlam + botok + steinert, threshold **1** | Maximize inventory coverage for OCR QA | False `unknown_word` on rare genuine forms, or load too slow |
+| What Phase 2 checks | **Syllable** inventory (not word segmentation) | Matches current spellcheck engine; cheap | When true word-boundary segmentation lands |
+| `W_PHASE2_UNKNOWN` | **0.35** | Soft pull on composite; clean pecha pages still accept (~0.91 on page 1 calib) | Pages with high unknown rates still auto-accept; or good pages start escalating |
+| Near-empty OCR (`< MIN_TIBETAN_SYLLABLES`) | **escalate**; composite capped at **0.60**; orientation fixed in UI (view turn + “Re-OCR at view orientation”) | Rotated pecha scans OCR as fragments; silent runner `rotate: 90` confused scholars vs view controls | True blanks still escalate; add ink-density blank detection if that becomes noisy |
+| Hard floor on `unknown_word_ratio` | **None** | Syllable inventory under-flags gibberish; a floor would be noisy without word segmentation | After measuring unknown ratios on a labeled bad-page set |
+| Persist spellcheck for UI | `attempts/NN/spellcheck.json` | Same error payload as `/spellcheck` (position, type, severity) | Schema drift vs spellcheck API |
+| HITL UI | `/ocr-assist` uses `ErrorDisplay` on latest OCR (red = structural, yellow = `unknown_word`) above the edit box | Proofing aid; edit box stays plain text | Want live re-check on edits, or vision-transcript highlights |
+
+**API surface for highlighting:** page detail includes `latest_spellcheck_errors` (and per-attempt `spellcheck_errors`). Older job dirs without `spellcheck.json` show no highlights until the page is re-OCR’d.
+
+**Corpus availability check:** `GET /api/v1/corpus/stats` → `available: true` after load; restart backend after `build_corpus.py --replace`.
+
+### Living decisions — Retry flags + intervention logging
+
+Human-guided **Retry** checkboxes (Dewarp/TPS, re-OCR at view orientation) update per-page settings before re-OCR. View ↺/↻ is display-only until that checkbox is used. Vision stays click-only; humans are the teacher.
+
+| Decision | Current choice | Why | Fine-tune when |
+|----------|----------------|-----|----------------|
+| Retry flags (v1) | `use_tps` + `rotate` from UI; no model-switch checkbox | Scholar declares what to try; keeps scope tight | Add model/engine flag if retries commonly need it |
+| Orientation UX | View turn is CSS-only; near-empty shows a prompt; checkbox auto-checks when view ≠ OCR angle | Avoid silent auto-rotate competing with human controls | Scholars miss the prompt; consider always sending view angle on Retry |
+| Intervention log | Append-only `jobs/<id>/page-NNN/interventions.jsonl` + job-level copy | Labeled false-negative / fix pairs for a future cheap second-stage gate | Schema drift; export tooling |
+| What is logged | `retry_with_flags`, `accept`, `edit_accept`, `accept_vision` (`source: human_ui`) | Capture high-confidence-but-wrong without requiring a retry | Auto-labeled AI interventions (out of scope) |
+| Non-goal (this slice) | No trained model; no auto-applying learned policies | Collect data first | After enough labeled interventions exist |
 
 ### Regression fixtures
 
@@ -267,7 +306,7 @@ Each ticket below is sized to be a single PR. Dependencies are noted. The order 
 | T-12 | Provider error resilience | ⬜ Not started (skip until QA needs it) |
 | T-13 | Line-count sanity baseline | ✅ Done |
 | T-14 | CLI ergonomics | ✅ Done (`--pages`, `--job-id`, `--rerun-pages`, `--max-attempts`) |
-| T-15 | Gemini optional dep / httpx | ⬜ Not started (manual `pip install google-genai` + re-pin httpx==0.26.0) |
+| T-15 | Gemini + httpx | ✅ Done (`google-genai` + `httpx==0.28.1` in requirements.txt) |
 | T-16 | Local smoke + vision A/B | 📋 Phase A done; Phases B–E = your QA (UI compare covers much of Phase D) — [INTERACTIVE_OCR_LOCAL_SMOKE.md](INTERACTIVE_OCR_LOCAL_SMOKE.md) |
 
 ---
@@ -350,21 +389,21 @@ Each ticket below is sized to be a single PR. Dependencies are noted. The order 
 ### T-03 — Page quality scorer
 
 **Deploy:** `prod`
-**Why:** Drives the accept/retry/reject decision. Phase-1-only for now since the corpus is empty; designed to accept Phase 2 weight later.
+**Why:** Drives the accept/retry/reject decision. Originally Phase-1-only with Phase 2 weighted at 0; Phase 2 weight is now enabled (see § Living decisions).
 
 **Scope:**
 - New module: `backend/app/ocr_assist/quality.py`
 - `score_page(ocr_text, spellcheck_result, ocr_diagnostics) -> PageQuality`
-- `PageQuality` includes: `non_tibetan_char_ratio`, `structural_error_ratio`, `sanskrit_adjusted_error_ratio`, `line_count_sanity`, `encoding_error_count`, `composite_score`, `breakdown` (dict of named contributions for UI display)
+- `PageQuality` includes: `non_tibetan_char_ratio`, `structural_error_ratio`, `sanskrit_adjusted_error_ratio`, `line_count_sanity`, `encoding_error_count`, `unknown_word_ratio`, `composite_score`, `breakdown` (dict of named contributions for UI display)
 - Composite formula documented in module docstring; weights configurable via constants at top of file
 - `decide(quality: PageQuality, thresholds: Thresholds) -> Literal["accept", "escalate", "reject"]`
 
-**Out of scope:** Threshold tuning (T-10). Phase 2 corpus weight (later, when corpus is populated).
+**Out of scope (original):** Threshold tuning (T-10).
 
 **Acceptance criteria:**
 - [x] Module + functions exist with documented composite formula
 - [x] Uses T-02's Sanskrit scorer to compute `sanskrit_adjusted_error_ratio`
-- [x] Phase 2 inputs are present in the function signature but weighted at 0 for now, with a TODO marker
+- [x] Phase 2 inputs present; weight raised when corpus loaded (`W_PHASE2_UNKNOWN = 0.35` — retunable)
 - [x] Unit tests with hand-crafted inputs covering each branch of `decide`
 
 **Dependencies:** T-02
@@ -511,7 +550,7 @@ Each ticket below is sized to be a single PR. Dependencies are noted. The order 
 - CLI: `--enable-ai`, `--diagnostician-provider`, `--vision-provider`
 - Env vars documented in `.env.example`
 
-**Out of scope:** Gemini in requirements.txt (httpx conflict — T-15). Diagnostician on Gemini.
+**Out of scope:** Diagnostician on Gemini.
 
 **Acceptance criteria:**
 - [x] `build_diagnostician()` / `build_vision_transcriber()` construct provider implementations
@@ -683,21 +722,22 @@ Each ticket below is sized to be a single PR. Dependencies are noted. The order 
 
 ---
 
-### T-15 — Gemini optional dependency (httpx conflict)
+### T-15 — Gemini dependency (httpx)
 
 **Deploy:** `infrastructure`  
-**Status:** ⬜ Not started
+**Status:** ✅ Done — `google-genai==2.8.0`, `httpx==0.28.1`, and `fastapi==0.115.6` (Starlette TestClient compatible with httpx 0.28) pinned in `requirements.txt`. Also bumped `pydantic` to `2.10.6` for genai’s `>=2.9` floor.
 
-**Why:** `google-genai` requires `httpx>=0.28`; project pins `httpx==0.26.0` for FastAPI `TestClient` compatibility. Gemini works locally via manual install but isn't in `requirements.txt`.
+**Why:** Earlier pin `httpx==0.26.0` blocked a clean `google-genai` install. Manual install + re-pin was friction for local vision A/B.
 
 **Scope:**
-- Evaluate upgrading `fastapi` / `starlette` / `httpx` together, or document optional extra (`pip install -e ".[gemini]"`)
-- Add Gemini to CI optional job once conflict resolved
-- Update `.env.example` and provider factory error messages
+- [x] Raise `httpx` so `google-genai` resolves cleanly
+- [x] Pin `google-genai` in `requirements.txt`
+- [x] Update README / `.env.example` / local smoke docs
+- [x] Confirm `tests/test_api_spellcheck.py` (TestClient) still passes
 
 **Acceptance criteria:**
-- [ ] Documented install path that doesn't break `tests/test_api_spellcheck.py`
-- [ ] CI green with or without Gemini installed
+- [x] Documented install path that doesn't break `tests/test_api_spellcheck.py`
+- [x] `pip install -r requirements.txt` yields `pip check` clean for google-genai/httpx
 
 **Dependencies:** T-07b
 
@@ -729,7 +769,9 @@ Each ticket below is sized to be a single PR. Dependencies are noted. The order 
 ## Future / not yet ticketed
 
 - **Physical-book photos:** different baseline preset (perspective correction, glare detection, possibly different model variant). Architecturally accommodated by the per-page settings model. Live capture design + Continuity Camera spike: [LIVE_PECHA_CAPTURE.md](LIVE_PECHA_CAPTURE.md).
-- **Phase-2 corpus weight:** wire `unknown_word` rate back into the quality scorer once the corpus is populated. The hook is already in T-03's function signature.
+- **Phase-2 hardening:** optional hard floor on `unknown_word_ratio`; true word-level segmentation (vs syllable inventory) — see § Living decisions. Soft weight is already on.
+- **HITL polish:** live spellcheck-on-edit in `/ocr-assist`; vision-transcript highlighting; DOCX export with error underlines for accepted pages.
+- **Intervention learning:** aggregate `interventions.jsonl` into cheap second-stage rules / a false-negative gate; **not** training or auto-applying policies until enough human-labeled retries exist (see § Living decisions — Retry flags).
 - **Admin flag for AI features:** once auth exists, add `FEATURE_AI_OCR_ASSIST` env flag + admin role check at the API layer; gate T-06/T-07/T-09 routes accordingly. Include a server-side cost cap (max API calls per job, or daily spend cap) as defense-in-depth.
 - **GitHub mirror:** if useful, sync these tickets to GH issues so you can comment/track status outside markdown.
 - **Multi-text resume:** today the job store is single-tenant. Listing/switching jobs in the UI is a future concern.
@@ -742,4 +784,5 @@ Each ticket below is sized to be a single PR. Dependencies are noted. The order 
 2. **T-12** — only if provider failures are opaque during QA
 3. **T-11 layer 2** — if bilingual pages waste retries
 4. **T-09 polish** — SSE, BDRC settings UI, job list (as needed)
-5. **T-02b**, **T-15** — as needed / parallel
+5. **T-02b** — as needed / parallel
+6. **T-15** — ✅ Done (`google-genai` + `httpx` in requirements)

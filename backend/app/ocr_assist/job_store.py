@@ -63,6 +63,7 @@ NOTES_FILE = "notes.md"
 ATTEMPTS_DIR = "attempts"
 ATTEMPT_OCR_FILE = "ocr.txt"
 ATTEMPT_QUALITY_FILE = "quality.json"
+ATTEMPT_SPELLCHECK_FILE = "spellcheck.json"
 ATTEMPT_VERDICT_FILE = "ai_verdict.json"
 # T-07 vision-OCR fallback transcripts live directly under the page dir, not
 # under attempts/: they come from a different engine than BDRC and the human
@@ -85,6 +86,7 @@ class AttemptRecord:
     ocr_text: str
     quality: dict[str, Any] | None = None
     ai_verdict: dict[str, Any] | None = None
+    spellcheck_errors: list[dict[str, Any]] | None = None
 
 
 @dataclass
@@ -94,7 +96,8 @@ class PageState:
     ``vision_transcript`` / ``vision_quality`` are the legacy single-provider
     T-07 fallback paths (``vision_ocr.json``). ``vision_by_provider`` holds
     on-demand compare results keyed by provider name (``anthropic``,
-    ``gemini``), each value ``{"transcript": dict, "quality": dict|None}``.
+    ``gemini``), each value
+    ``{"transcript": dict, "quality": dict|None, "spellcheck_errors": list|None}``.
     """
     index: int
     image_path: Path
@@ -258,6 +261,7 @@ def save_page_attempt(
     ocr_text: str,
     quality: dict[str, Any] | None = None,
     ai_verdict: dict[str, Any] | None = None,
+    spellcheck_errors: list[dict[str, Any]] | None = None,
 ) -> AttemptRecord:
     """Append a new attempt under ``attempts/NN/`` with monotonic numbering."""
     page_dir = job.root / _page_dir_name(page_index)
@@ -273,6 +277,8 @@ def save_page_attempt(
     _atomic_write_text(attempt_dir / ATTEMPT_OCR_FILE, ocr_text)
     if quality is not None:
         _atomic_write_json(attempt_dir / ATTEMPT_QUALITY_FILE, quality)
+    if spellcheck_errors is not None:
+        _atomic_write_json(attempt_dir / ATTEMPT_SPELLCHECK_FILE, spellcheck_errors)
     if ai_verdict is not None:
         _atomic_write_json(attempt_dir / ATTEMPT_VERDICT_FILE, ai_verdict)
 
@@ -281,6 +287,7 @@ def save_page_attempt(
         ocr_text=ocr_text,
         quality=quality,
         ai_verdict=ai_verdict,
+        spellcheck_errors=spellcheck_errors,
     )
 
 
@@ -315,6 +322,7 @@ def save_vision_transcript(
     *,
     transcript: dict[str, Any],
     quality: dict[str, Any] | None = None,
+    spellcheck_errors: list[dict[str, Any]] | None = None,
     provider: str | None = None,
 ) -> None:
     """Persist a vision-OCR transcript + quality next to the page.
@@ -325,9 +333,9 @@ def save_vision_transcript(
     and gives the review UI a single well-known path for the fallback read.
 
     When ``provider`` is set (``anthropic`` / ``gemini``), writes
-    ``vision_<provider>.json`` (+ quality). When omitted, writes the legacy
-    ``vision_ocr.json`` paths used by the batch runner's single-provider
-    fallback.
+    ``vision_<provider>.json`` (+ quality + optional spellcheck). When omitted,
+    writes the legacy ``vision_ocr.json`` paths used by the batch runner's
+    single-provider fallback.
     """
     page_dir = job.root / _page_dir_name(page_index)
     if not page_dir.is_dir():
@@ -338,6 +346,10 @@ def save_vision_transcript(
         _atomic_write_json(page_dir / _vision_provider_transcript_file(name), transcript)
         if quality is not None:
             _atomic_write_json(page_dir / _vision_provider_quality_file(name), quality)
+        if spellcheck_errors is not None:
+            _atomic_write_json(
+                page_dir / _vision_provider_spellcheck_file(name), spellcheck_errors
+            )
         return
 
     _atomic_write_json(page_dir / VISION_TRANSCRIPT_FILE, transcript)
@@ -486,6 +498,10 @@ def _vision_provider_quality_file(provider: str) -> str:
     return f"vision_{provider}_quality.json"
 
 
+def _vision_provider_spellcheck_file(provider: str) -> str:
+    return f"vision_{provider}_spellcheck.json"
+
+
 def _load_vision_by_provider(page_dir: Path) -> dict[str, dict[str, Any]]:
     """Load provider-keyed vision artifacts if present."""
     out: dict[str, dict[str, Any]] = {}
@@ -494,11 +510,17 @@ def _load_vision_by_provider(page_dir: Path) -> dict[str, dict[str, Any]]:
         if not transcript_path.is_file():
             continue
         quality_path = page_dir / _vision_provider_quality_file(provider)
+        spellcheck_path = page_dir / _vision_provider_spellcheck_file(provider)
         out[provider] = {
             "transcript": json.loads(transcript_path.read_text(encoding="utf-8")),
             "quality": (
                 json.loads(quality_path.read_text(encoding="utf-8"))
                 if quality_path.is_file()
+                else None
+            ),
+            "spellcheck_errors": (
+                json.loads(spellcheck_path.read_text(encoding="utf-8"))
+                if spellcheck_path.is_file()
                 else None
             ),
         }
@@ -521,6 +543,7 @@ def _load_attempts(attempts_dir: Path) -> list[AttemptRecord]:
             continue
         ocr_path = entry / ATTEMPT_OCR_FILE
         quality_path = entry / ATTEMPT_QUALITY_FILE
+        spellcheck_path = entry / ATTEMPT_SPELLCHECK_FILE
         verdict_path = entry / ATTEMPT_VERDICT_FILE
         records.append(
             AttemptRecord(
@@ -534,6 +557,11 @@ def _load_attempts(attempts_dir: Path) -> list[AttemptRecord]:
                 ai_verdict=(
                     json.loads(verdict_path.read_text(encoding="utf-8"))
                     if verdict_path.is_file()
+                    else None
+                ),
+                spellcheck_errors=(
+                    json.loads(spellcheck_path.read_text(encoding="utf-8"))
+                    if spellcheck_path.is_file()
                     else None
                 ),
             )

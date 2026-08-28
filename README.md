@@ -223,7 +223,9 @@ venv/bin/python -m app.ocr_assist.run_job /path/to/book.pdf \
 ```
 
 Note the printed ``job-id`` and absolute ``directory`` / ``docx`` paths at the
-start and end of the run — copy those when you need to reopen results.
+start and end of the run — copy those when you need to reopen results. After a
+run you can also pass ``--open`` (open ``output.docx`` in the default macOS
+app) and/or ``--reveal`` (select the job folder in Finder).
 
 ```text
 jobs/<job_id>/
@@ -234,9 +236,13 @@ jobs/<job_id>/
     settings.json
     attempts/01/ocr.txt
     attempts/01/quality.json
+    attempts/01/spellcheck.json   # HITL underlines in /ocr-assist
     final.txt            # present when auto-accepted
     final_quality.json
 ```
+
+Quality weights, hard floors, Phase-2 corpus, and HITL decisions (retunable):
+[`docs/planning/INTERACTIVE_OCR_PLAN.md`](docs/planning/INTERACTIVE_OCR_PLAN.md) § Living decisions.
 
 ### Page subset and single-page re-run
 
@@ -254,7 +260,7 @@ venv/bin/python -m app.ocr_assist.run_job \
 ```
 
 Other useful flags: `--max-attempts N`, `--threshold-accept`, `--threshold-reject`,
-`--model`.
+`--model`, `--open`, `--reveal`.
 
 ### Optional CLI AI experiment
 

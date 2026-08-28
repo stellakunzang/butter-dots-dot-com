@@ -50,7 +50,9 @@ from app.ocr_assist.contracts import VisionTranscript
 
 
 CLEAN_TEXT = "བཀྲ་ཤིས་བདེ་ལེགས།\nདགེ་བའི་བཤེས་གཉེན།"
-GARBLED_TEXT = "xxxx hello yyy zzz totally not tibetan at all"
+# Enough Tibetan to clear the near-empty escalate floor, plus Latin so the
+# pecha hard floor escalates (mid-band / AI-retry path).
+GARBLED_TEXT = CLEAN_TEXT + "\nxxxx hello yyy zzz totally not tibetan at all"
 
 
 @pytest.fixture
@@ -111,8 +113,7 @@ class TestRunPageAccept:
 
 class TestRunPageNeedsReview:
     def test_low_score_page_does_not_finalize(self, job):
-        # All-non-Tibetan text pegs non_tibetan_char_ratio at 1.0 → composite=0.75
-        # (penalty 0.25), between reject=0.5 and accept=0.85, so decide() escalates.
+        # Tibetan + Latin → pecha latin hard floor escalates (not blank reject).
         result = run_page(job, 1, ocr=garbled_ocr, spellcheck=no_errors)
 
         assert result.decision == "needs_review"
@@ -210,9 +211,7 @@ class TestRawVerdict:
         assert result.verdict == "accept"
 
     def test_escalate_page_carries_escalate_verdict(self, job):
-        # Garbled all-non-Tibetan text scores composite=0.75, between the
-        # default reject=0.5 and accept=0.85 → escalate (folded into
-        # needs_review). The raw verdict still distinguishes it from reject.
+        # Tibetan + Latin on a pecha job → escalate (latin hard floor), not reject.
         result = run_page(job, 1, ocr=garbled_ocr, spellcheck=no_errors)
         assert result.decision == "needs_review"
         assert result.verdict == "escalate"
@@ -729,6 +728,56 @@ class TestVisionFallbackAfterAttemptsExhausted:
         assert len(vision.calls) == 1
         assert load_page(job, 1).final_text == CLEAN_TEXT
 
+    def test_near_empty_page_needs_review_without_auto_rotate(self, job):
+        # Near-empty OCR (rotated pecha miss) escalates to human review.
+        # Orientation is fixed in the UI (view rotate + Retry), not here.
+        call_count = {"n": 0}
+
+        def near_empty_ocr(image_path: Path, settings: dict) -> OcrResult:
+            call_count["n"] += 1
+            return OcrResult(text="།ས་ས", line_count=1)
+
+        result = run_page(
+            job,
+            1,
+            ocr=near_empty_ocr,
+            spellcheck=no_errors,
+            diagnostician=None,
+            vision_transcriber=None,
+            max_attempts=3,
+        )
+
+        assert result.decision == "needs_review"
+        assert result.verdict == "escalate"
+        assert call_count["n"] == 1
+        assert abs(float(load_page(job, 1).settings.get("rotate", 0) or 0)) < 1e-6
+
+    def test_near_empty_consults_diagnostician_without_auto_rotate(self, job):
+        # With AI wired, near-empty still goes to the diagnostician (no silent
+        # local rotate:90). Diagnostician may suggest rotate via settings.
+        call_count = {"n": 0}
+
+        def near_empty_ocr(image_path: Path, settings: dict) -> OcrResult:
+            call_count["n"] += 1
+            return OcrResult(text="།ས་ས", line_count=1)
+
+        diagnostician = _stub_diagnostician(
+            [NeedsHuman(reason="page may be rotated")]
+        )
+        result = run_page(
+            job,
+            1,
+            ocr=near_empty_ocr,
+            spellcheck=no_errors,
+            diagnostician=diagnostician,
+            vision_transcriber=None,
+            max_attempts=3,
+        )
+
+        assert result.decision == "needs_review"
+        assert len(diagnostician.calls) == 1
+        assert abs(float(load_page(job, 1).settings.get("rotate", 0) or 0)) < 1e-6
+        assert call_count["n"] == 1
 
 class TestVisionFallbackAfterNeedsHuman:
     def test_needs_human_still_consults_vision(self, job):

@@ -7,6 +7,21 @@ Following TDD: Write tests FIRST, then implement
 import pytest
 
 
+def assert_structurally_ok(result, syllable: str) -> None:
+    """
+    Assert a syllable passed Phase 1 (structural) validation.
+
+    Phase 2 corpus lookup may still return an unknown_word warning when the
+    word is absent from the dictionary — that is not a structural failure.
+    """
+    if result is None:
+        return
+    assert result.get("error_type") == "unknown_word", (
+        f"{syllable} should be structurally valid, got: {result}"
+    )
+    assert result.get("severity") == "warning"
+
+
 class TestEngineInitialization:
     """Test spell checker engine initialization"""
     
@@ -650,19 +665,19 @@ class TestAchungOSuffixValidation:
         from app.spellcheck.engine import TibetanSpellChecker
 
         engine = TibetanSpellChecker()
-        assert engine.check_syllable("བྱའོ") is None
+        assert_structurally_ok(engine.check_syllable("བྱའོ"), "བྱའོ")
 
     def test_po_o_valid_two_vowels(self):
         from app.spellcheck.engine import TibetanSpellChecker
 
         engine = TibetanSpellChecker()
-        assert engine.check_syllable("པོའོ") is None
+        assert_structurally_ok(engine.check_syllable("པོའོ"), "པོའོ")
 
     def test_mtho_o_valid_two_vowels(self):
         from app.spellcheck.engine import TibetanSpellChecker
 
         engine = TibetanSpellChecker()
-        assert engine.check_syllable("མཐོའོ") is None
+        assert_structurally_ok(engine.check_syllable("མཐོའོ"), "མཐོའོ")
 
     def test_bod_o_invalid_suffix_da(self):
         from app.spellcheck.engine import TibetanSpellChecker
@@ -675,7 +690,12 @@ class TestAchungOSuffixValidation:
 
         engine = TibetanSpellChecker()
         errors = engine.check_text("བྱའོ། པོའོ།་")
-        bad = [e.get("word", "") for e in errors if e.get("severity") != "info"]
+        # Structural errors only — unknown_word warnings are fine
+        bad = [
+            e.get("word", "")
+            for e in errors
+            if e.get("severity") != "info" and e.get("error_type") != "unknown_word"
+        ]
         assert "བྱའོ" not in bad
         assert "པོའོ" not in bad
 class TestPositionMappingWithZeroWidth:
@@ -777,6 +797,43 @@ class TestTibetanPunctuation:
         engine = TibetanSpellChecker()
         errors = [e for e in engine.check_text("༄༄།  །བོད་ཡིག་") if e.get('severity') != 'info']
         assert errors == [], f"Valid text after opener should produce no errors: {errors}"
+
+    def test_gter_tsheg_does_not_mash_valid_neighbors(self):
+        from app.spellcheck.engine import TibetanSpellChecker
+        engine = TibetanSpellChecker()
+        errors = [e for e in engine.check_text("བོད༔ཡིག") if e.get('severity') != 'info']
+        assert errors == [], f"Gter tsheg should not mash neighbors: {errors}"
+
+    def test_rnam_bcad_does_not_mash_valid_neighbors(self):
+        from app.spellcheck.engine import TibetanSpellChecker
+        engine = TibetanSpellChecker()
+        # Liturgical phrase break: ལསཿསྨན should be ལས + སྨན, not one token
+        errors = [e for e in engine.check_text("ལསཿསྨན་") if e.get('severity') != 'info']
+        mashed = [e for e in errors if e.get('word') and 'ཿ' in e['word']]
+        assert mashed == [], f"Rnam bcad should not appear inside error words: {errors}"
+
+    def test_sbrul_shad_does_not_mash_valid_neighbors(self):
+        from app.spellcheck.engine import TibetanSpellChecker
+        engine = TibetanSpellChecker()
+        errors = [e for e in engine.check_text("དང་༈གཡོན་པས་") if e.get('severity') != 'info']
+        mashed = [e for e in errors if e.get('word') and '༈' in e['word']]
+        assert mashed == [], f"Sbrul shad should not appear inside error words: {errors}"
+
+    def test_liturgical_passage_has_no_punctuation_mash_errors(self):
+        """Regression: terma-style ཿ / ༈ must not glue adjacent words."""
+        from app.spellcheck.engine import TibetanSpellChecker
+        passage = (
+            "དག་སྣང་ཡེ་ཤེས་དྲ་བ་ལསཿསྨན་བླའི་བསྒོམ་བཟླས་བདེ་ཆེན་ལམ་བྱེད་"
+            "བཞུགས་སོཿན་མོ་གུ་རུ་པདྨ་ཀ་ར་ཡེཿབདེ་གཤེགས་ལམ་དུ་བྱེད་པའི་"
+            "ཐབསཿཧྲཱྀཿགནས་ལུགས་མ་བཅོས་སྤྲོས་མཐའ་བྲལཿགཞིར་གནས་བདེ་ཆེན་"
+            "སྨན་གྱི་བླཿམཐིང་ནག་ཞི་འཛུམ་འོད་ཕུང་འབརཿཕྱག་གཡས་མཆོག་སྦྱིན་"
+            "སྨན་རྒྱལ་དང་༈གཡོན་པས་མཉམ་བཞག་ལྷུང་བཟེད།"
+        )
+        engine = TibetanSpellChecker()
+        errors = [e for e in engine.check_text(passage) if e.get('severity') != 'info']
+        mash_marks = set('༔༈༑༒ཿ')
+        mashed = [e for e in errors if e.get('word') and mash_marks & set(e['word'])]
+        assert mashed == [], f"Punctuation mash regressions: {mashed}"
 
 
 class TestNumerals:
@@ -899,15 +956,13 @@ class TestBugFix_HaCannotBePrefix:
         """ཧི — single ཧ as root with vowel is structurally valid."""
         from app.spellcheck.engine import TibetanSpellChecker
         engine = TibetanSpellChecker()
-        result = engine.check_syllable("ཧི")
-        assert result is None, f"ཧི should be valid (ཧ as root) but got: {result}"
+        assert_structurally_ok(engine.check_syllable("ཧི"), "ཧི")
 
     def test_ha_with_suffix_as_solo_root_is_valid(self):
         """ཧིབ་ — ཧ root + ི vowel + བ suffix is structurally valid."""
         from app.spellcheck.engine import TibetanSpellChecker
         engine = TibetanSpellChecker()
-        result = engine.check_syllable("ཧིབ")
-        assert result is None, f"ཧིབ should be valid (ཧ root + suffix) but got: {result}"
+        assert_structurally_ok(engine.check_syllable("ཧིབ"), "ཧིབ")
 
     def test_valid_prefixes_still_work(self):
         """Confirm valid prefix consonants are not broken by the fix."""
@@ -921,9 +976,7 @@ class TestBugFix_HaCannotBePrefix:
         ]
         for syllable, description in valid_cases:
             result = engine.check_syllable(syllable)
-            assert result is None, (
-                f"{syllable} ({description}) should be valid but got: {result}"
-            )
+            assert_structurally_ok(result, f"{syllable} ({description})")
 
 
 class TestIntegration:

@@ -25,8 +25,12 @@ def _make_quality(score: float = 0.9) -> PageQuality:
         tibetan_only_composite_score=score,
         tibetan_syllable_count=10,
         latin_letter_count=0,
+        plus_sign_count=0,
         repetition_run_length=0,
         repetition_char="",
+        mean_syllables_per_line=10.0,
+        short_line_ratio=0.0,
+        ocr_confidence=score,
     )
 
 

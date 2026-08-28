@@ -101,6 +101,17 @@ def is_numeral_syllable(syllable: str) -> bool:
     return all(is_tibetan_numeral(c) for c in syllable)
 
 
+# Rnam bcad / visarga sits in the Unicode vowel-sign range (U+0F7F) but is
+# used as phrase punctuation in liturgical and terma texts — often in place
+# of shad, with no surrounding tsheg. Treat it as a syllable delimiter so it
+# does not glue the preceding and following words into one false syllable.
+RNAM_BCAD = '\u0F7F'  # ཿ
+
+# Unicode categories that attach to a letter rather than separating syllables.
+# Mn/Mc = combining marks (e.g. ༹ tsa-phru); Lo = letter-like Sanskrit signs.
+_ATTACHING_CATEGORIES = frozenset({'Mn', 'Mc', 'Lo', 'Lm'})
+
+
 def _is_spellable_tibetan_char(char: str) -> bool:
     """
     Return True if this character is a spellable Tibetan character — i.e. a
@@ -112,6 +123,9 @@ def _is_spellable_tibetan_char(char: str) -> bool:
         U+0F40–U+0F6C  base consonants
         U+0F71–U+0F84  vowel signs (including AA, I, U, E, O and extensions)
         U+0F90–U+0FBC  subjoined consonants
+
+    Note: U+0F7F (ཿ rnam bcad) falls in the vowel-sign range above but is
+    classified as a delimiter via :func:`is_tibetan_punctuation_char`.
     """
     code = ord(char)
     return (
@@ -121,20 +135,47 @@ def _is_spellable_tibetan_char(char: str) -> bool:
     )
 
 
+def is_tibetan_punctuation_char(char: str) -> bool:
+    """
+    Return True if this character is a Tibetan syllable-boundary mark.
+
+    Covers yig mgo openers (༄ ༅), shad variants (། ༎ ༑ ༒), gter tsheg (༔),
+    sbrul shad (༈), rnam bcad (ཿ), and other standalone punctuation in the
+    Tibetan block.
+
+    Combining marks (e.g. ༹ tsa-phru) and letter-like Sanskrit signs stay
+    attached to the syllable — they are not delimiters.
+    """
+    if not char:
+        return False
+    if char == RNAM_BCAD:
+        return True
+    if (
+        not is_tibetan_char(char)
+        or _is_spellable_tibetan_char(char)
+        or is_tibetan_numeral(char)
+    ):
+        return False
+    return unicodedata.category(char) not in _ATTACHING_CATEGORIES
+
+
 def is_punctuation_syllable(syllable: str) -> bool:
     """
-    Return True if a syllable lies entirely within the Tibetan Unicode block
-    but contains no spellable characters (no consonants or vowel signs).
+    Return True if a syllable has no spellable consonant/vowel content.
 
-    These are Tibetan punctuation and mark characters — yig mgo text openers
-    (༄ ༅), decorative shad variants (༑ ༒), gter tsheg (༔), astrological
-    marks, etc. — that appear in texts but carry no spelling content.
+    Covers pure punctuation (༄ ༅ ༔ ཿ …) and orphan combining marks. Used to
+    skip these tokens during spellcheck.
     """
     if not syllable:
         return False
-    return (
-        all(is_tibetan_char(c) for c in syllable) and
-        not any(_is_spellable_tibetan_char(c) for c in syllable)
+    if not all(is_tibetan_char(c) for c in syllable):
+        return False
+    if any(is_tibetan_numeral(c) for c in syllable):
+        return False
+    # Rnam bcad is in the vowel-sign range but is phrase punctuation.
+    return not any(
+        _is_spellable_tibetan_char(c) and c != RNAM_BCAD
+        for c in syllable
     )
 
 

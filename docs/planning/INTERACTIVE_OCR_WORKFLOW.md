@@ -79,6 +79,8 @@ If you can't tell which side of the line you're on, ask the user.
 
 If implementing the ticket reveals something that needs to change in the plan (a missed dependency, a renamed module, a wrong assumption), edit `INTERACTIVE_OCR_PLAN.md` in the same PR and call out the change in the PR body. Don't silently drift from the plan.
 
+**Quality / HITL tunables** (weights, hard floors, Phase-2 corpus, highlight persistence) live in the plan § **Living decisions — Phase 2 corpus + HITL highlighting**. Update that table when you change a constant or learn a calibration lesson.
+
 ---
 
 ## Things to confirm before writing code (every fresh chat)

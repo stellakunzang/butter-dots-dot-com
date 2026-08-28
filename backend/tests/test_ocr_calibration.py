@@ -100,8 +100,9 @@ class TestSmokeFalseAcceptFixtures:
         assert quality.line_count_sanity < 0.2
         assert verdict != "accept"
 
-    def test_page_20_minimal_content_escalates_despite_high_composite(self, checker):
-        # TIF-style partial page: ~2 syllables, composite can still read 1.0.
+    def test_page_20_minimal_content_escalates_despite_capped_composite(self, checker):
+        # TIF-style partial page: ~2 syllables. Cap composite and escalate so
+        # the diagnostician can try rotate/crop (rotated pecha → fragment OCR).
         quality, verdict = _score_fixture(
             checker,
             20,
@@ -109,8 +110,8 @@ class TestSmokeFalseAcceptFixtures:
             ocr_text="འོད་གསལ",
         )
         assert quality.tibetan_syllable_count < 3
-        assert quality.composite_score >= 0.9
-        assert verdict != "accept"
+        assert quality.composite_score <= 0.60
+        assert verdict == "escalate"
 
 
 class TestStrayLatinRegression:
@@ -126,17 +127,40 @@ class TestMinimumContentFloor:
         errors = checker.check_text(text)
         quality = score_page(text, errors, OcrDiagnostics(line_count=1))
         assert quality.tibetan_syllable_count < 3
-        assert decide(quality, THRESHOLDS, context=PECHA_CONTEXT) != "accept"
+        assert quality.composite_score <= 0.60
+        assert decide(quality, THRESHOLDS, context=PECHA_CONTEXT) == "escalate"
 
 
 class TestGoodPagesStillAccept:
-    @pytest.mark.parametrize("page", [1, 4, 12])
-    def test_representative_clean_pages_accept(self, checker, page: int):
-        quality, verdict = _score_fixture(checker, page, line_count=14)
-        assert quality.latin_letter_count == 0
-        assert quality.repetition_run_length < 8 or quality.repetition_char != "\u0f68"
+    def test_synthetic_clean_text_accepts(self, checker):
+        # Ratio floors must not block pages that are actually clean.
+        text = "བཀྲ་ཤིས་བདེ་ལེགས།\nདགེ་བའི་བཤེས་གཉེན།"
+        errors = checker.check_text(text)
+        quality = score_page(text, errors, OcrDiagnostics(line_count=2))
+        verdict = decide(quality, THRESHOLDS, context=PECHA_CONTEXT)
+        assert quality.sanskrit_adjusted_error_ratio < 0.05
+        assert quality.unknown_word_ratio < 0.10
         assert quality.composite_score >= THRESHOLDS.accept
         assert verdict == "accept"
+
+    def test_page_1_escalates_on_structural_density_floor(self, checker):
+        # Former "representative clean" fixture still clears composite (~0.91)
+        # but has ~13% Sanskrit-adjusted structural density — ratio floor
+        # correctly forces review when spellcheck is the enthusiastic gate.
+        quality, verdict = _score_fixture(checker, 1, line_count=14)
+        assert quality.latin_letter_count == 0
+        assert quality.plus_sign_count == 0
+        assert quality.composite_score >= THRESHOLDS.accept
+        assert quality.sanskrit_adjusted_error_ratio >= 0.05
+        assert verdict == "escalate"
+
+    @pytest.mark.parametrize("page", [4, 12])
+    def test_pages_with_plus_sign_noise_do_not_accept(self, checker, page: int):
+        # Former "good" fixtures contain ``+`` OCR garbage; that hard floor
+        # must block auto-accept (HITL preference).
+        quality, verdict = _score_fixture(checker, page, line_count=14)
+        assert quality.plus_sign_count >= 1
+        assert verdict != "accept"
 
 
 class TestMixedScriptLayer1:
