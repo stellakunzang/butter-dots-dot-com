@@ -18,6 +18,7 @@ from pydantic import BaseModel
 
 from app.config import settings
 from app.ocr_assist.compare_vision import VisionCompareResult, compare_vision_providers
+from app.ocr_assist.interventions import append_intervention
 from app.ocr_assist.job_store import (
     OUTPUT_DOCX_FILE,
     Job,
@@ -26,6 +27,7 @@ from app.ocr_assist.job_store import (
     load_job,
     load_page,
     reset_page,
+    update_page_settings,
 )
 from app.ocr_assist.runner import run_all_pages, run_page
 
@@ -49,6 +51,11 @@ class PageActionRequest(BaseModel):
     ]
     text: str | None = None
     provider: Literal["anthropic", "gemini"] | None = None
+    # For compare_vision: which vision models to run. Default = both.
+    providers: list[Literal["anthropic", "gemini"]] | None = None
+    # For retry: human-declared OCR setting overrides.
+    use_tps: bool | None = None
+    rotate: float | None = None
 
 
 def _jobs_root() -> Path:
@@ -88,9 +95,14 @@ def _serialize_job(job: Job) -> dict[str, Any]:
                 "composite_score": (
                     (latest.quality or {}).get("composite_score") if latest else None
                 ),
+                "ocr_confidence": (
+                    (latest.quality or {}).get("ocr_confidence") if latest else None
+                ),
                 "has_vision_compare": bool(page.vision_by_provider),
             }
         )
+    # DOCX is rebuilt from finalized pages only; available as soon as one exists.
+    # The UI may warn when the job is only partially accepted.
     return {
         "id": job.id,
         "source_file": job.source_file,
@@ -136,7 +148,8 @@ def _serialize_page(job: Job, page_index: int) -> dict[str, Any]:
 
 
 def _run_job_bdrc_only(job_id: str) -> None:
-    _running_jobs.add(job_id)
+    # Caller must have already added ``job_id`` to ``_running_jobs`` so the
+    # create response can report ``running: true`` before this task starts.
     try:
         job = load_job(_jobs_root(), job_id)
         run_all_pages(job)  # no diagnostician / vision
@@ -167,6 +180,9 @@ async def create_ocr_job(
         baseline_settings={"model_variant": settings.ocr_model_name},
         jobs_root=_jobs_root(),
     )
+    # Mark running before the response so the UI starts polling. FastAPI
+    # BackgroundTasks only begin after the response is sent.
+    _running_jobs.add(job.id)
     background_tasks.add_task(_run_job_bdrc_only, job.id)
     return _serialize_job(job)
 
@@ -195,6 +211,10 @@ async def get_ocr_page_image(job_id: str, page_index: int):
 
 @router.get("/jobs/{job_id}/docx")
 async def download_ocr_docx(job_id: str):
+    """Download the current clean DOCX (accepted pages only).
+
+    Partial jobs are allowed — the file only contains finalized pages.
+    """
     job = _require_job(job_id)
     path = job.root / OUTPUT_DOCX_FILE
     if not path.is_file():
@@ -213,15 +233,35 @@ async def page_action(job_id: str, page_index: int, body: PageActionRequest):
         raise HTTPException(status_code=404, detail="Page out of range")
 
     if body.action == "accept":
-        return await asyncio.to_thread(_action_accept, job, page_index, body.text)
+        return await asyncio.to_thread(
+            _action_accept, job, page_index, body.text, kind="accept"
+        )
     if body.action == "edit_accept":
         if body.text is None:
             raise HTTPException(status_code=400, detail="text is required for edit_accept")
-        return await asyncio.to_thread(_action_accept, job, page_index, body.text)
+        return await asyncio.to_thread(
+            _action_accept, job, page_index, body.text, kind="edit_accept"
+        )
     if body.action == "retry":
-        return await asyncio.to_thread(_action_retry, job, page_index)
+        return await asyncio.to_thread(
+            _action_retry,
+            job,
+            page_index,
+            use_tps=body.use_tps,
+            rotate=body.rotate,
+        )
     if body.action == "compare_vision":
-        compare = await asyncio.to_thread(compare_vision_providers, job, page_index)
+        providers = body.providers or ["anthropic", "gemini"]
+        if not providers:
+            raise HTTPException(
+                status_code=400, detail="providers must list at least one model"
+            )
+        compare = await asyncio.to_thread(
+            compare_vision_providers,
+            job,
+            page_index,
+            providers=providers,
+        )
         return {
             "page": _serialize_page(job, page_index),
             "compare": _serialize_compare(compare),
@@ -246,6 +286,7 @@ def _serialize_compare(compare: VisionCompareResult) -> dict[str, Any]:
                 "provider": r.provider,
                 "transcript": r.transcript,
                 "quality": r.quality,
+                "spellcheck_errors": r.spellcheck_errors,
                 "composite_score": r.composite_score,
                 "decision": r.decision,
                 "error": r.error,
@@ -255,7 +296,13 @@ def _serialize_compare(compare: VisionCompareResult) -> dict[str, Any]:
     }
 
 
-def _action_accept(job: Job, page_index: int, text: str | None) -> dict[str, Any]:
+def _action_accept(
+    job: Job,
+    page_index: int,
+    text: str | None,
+    *,
+    kind: str = "accept",
+) -> dict[str, Any]:
     page = load_page(job, page_index)
     if text is None:
         if page.attempts:
@@ -265,19 +312,86 @@ def _action_accept(job: Job, page_index: int, text: str | None) -> dict[str, Any
         else:
             raise HTTPException(status_code=400, detail="No OCR text to accept")
     quality = page.attempts[-1].quality if page.attempts else page.final_quality
+    notes = (
+        "accepted via ocr-assist UI (edited)"
+        if kind == "edit_accept"
+        else "accepted via ocr-assist UI"
+    )
     finalize_page(
         job,
         page_index,
         final_text=text,
         final_quality=quality,
-        notes="accepted via ocr-assist UI",
+        notes=notes,
+    )
+    append_intervention(
+        job,
+        page_index,
+        kind=kind,
+        settings_before=dict(page.settings),
+        quality_before=quality if isinstance(quality, dict) else None,
+        quality_after=None,
     )
     return _serialize_page(job, page_index)
 
 
-def _action_retry(job: Job, page_index: int) -> dict[str, Any]:
-    reset_page(job, page_index)  # keeps attempts/settings by default
-    run_page(job, page_index)  # BDRC only
+def _action_retry(
+    job: Job,
+    page_index: int,
+    *,
+    use_tps: bool | None = None,
+    rotate: float | None = None,
+) -> dict[str, Any]:
+    page = load_page(job, page_index)
+    settings_before = dict(page.settings)
+    quality_before = page.attempts[-1].quality if page.attempts else None
+
+    overrides: dict[str, Any] = {}
+    flags: dict[str, Any] = {}
+    if use_tps is True:
+        overrides["use_tps"] = True
+        flags["use_tps"] = True
+    if rotate is not None:
+        overrides["rotate"] = float(rotate)
+        flags["rotate"] = float(rotate)
+
+    if overrides:
+        merged = {**settings_before, **overrides}
+        update_page_settings(job, page_index, merged)
+
+    settings_after = dict(load_page(job, page_index).settings)
+    error_msg: str | None = None
+    try:
+        reset_page(job, page_index)  # keeps attempts/settings by default
+        run_page(job, page_index)  # BDRC only
+    except Exception as exc:  # noqa: BLE001 — still log intervention for smoke
+        logger.exception("retry OCR failed for job %s page %s", job.id, page_index)
+        error_msg = str(exc)
+        append_intervention(
+            job,
+            page_index,
+            kind="retry_with_flags",
+            flags=flags or None,
+            settings_before=settings_before,
+            settings_after=settings_after,
+            quality_before=quality_before if isinstance(quality_before, dict) else None,
+            quality_after=None,
+            error=error_msg,
+        )
+        raise HTTPException(status_code=500, detail=f"Retry OCR failed: {error_msg}") from exc
+
+    page_after = load_page(job, page_index)
+    quality_after = page_after.attempts[-1].quality if page_after.attempts else None
+    append_intervention(
+        job,
+        page_index,
+        kind="retry_with_flags",
+        flags=flags or None,
+        settings_before=settings_before,
+        settings_after=settings_after,
+        quality_before=quality_before if isinstance(quality_before, dict) else None,
+        quality_after=quality_after if isinstance(quality_after, dict) else None,
+    )
     return _serialize_page(job, page_index)
 
 
@@ -290,6 +404,7 @@ def _action_accept_vision(
     page = load_page(job, page_index)
     notes = "accepted via vision compare"
     quality = None
+    quality_before = page.attempts[-1].quality if page.attempts else None
     if text is None:
         if not provider:
             raise HTTPException(status_code=400, detail="provider required when text omitted")
@@ -313,5 +428,14 @@ def _action_accept_vision(
         final_text=text,
         final_quality=quality,
         notes=notes,
+    )
+    append_intervention(
+        job,
+        page_index,
+        kind="accept_vision",
+        settings_before=dict(page.settings),
+        quality_before=quality_before if isinstance(quality_before, dict) else None,
+        quality_after=None,
+        provider=provider,
     )
     return _serialize_page(job, page_index)
