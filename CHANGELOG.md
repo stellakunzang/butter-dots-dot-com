@@ -34,6 +34,7 @@ and this project uses
   boundaries for scoring/spellcheck splits.
 - Spellcheck errors from each OCR attempt are persisted for the assist UI to
   highlight later.
+- OCR Assist stays local-only: CI asserts `ocr_assist_local` defaults to false, and the API refuses to mount if `OCR_ASSIST_LOCAL` is set on Render.
 - Lexicon data is stored relationally: `word`, `source`, `word_source`, and
   `definition` replace JSONB on the old spelling list; `lexicon_staging_line` is
   there for upcoming ingest. Existing databases can run
