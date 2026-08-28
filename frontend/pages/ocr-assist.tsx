@@ -535,7 +535,7 @@ export default function OcrAssistPage() {
     }
   }
 
-  const useVisionReading = () => {
+  const applyVisionReading = () => {
     if (!pageDetail) return
     const match = compareResults?.find(r => r.provider === visionTab)
     if (!match || match.error || !match.transcript?.text) return
@@ -1599,7 +1599,7 @@ export default function OcrAssistPage() {
                           <button
                             type="button"
                             disabled={busy || !visionReady}
-                            onClick={() => useVisionReading()}
+                            onClick={() => applyVisionReading()}
                             className="px-3 py-2 text-sm border border-gray-300 rounded disabled:opacity-50"
                           >
                             Use {PROVIDER_LABELS[visionTab]} reading
