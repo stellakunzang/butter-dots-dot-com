@@ -27,6 +27,9 @@ and this project uses
 - `/ocr-assist` UI for local Interactive OCR: page review with spellcheck
   highlighting, confidence, rotate/TPS retry controls, vision-model compare
   tabs, and partial DOCX download while a job is in progress.
+- Public `/interactive-ocr` early-access waitlist (Formspree via
+  `/api/ocr-waitlist`), plus an Interactive OCR nav link and updated spellcheck
+  page copy mentioning the attested word corpus.
 
 ### Changed
 
