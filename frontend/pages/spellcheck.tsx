@@ -112,16 +112,17 @@ export default function SpellCheckPage() {
   return (
     <Layout
       title="Tibetan Spell Checker - Butter Dots Dot Com"
-      description="Check Tibetan text for spelling errors using traditional grammar rules"
+      description="Check Tibetan text for spelling errors using traditional grammar rules and an attested word corpus"
       showBackLink
     >
       <div className="max-w-6xl mx-auto">
         <div className="mb-8">
           <PageTitle>Tibetan Spell Checker</PageTitle>
           <p className="text-lg text-gray-600 leading-relaxed">
-            Check Tibetan text or upload a PDF. The spell checker uses traditional
-            grammar rules to validate syllable structure including prefixes,
-            superscripts, subscripts, vowels, and suffixes.
+            Check Tibetan text or upload a PDF. The spell checker validates syllable
+            structure with traditional grammar rules—prefixes, superscripts,
+            subscripts, vowels, and suffixes—and checks words against our attested
+            word corpus.
           </p>
         </div>
 
