@@ -63,6 +63,7 @@ NOTES_FILE = "notes.md"
 ATTEMPTS_DIR = "attempts"
 ATTEMPT_OCR_FILE = "ocr.txt"
 ATTEMPT_QUALITY_FILE = "quality.json"
+ATTEMPT_SPELLCHECK_FILE = "spellcheck.json"
 ATTEMPT_VERDICT_FILE = "ai_verdict.json"
 # T-07 vision-OCR fallback transcripts live directly under the page dir, not
 # under attempts/: they come from a different engine than BDRC and the human
@@ -85,6 +86,7 @@ class AttemptRecord:
     ocr_text: str
     quality: dict[str, Any] | None = None
     ai_verdict: dict[str, Any] | None = None
+    spellcheck_errors: list[dict[str, Any]] | None = None
 
 
 @dataclass
@@ -258,6 +260,7 @@ def save_page_attempt(
     ocr_text: str,
     quality: dict[str, Any] | None = None,
     ai_verdict: dict[str, Any] | None = None,
+    spellcheck_errors: list[dict[str, Any]] | None = None,
 ) -> AttemptRecord:
     """Append a new attempt under ``attempts/NN/`` with monotonic numbering."""
     page_dir = job.root / _page_dir_name(page_index)
@@ -273,6 +276,8 @@ def save_page_attempt(
     _atomic_write_text(attempt_dir / ATTEMPT_OCR_FILE, ocr_text)
     if quality is not None:
         _atomic_write_json(attempt_dir / ATTEMPT_QUALITY_FILE, quality)
+    if spellcheck_errors is not None:
+        _atomic_write_json(attempt_dir / ATTEMPT_SPELLCHECK_FILE, spellcheck_errors)
     if ai_verdict is not None:
         _atomic_write_json(attempt_dir / ATTEMPT_VERDICT_FILE, ai_verdict)
 
@@ -281,6 +286,7 @@ def save_page_attempt(
         ocr_text=ocr_text,
         quality=quality,
         ai_verdict=ai_verdict,
+        spellcheck_errors=spellcheck_errors,
     )
 
 
@@ -521,6 +527,7 @@ def _load_attempts(attempts_dir: Path) -> list[AttemptRecord]:
             continue
         ocr_path = entry / ATTEMPT_OCR_FILE
         quality_path = entry / ATTEMPT_QUALITY_FILE
+        spellcheck_path = entry / ATTEMPT_SPELLCHECK_FILE
         verdict_path = entry / ATTEMPT_VERDICT_FILE
         records.append(
             AttemptRecord(
@@ -534,6 +541,11 @@ def _load_attempts(attempts_dir: Path) -> list[AttemptRecord]:
                 ai_verdict=(
                     json.loads(verdict_path.read_text(encoding="utf-8"))
                     if verdict_path.is_file()
+                    else None
+                ),
+                spellcheck_errors=(
+                    json.loads(spellcheck_path.read_text(encoding="utf-8"))
+                    if spellcheck_path.is_file()
                     else None
                 ),
             )

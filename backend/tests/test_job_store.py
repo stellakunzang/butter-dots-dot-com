@@ -153,6 +153,25 @@ class TestSavePageAttempt:
         assert page.attempts[1].ocr_text == "B"
         assert page.attempts[1].ai_verdict == {"verdict": "retry"}
 
+    def test_spellcheck_errors_persisted(self, created_job):
+        jobs_root, job_id = created_job
+        job = load_job(jobs_root, job_id)
+        errors = [
+            {
+                "word": "བཀྲ",
+                "position": 0,
+                "error_type": "unknown_word",
+                "severity": "warning",
+            }
+        ]
+        save_page_attempt(job, 1, ocr_text="བཀྲ་ཤིས་", spellcheck_errors=errors)
+
+        page = load_page(job, 1)
+        assert page.attempts[0].spellcheck_errors == errors
+        assert (
+            job.root / "page-001" / "attempts" / "01" / "spellcheck.json"
+        ).is_file()
+
     def test_missing_page_dir_raises(self, created_job):
         jobs_root, job_id = created_job
         job = load_job(jobs_root, job_id)
