@@ -57,19 +57,19 @@ _PER_FIXTURE_TOLERANCE: dict[str, int] = {
     "Tashi Gyedpa": 10,
 }
 
-# Fixtures that require the BDRC OCR engine (pyctcdecode).
-# Tests for these are skipped automatically when OCR deps are not installed.
+# Fixtures that require the BDRC OCR engine + downloaded ONNX models.
+# Skipped in CI when Models/ is absent (tps is optional since #59).
 _OCR_REQUIRED_FIXTURES = {"Tashi Gyedpa"}
+
+_LINE_MODEL = Path(__file__).resolve().parents[1] / "Models" / "Lines" / "PhotiLines.onnx"
 
 
 def _ocr_available() -> bool:
     try:
         import pyctcdecode  # noqa: F401
-        import tps  # noqa: F401
-
-        return True
     except ImportError:
         return False
+    return _LINE_MODEL.is_file()
 
 
 OCR_AVAILABLE = _ocr_available()
@@ -276,7 +276,7 @@ class TestParityAPIEndpoints:
         consistent error type sets for the same underlying text.
         """
         if txt_path.stem in _OCR_REQUIRED_FIXTURES and not OCR_AVAILABLE:
-            pytest.skip("pyctcdecode not installed — skipping OCR-required fixture")
+            pytest.skip("OCR models/deps unavailable — skipping OCR-required fixture")
         ground_truth = txt_path.read_text(encoding="utf-8").strip()
 
         text_resp = client.post("/api/v1/spellcheck/text", json={"text": ground_truth})
@@ -311,7 +311,7 @@ class TestParityAPIEndpoints:
     def test_api_error_count_parity(self, txt_path, pdf_path, client):
         """Error counts via the API should be within the fixture's tolerance."""
         if txt_path.stem in _OCR_REQUIRED_FIXTURES and not OCR_AVAILABLE:
-            pytest.skip("pyctcdecode not installed — skipping OCR-required fixture")
+            pytest.skip("OCR models/deps unavailable — skipping OCR-required fixture")
         tolerance = _PER_FIXTURE_TOLERANCE.get(txt_path.stem, OCR_ERROR_COUNT_TOLERANCE)
 
         ground_truth = txt_path.read_text(encoding="utf-8").strip()

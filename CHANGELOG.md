@@ -12,12 +12,34 @@ and this project uses
 
 ### Added
 
-- Local OCR QA CLI and clean DOCX export (feature-branch / local-dev only): reset a page without wiping attempts by default, rebuild `output.docx` on finalize, and run jobs with `--pages`, `--job-id`, `--rerun-pages`, and `--max-attempts` (BDRC-only by default).
-- Local OCR Assist browser path (feature-branch / local-dev only): `/api/v1/ocr-assist` gated by `OCR_ASSIST_LOCAL`, minimal `/ocr-assist` UI for upload/review/accept/edit/retry/DOCX download, and on-demand Claude vs Gemini vision compare per page (bulk jobs stay BDRC-only).
+- Interactive OCR Assist foundation on main (local-dev only, gated by
+  `OCR_ASSIST_LOCAL`): per-page BDRC jobs with quality scoring, Claude
+  diagnostician retries, optional vision OCR fallback, clean DOCX export, CLI
+  runners, and a minimal `/ocr-assist` upload/review UI with on-demand Claude vs
+  Gemini compare.
+- Corpus build script rewritten for Monlam, botok, and Steinert sources, with
+  `backend/data/README.md` for how to obtain dumps and load Postgres
+  (`build_corpus.py` — still a manual ops step; not auto-run on deploy).
+- OCR Assist intervention log: accept / edit-accept / retry outcomes append to
+  `interventions.jsonl` so high-confidence-but-wrong pages become labeled data
+  later. Retry accepts human `use_tps` / `rotate` overrides; TPS dewarping is an
+  optional dependency when that flag is set.
 
 ### Changed
 
-- Lexicon data is stored relationally: `word`, `source`, `word_source`, and `definition` replace JSONB on the old spelling list; `lexicon_staging_line` is there for upcoming ingest. Existing databases can run `database/migrations/002_lexicon_schema.sql`; fresh installs use the updated `schema.sql`. `DictionaryService`, `build_corpus.py`, and `seed_corpus.py` target the new tables.
+- OCR quality scoring now weights Phase-2 unknown-syllable rate, escalates
+  near-empty pages for human rotate/retry instead of hard-rejecting them, exposes
+  an `ocr_confidence` signal, and blocks auto-accept when structural or unknown
+  ratios are too high. Tibetan punctuation and rnam bcad count as syllable
+  boundaries for scoring/spellcheck splits.
+- Spellcheck errors from each OCR attempt are persisted for the assist UI to
+  highlight later.
+- Lexicon data is stored relationally: `word`, `source`, `word_source`, and
+  `definition` replace JSONB on the old spelling list; `lexicon_staging_line` is
+  there for upcoming ingest. Existing databases can run
+  `database/migrations/002_lexicon_schema.sql`; fresh installs use the updated
+  `schema.sql`. `DictionaryService`, `build_corpus.py`, and `seed_corpus.py`
+  target the new tables.
 
 ---
 
