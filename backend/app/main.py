@@ -23,6 +23,9 @@ app.include_router(spellcheck.router, prefix="/api/v1", tags=["spellcheck"])
 app.include_router(corpus.router, prefix="/api/v1", tags=["corpus"])
 
 if settings.ocr_assist_local:
+    from app.config import assert_ocr_assist_safe_to_enable
+
+    assert_ocr_assist_safe_to_enable()
     from app.api import ocr_assist
 
     app.include_router(ocr_assist.router, prefix="/api/v1")

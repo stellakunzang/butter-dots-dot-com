@@ -36,7 +36,9 @@ class Settings(BaseSettings):
     diagnostician_provider: str = "anthropic"
     vision_ocr_provider: str = "anthropic"
 
-    # Local QA UI/API for interactive OCR. Off by default — never enable in prod.
+    # Local QA UI/API for interactive OCR. Default MUST stay False — CI asserts
+    # that, and main.py refuses to mount when running on Render even if the env
+    # var is set. Enable only via OCR_ASSIST_LOCAL=true on a local machine.
     ocr_assist_local: bool = False
     ocr_assist_jobs_root: str = "jobs"
 
@@ -52,3 +54,20 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+
+def running_on_render() -> bool:
+    """Render sets RENDER / RENDER_SERVICE_ID in the service environment."""
+    import os
+
+    return bool(os.environ.get("RENDER") or os.environ.get("RENDER_SERVICE_ID"))
+
+
+def assert_ocr_assist_safe_to_enable() -> None:
+    """Raise if OCR assist would be enabled in a hosted Render environment."""
+    if settings.ocr_assist_local and running_on_render():
+        raise RuntimeError(
+            "OCR_ASSIST_LOCAL is enabled but this process is running on Render. "
+            "Interactive OCR Assist must stay local-only — unset OCR_ASSIST_LOCAL "
+            "on the Render service."
+        )

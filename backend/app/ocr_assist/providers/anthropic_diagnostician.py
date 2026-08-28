@@ -34,7 +34,8 @@ Your job is to pick the single best next action via one of the three tools provi
 
 The quality breakdown fields are all in [0, 1] except ``encoding_error_count`` (non-negative integer). \
 Higher composite means cleaner output. Phase-1 spell-check (structural rules) is the main signal; \
-Phase-2 (corpus lookup) is currently weighted 0 because the corpus is unpopulated.
+Phase-2 (corpus lookup) contributes via ``unknown_word_ratio`` (syllable
+inventory). High unknown rates often mean OCR shredding or wrong script.
 
 Sanskrit transliteration legitimately breaks Tibetan stacking rules (mantras, dharanis, proper names). \
 If most flagged syllables look Sanskrit and the OCR plausibly matches the image, prefer ``accurate_as_sanskrit_accept`` \
@@ -45,6 +46,7 @@ Settings you can override via ``retry_with_settings`` (omit any you do not want 
 - ``bbox_tolerance`` (float, default 3.0): line-merge tolerance.
 - ``model_variant`` (string): ``"Modern"`` (default), ``"Woodblock"``, ``"Ume"``. Choose ``Woodblock`` for printed pecha pages, ``Ume`` for cursive.
 - ``rotate`` (float): page rotation in degrees, positive = clockwise. Use for skewed scans.
+- ``use_tps`` (bool, default false): enable thin-plate-spline dewarping. Use when lines look curved or the page is warped (not for simple tilt — prefer ``rotate`` for that).
 
 Choose ``needs_human`` when the image is fundamentally unreadable (heavy damage, multi-column layouts BDRC cannot handle, mixed scripts you cannot recover with a setting change). Provide a brief reason. \
 Choose ``retry_with_settings`` only when you have a concrete hypothesis the override will help — vague "try again" verdicts waste budget.
@@ -73,6 +75,13 @@ _TOOLS = [
                             "enum": ["Modern", "Woodblock", "Ume"],
                         },
                         "rotate": {"type": "number"},
+                        "use_tps": {
+                            "type": "boolean",
+                            "description": (
+                                "Enable TPS dewarping for curved/warped pages. "
+                                "Leave false for flat pages; prefer rotate for simple tilt."
+                            ),
+                        },
                     },
                     "additionalProperties": False,
                 },

@@ -27,7 +27,7 @@ This directory is vendored from [`buda-base/tibetan-ocr-app`](https://github.com
 - Collinearity check before TPS solve: if y-centers of the slice-centroids are near-linear (pure tilt rather than curvature), skip TPS — the kernel would be singular and divide-by-zero. Pure tilt is handled by rotation upstream of this anyway.
 - `npt.NDArray(...)` → `np.array(...)`: `npt.NDArray` is a type-hint alias, not a constructor; the old form crashed when actually called.
 - Removed a duplicate `corners *= [height, width]` (typo).
-- Local mod: kept this repo's `try/except ImportError` guard around `from tps import ThinPlateSpline`. Upstream removed it; `tps` is not in our `requirements.txt` and the TPS code path is gated by `use_tps=False` in `app/pdf/ocr.py`, so the guard preserves importability.
+- Local mod: ``tps`` import is optional in `image_dewarping.py` (`try/except`). The unused hard import in `Utils.py` was removed so the package stays importable even if `thin-plate-spline` is missing. Runtime `use_tps` is now a per-page setting (default `False`); install `thin-plate-spline` when enabling it.
 
 ### `Inference.py`
 - `update_line_detection`: now also reassigns `self.line_config = config` after swapping the inference instance. Previous version updated the inference object but kept the stale config, so subsequent runs would misuse the old shape.
@@ -44,5 +44,5 @@ The upstream `Runner.py` is a Qt `QRunnable` wired to PySide6 signals; nothing t
 
 1. `cd ../tibetan-ocr-app && git rev-parse HEAD` — record the new upstream SHA.
 2. `diff -u backend/BDRC/<file>.py ../tibetan-ocr-app/BDRC/<file>.py` per file, port the deltas.
-3. Preserve any local mods listed above (currently: the `tps` import guard in `image_dewarping.py`).
+3. Preserve any local mods listed above (currently: the `tps` import guard in `image_dewarping.py`, and no hard `tps` import in `Utils.py`).
 4. Update this file with the new SHA, date, and any new fixes pulled forward.

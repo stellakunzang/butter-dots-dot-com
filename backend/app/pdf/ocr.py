@@ -174,7 +174,7 @@ class BDRCOCREngine:
             k_factor=run_settings.k_factor,
             bbox_tolerance=run_settings.bbox_tolerance,
             merge_lines=True,
-            use_tps=False,
+            use_tps=run_settings.use_tps,
             target_encoding=Encoding.Unicode,
         )
 

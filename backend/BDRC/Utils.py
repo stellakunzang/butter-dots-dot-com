@@ -26,10 +26,6 @@ from math import ceil
 from uuid import uuid1
 from pathlib import Path
 from datetime import datetime
-try:
-    from tps import ThinPlateSpline
-except ImportError:
-    ThinPlateSpline = None  # type: ignore[assignment,misc]
 from typing import List, Tuple, Optional, Sequence
 
 from BDRC.Data import OCRModelConfig, Platform, ScreenData, BBox, Line, \
