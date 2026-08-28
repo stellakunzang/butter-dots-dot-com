@@ -24,6 +24,9 @@ and this project uses
   `interventions.jsonl` so high-confidence-but-wrong pages become labeled data
   later. Retry accepts human `use_tps` / `rotate` overrides; TPS dewarping is an
   optional dependency when that flag is set.
+- `/ocr-assist` UI for local Interactive OCR: page review with spellcheck
+  highlighting, confidence, rotate/TPS retry controls, vision-model compare
+  tabs, and partial DOCX download while a job is in progress.
 
 ### Changed
 

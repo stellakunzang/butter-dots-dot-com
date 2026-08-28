@@ -3,6 +3,7 @@
  */
 
 import { APIError } from './api'
+import type { SpellCheckError } from './api'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
@@ -11,6 +12,7 @@ export interface OcrAssistPageSummary {
   status: 'final' | 'needs_review' | 'pending' | string
   attempt_count: number
   composite_score: number | null
+  ocr_confidence?: number | null
   has_vision_compare: boolean
 }
 
@@ -22,6 +24,7 @@ export interface OcrAssistJob {
   running: boolean
   created_at: string
   pages: OcrAssistPageSummary[]
+  /** True when output.docx exists (accepted pages only; may be a partial job). */
   docx_ready: boolean
 }
 
@@ -29,6 +32,7 @@ export interface VisionProviderResult {
   provider: string
   transcript: { text?: string; notes?: string | null } | null
   quality: Record<string, unknown> | null
+  spellcheck_errors?: SpellCheckError[] | null
   composite_score: number | null
   decision: string | null
   error: string | null
@@ -43,15 +47,21 @@ export interface OcrAssistPageDetail {
   notes: string | null
   latest_ocr_text: string | null
   latest_quality: Record<string, unknown> | null
+  latest_spellcheck_errors: SpellCheckError[] | null
   attempts: Array<{
     number: number
     ocr_text: string
     quality: Record<string, unknown> | null
     ai_verdict: Record<string, unknown> | null
+    spellcheck_errors: SpellCheckError[] | null
   }>
   vision_by_provider: Record<
     string,
-    { transcript: { text?: string; notes?: string | null }; quality: Record<string, unknown> | null }
+    {
+      transcript: { text?: string; notes?: string | null }
+      quality: Record<string, unknown> | null
+      spellcheck_errors?: SpellCheckError[] | null
+    }
   >
   image_url: string
 }
@@ -101,6 +111,11 @@ export async function postOcrAssistPageAction(
     action: 'accept' | 'edit_accept' | 'retry' | 'compare_vision' | 'accept_vision'
     text?: string
     provider?: 'anthropic' | 'gemini'
+    providers?: Array<'anthropic' | 'gemini'>
+    /** Retry: enable TPS dewarp */
+    use_tps?: boolean
+    /** Retry: bake UI view orientation (degrees clockwise) into OCR settings */
+    rotate?: number
   }
 ): Promise<{
   page: OcrAssistPageDetail
