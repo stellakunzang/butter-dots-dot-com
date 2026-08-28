@@ -17,7 +17,7 @@ Calibration thresholds, hard floors, and false-accept counts: [§ Quality scorer
 # backend/.env
 OCR_ASSIST_LOCAL=true
 # ANTHROPIC_API_KEY=...   # only for Compare vision / optional CLI --enable-ai
-# GEMINI_API_KEY=...      # only for Compare vision (pip install 'google-genai>=1.0.0')
+# GEMINI_API_KEY=...      # only for Compare vision (google-genai in requirements.txt)
 
 cd backend && python scripts/download_models.py   # once
 # CLI (BDRC-only):
@@ -214,7 +214,8 @@ venv/bin/python -m app.ocr_assist.run_job pages_for_ocr_test.pdf \
 | `accept` / `reject` | **0.85** / **0.50** | `runner.DEFAULT_THRESHOLDS` |
 | `W_NON_TIBETAN` / `W_STRUCTURAL` / `W_LINE_SANITY` / `W_REPETITION` | 0.25 / 0.50 / 0.25 / 0.20 | `quality.py` |
 | `W_PHASE2_UNKNOWN` | **0.35** | `quality.py` (corpus soft signal) |
-| `MIN_TIBETAN_SYLLABLES` | 3 | blank/folio → **reject** (skip AI) |
+| `MIN_TIBETAN_SYLLABLES` | 3 | near-empty → **escalate** (try rotate/crop) |
+| `NEAR_EMPTY_COMPOSITE_CAP` | **0.60** | cap so almost-empty OCR does not display as 1.0 |
 | `MIXED_SCRIPT_THRESHOLD` | 0.15 | T-11 bilingual auto-accept |
 | `ACHA_RUN_THRESHOLD` | 8 | ཨ spaced/stacked repetition |
 | `MIN_LINE_COUNT_BASELINE` | 3 | pages before T-13 median is published |
@@ -230,8 +231,8 @@ CLI overrides: `--threshold-accept`, `--threshold-reject` on `run_job`.
 
 Applied in `quality.decide()` before composite thresholds:
 
-1. **Encoding errors** — any `encoding_error_count > 0` → escalate.
-2. **Minimum content** — fewer than 3 Tibetan syllables → **reject** (not escalate; skip diagnostician/vision).
+1. **Encoding errors** — any `encoding_error_count > 0` → escalate (or reject if composite already below reject).
+2. **Near-empty OCR** — fewer than 3 Tibetan syllables → **escalate** for human review (view rotate + Retry) or diagnostician/vision; do **not** silently rewrite ``rotate`` in the runner. Composite capped at `NEAR_EMPTY_COMPOSITE_CAP`.
 3. **Stray Latin** — any `A–Z` / `a–z` when `expect_mixed_script` is false (scanned pecha) → escalate.
 4. **Forbidden ASCII** — any `+` or `S` in OCR text → escalate (common OCR garbage).
 5. **ཨ repetition** — longest spaced/stacked ཨ run ≥ 8 on any line → escalate.
@@ -249,14 +250,26 @@ Record of choices that are **likely to be retuned**. Code constants live in `bac
 | Corpus sources | monlam + botok + steinert, threshold **1** | Maximize inventory coverage for OCR QA | False `unknown_word` on rare genuine forms, or load too slow |
 | What Phase 2 checks | **Syllable** inventory (not word segmentation) | Matches current spellcheck engine; cheap | When true word-boundary segmentation lands |
 | `W_PHASE2_UNKNOWN` | **0.35** | Soft pull on composite; clean pecha pages still accept (~0.91 on page 1 calib) | Pages with high unknown rates still auto-accept; or good pages start escalating |
+| Near-empty OCR (`< MIN_TIBETAN_SYLLABLES`) | **escalate**; composite capped at **0.60**; orientation fixed in UI (view turn + “Re-OCR at view orientation”) | Rotated pecha scans OCR as fragments; silent runner `rotate: 90` confused scholars vs view controls | True blanks still escalate; add ink-density blank detection if that becomes noisy |
 | Hard floor on `unknown_word_ratio` | **None** | Syllable inventory under-flags gibberish; a floor would be noisy without word segmentation | After measuring unknown ratios on a labeled bad-page set |
 | Persist spellcheck for UI | `attempts/NN/spellcheck.json` | Same error payload as `/spellcheck` (position, type, severity) | Schema drift vs spellcheck API |
 | HITL UI | `/ocr-assist` uses `ErrorDisplay` on latest OCR (red = structural, yellow = `unknown_word`) above the edit box | Proofing aid; edit box stays plain text | Want live re-check on edits, or vision-transcript highlights |
-| Blank pages | `reject` (skip AI) | Folio markers / blanks waste API money | Edge cases where 1–2 syllables should still escalate |
 
 **API surface for highlighting:** page detail includes `latest_spellcheck_errors` (and per-attempt `spellcheck_errors`). Older job dirs without `spellcheck.json` show no highlights until the page is re-OCR’d.
 
 **Corpus availability check:** `GET /api/v1/corpus/stats` → `available: true` after load; restart backend after `build_corpus.py --replace`.
+
+### Living decisions — Retry flags + intervention logging
+
+Human-guided **Retry** checkboxes (Dewarp/TPS, re-OCR at view orientation) update per-page settings before re-OCR. View ↺/↻ is display-only until that checkbox is used. Vision stays click-only; humans are the teacher.
+
+| Decision | Current choice | Why | Fine-tune when |
+|----------|----------------|-----|----------------|
+| Retry flags (v1) | `use_tps` + `rotate` from UI; no model-switch checkbox | Scholar declares what to try; keeps scope tight | Add model/engine flag if retries commonly need it |
+| Orientation UX | View turn is CSS-only; near-empty shows a prompt; checkbox auto-checks when view ≠ OCR angle | Avoid silent auto-rotate competing with human controls | Scholars miss the prompt; consider always sending view angle on Retry |
+| Intervention log | Append-only `jobs/<id>/page-NNN/interventions.jsonl` + job-level copy | Labeled false-negative / fix pairs for a future cheap second-stage gate | Schema drift; export tooling |
+| What is logged | `retry_with_flags`, `accept`, `edit_accept`, `accept_vision` (`source: human_ui`) | Capture high-confidence-but-wrong without requiring a retry | Auto-labeled AI interventions (out of scope) |
+| Non-goal (this slice) | No trained model; no auto-applying learned policies | Collect data first | After enough labeled interventions exist |
 
 ### Regression fixtures
 
@@ -293,7 +306,7 @@ Each ticket below is sized to be a single PR. Dependencies are noted. The order 
 | T-12 | Provider error resilience | ⬜ Not started (skip until QA needs it) |
 | T-13 | Line-count sanity baseline | ✅ Done |
 | T-14 | CLI ergonomics | ✅ Done (`--pages`, `--job-id`, `--rerun-pages`, `--max-attempts`) |
-| T-15 | Gemini optional dep / httpx | ⬜ Not started (manual `pip install google-genai` + re-pin httpx==0.26.0) |
+| T-15 | Gemini + httpx | ✅ Done (`google-genai` + `httpx==0.28.1` in requirements.txt) |
 | T-16 | Local smoke + vision A/B | 📋 Phase A done; Phases B–E = your QA (UI compare covers much of Phase D) — [INTERACTIVE_OCR_LOCAL_SMOKE.md](INTERACTIVE_OCR_LOCAL_SMOKE.md) |
 
 ---
@@ -537,7 +550,7 @@ Each ticket below is sized to be a single PR. Dependencies are noted. The order 
 - CLI: `--enable-ai`, `--diagnostician-provider`, `--vision-provider`
 - Env vars documented in `.env.example`
 
-**Out of scope:** Gemini in requirements.txt (httpx conflict — T-15). Diagnostician on Gemini.
+**Out of scope:** Diagnostician on Gemini.
 
 **Acceptance criteria:**
 - [x] `build_diagnostician()` / `build_vision_transcriber()` construct provider implementations
@@ -709,21 +722,22 @@ Each ticket below is sized to be a single PR. Dependencies are noted. The order 
 
 ---
 
-### T-15 — Gemini optional dependency (httpx conflict)
+### T-15 — Gemini dependency (httpx)
 
 **Deploy:** `infrastructure`  
-**Status:** ⬜ Not started
+**Status:** ✅ Done — `google-genai==2.8.0`, `httpx==0.28.1`, and `fastapi==0.115.6` (Starlette TestClient compatible with httpx 0.28) pinned in `requirements.txt`. Also bumped `pydantic` to `2.10.6` for genai’s `>=2.9` floor.
 
-**Why:** `google-genai` requires `httpx>=0.28`; project pins `httpx==0.26.0` for FastAPI `TestClient` compatibility. Gemini works locally via manual install but isn't in `requirements.txt`.
+**Why:** Earlier pin `httpx==0.26.0` blocked a clean `google-genai` install. Manual install + re-pin was friction for local vision A/B.
 
 **Scope:**
-- Evaluate upgrading `fastapi` / `starlette` / `httpx` together, or document optional extra (`pip install -e ".[gemini]"`)
-- Add Gemini to CI optional job once conflict resolved
-- Update `.env.example` and provider factory error messages
+- [x] Raise `httpx` so `google-genai` resolves cleanly
+- [x] Pin `google-genai` in `requirements.txt`
+- [x] Update README / `.env.example` / local smoke docs
+- [x] Confirm `tests/test_api_spellcheck.py` (TestClient) still passes
 
 **Acceptance criteria:**
-- [ ] Documented install path that doesn't break `tests/test_api_spellcheck.py`
-- [ ] CI green with or without Gemini installed
+- [x] Documented install path that doesn't break `tests/test_api_spellcheck.py`
+- [x] `pip install -r requirements.txt` yields `pip check` clean for google-genai/httpx
 
 **Dependencies:** T-07b
 
@@ -757,6 +771,7 @@ Each ticket below is sized to be a single PR. Dependencies are noted. The order 
 - **Physical-book photos:** different baseline preset (perspective correction, glare detection, possibly different model variant). Architecturally accommodated by the per-page settings model. Live capture design + Continuity Camera spike: [LIVE_PECHA_CAPTURE.md](LIVE_PECHA_CAPTURE.md).
 - **Phase-2 hardening:** optional hard floor on `unknown_word_ratio`; true word-level segmentation (vs syllable inventory) — see § Living decisions. Soft weight is already on.
 - **HITL polish:** live spellcheck-on-edit in `/ocr-assist`; vision-transcript highlighting; DOCX export with error underlines for accepted pages.
+- **Intervention learning:** aggregate `interventions.jsonl` into cheap second-stage rules / a false-negative gate; **not** training or auto-applying policies until enough human-labeled retries exist (see § Living decisions — Retry flags).
 - **Admin flag for AI features:** once auth exists, add `FEATURE_AI_OCR_ASSIST` env flag + admin role check at the API layer; gate T-06/T-07/T-09 routes accordingly. Include a server-side cost cap (max API calls per job, or daily spend cap) as defense-in-depth.
 - **GitHub mirror:** if useful, sync these tickets to GH issues so you can comment/track status outside markdown.
 - **Multi-text resume:** today the job store is single-tenant. Listing/switching jobs in the UI is a future concern.
@@ -769,4 +784,5 @@ Each ticket below is sized to be a single PR. Dependencies are noted. The order 
 2. **T-12** — only if provider failures are opaque during QA
 3. **T-11 layer 2** — if bilingual pages waste retries
 4. **T-09 polish** — SSE, BDRC settings UI, job list (as needed)
-5. **T-02b**, **T-15** — as needed / parallel
+5. **T-02b** — as needed / parallel
+6. **T-15** — ✅ Done (`google-genai` + `httpx` in requirements)

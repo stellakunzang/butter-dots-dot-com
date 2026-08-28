@@ -189,23 +189,25 @@ def run_page(
 ) -> RunResult:
     """Run OCR for one page; retry under the diagnostician's direction.
 
-    With ``diagnostician=None`` the runner does one OCR attempt and
-    either accepts the page or queues it for review (no retries).
+    With ``diagnostician=None`` the runner does one OCR attempt and either
+    accepts the page or queues it for review. Orientation fixes are
+    human-guided in the UI (view rotate + Retry), not applied here.
 
     With a diagnostician callable, the runner loops up to ``max_attempts``:
     each attempt OCRs with the page's current settings, scores, persists
     the attempt, and either finalizes (``accept``), surfaces for review
     (``needs_human`` verdict), or applies the verdict's setting overrides
-    and retries (``retry_with_settings``). The ``accurate_as_sanskrit_accept``
-    verdict finalizes the current OCR text even though structural rules flagged
-    it — that's the whole point of the verdict.
+    and retries (``retry_with_settings``). The
+    ``accurate_as_sanskrit_accept`` verdict finalizes the current OCR text even
+    though structural rules flagged it — that's the whole point of the verdict.
 
     With ``vision_transcriber`` also wired, paths that would otherwise return
     ``needs_review`` after **escalate**/retry exhaustion (or diagnostician
     ``needs_human``) first ask a vision model to read the image. A scorer
-    ``reject`` (e.g. blank / folio-only) skips diagnostician **and** vision —
-    straight to human review. Vision is never called on a page that already
-    accepted on a BDRC attempt.
+    ``reject`` (composite below the reject threshold) skips diagnostician
+    **and** vision — straight to human review. Near-empty OCR escalates
+    rather than rejecting so review / vision can still recover. Vision is never
+    called on a page that already accepted on a BDRC attempt.
 
     Setting overrides are merged into the page's ``settings.json`` so a
     re-run of this page is deterministic. The page's settings start from
@@ -222,9 +224,7 @@ def run_page(
     baseline = line_baseline if line_baseline is not None else _LineCountBaseline()
 
     if diagnostician is None:
-        # No retry loop without a diagnostician: one attempt, accept or queue.
-        # Vision fallback runs on escalate→needs_review, but never on reject
-        # (blank/folio — not worth the API call).
+        # No LLM loop: one attempt, then accept / vision / needs_review.
         result = _run_single_attempt(
             job,
             page_index,
@@ -236,11 +236,10 @@ def run_page(
         )
         if result.decision == "accept":
             _record_line_baseline_from_result(result, baseline)
-        if (
-            result.decision == "accept"
-            or result.verdict == "reject"
-            or vision_transcriber is None
-        ):
+            return result
+        if result.verdict == "reject":
+            return result
+        if vision_transcriber is None:
             return result
         return _try_vision_fallback(
             job,
@@ -285,7 +284,7 @@ def run_page(
                 verdict=last_attempt.verdict,
             )
 
-        # Reject = too empty / not worth AI. Skip diagnostician and vision.
+        # Reject = composite too low to retry profitably. Skip diagnostician/vision.
         if last_attempt.verdict == "reject":
             return RunResult(
                 page=load_page(job, page_index),
@@ -699,6 +698,7 @@ def _quality_to_dict(quality: PageQuality, *, line_count: int | None = None) -> 
         "repetition_char": quality.repetition_char,
         "mean_syllables_per_line": quality.mean_syllables_per_line,
         "short_line_ratio": quality.short_line_ratio,
+        "ocr_confidence": quality.ocr_confidence,
     }
     if line_count is not None:
         payload["line_count"] = line_count

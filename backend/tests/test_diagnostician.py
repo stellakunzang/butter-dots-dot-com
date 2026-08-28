@@ -42,8 +42,12 @@ def _quality(composite: float = 0.6) -> PageQuality:
         tibetan_only_composite_score=composite,
         tibetan_syllable_count=10,
         latin_letter_count=0,
+        plus_sign_count=0,
         repetition_run_length=0,
         repetition_char="",
+        mean_syllables_per_line=10.0,
+        short_line_ratio=0.0,
+        ocr_confidence=0.8,
     )
 
 
@@ -106,28 +110,25 @@ def image_file(tmp_path: Path) -> Path:
 
 
 class TestParseVerdict:
-    def test_retry_with_settings(self):
+    def test_retry_with_use_tps(self, image_file):
         client = _FakeClient(
             _FakeResponse(
                 content=[
                     _FakeToolUse(
                         name="retry_with_settings",
                         input={
-                            "settings_overrides": {"k_factor": 3.0},
-                            "rationale": "missed lines",
+                            "settings_overrides": {"use_tps": True},
+                            "rationale": "curved lines",
                         },
                     )
                 ]
             )
         )
         verdict = Diagnostician(client=client)(
-            image_path=Path("/dev/null"), ocr_text="x", quality=_quality(), prior_attempts=[]
+            image_path=image_file, ocr_text="x", quality=_quality(), prior_attempts=[]
         )
-        # /dev/null exists on POSIX; the open is fine — payload bytes aren't
-        # parsed by the diagnostician.
         assert isinstance(verdict, RetryWithSettings)
-        assert verdict.settings_overrides == {"k_factor": 3.0}
-        assert verdict.rationale == "missed lines"
+        assert verdict.settings_overrides == {"use_tps": True}
 
     def test_accurate_as_sanskrit(self, image_file):
         client = _FakeClient(

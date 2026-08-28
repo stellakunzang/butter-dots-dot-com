@@ -35,6 +35,7 @@ def test_save_and_load_provider_keyed_vision(job):
         1,
         transcript={"text": "claude", "notes": None},
         quality={"composite_score": 0.8},
+        spellcheck_errors=[{"word": "x", "error_type": "unknown_word"}],
         provider="anthropic",
     )
     save_vision_transcript(
@@ -46,7 +47,9 @@ def test_save_and_load_provider_keyed_vision(job):
     )
     page = load_page(job, 1)
     assert page.vision_by_provider["anthropic"]["transcript"]["text"] == "claude"
+    assert page.vision_by_provider["anthropic"]["spellcheck_errors"][0]["word"] == "x"
     assert page.vision_by_provider["gemini"]["quality"]["composite_score"] == 0.9
+    assert page.vision_by_provider["gemini"]["spellcheck_errors"] is None
     assert page.vision_transcript is None  # legacy path unused
 
 
@@ -64,17 +67,19 @@ def test_compare_vision_runs_both_providers(job):
         job,
         1,
         providers=("anthropic", "gemini"),
-        spellcheck=lambda text: [],
+        spellcheck=lambda text: [{"word": "stub", "error_type": "unknown_word"}],
         transcriber_factory=factory,
     )
     assert {r.provider for r in result.results} == {"anthropic", "gemini"}
     assert all(r.error is None for r in result.results)
     assert all(r.composite_score is not None for r in result.results)
+    assert all(r.spellcheck_errors for r in result.results)
 
     page = load_page(job, 1)
     assert "anthropic" in page.vision_by_provider
     assert "gemini" in page.vision_by_provider
     assert page.vision_by_provider["anthropic"]["transcript"]["text"] == "བཀྲ་ཤིས།"
+    assert page.vision_by_provider["anthropic"]["spellcheck_errors"][0]["word"] == "stub"
 
 
 def test_compare_vision_isolates_provider_errors(job):

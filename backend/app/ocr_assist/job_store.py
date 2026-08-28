@@ -96,7 +96,8 @@ class PageState:
     ``vision_transcript`` / ``vision_quality`` are the legacy single-provider
     T-07 fallback paths (``vision_ocr.json``). ``vision_by_provider`` holds
     on-demand compare results keyed by provider name (``anthropic``,
-    ``gemini``), each value ``{"transcript": dict, "quality": dict|None}``.
+    ``gemini``), each value
+    ``{"transcript": dict, "quality": dict|None, "spellcheck_errors": list|None}``.
     """
     index: int
     image_path: Path
@@ -321,6 +322,7 @@ def save_vision_transcript(
     *,
     transcript: dict[str, Any],
     quality: dict[str, Any] | None = None,
+    spellcheck_errors: list[dict[str, Any]] | None = None,
     provider: str | None = None,
 ) -> None:
     """Persist a vision-OCR transcript + quality next to the page.
@@ -331,9 +333,9 @@ def save_vision_transcript(
     and gives the review UI a single well-known path for the fallback read.
 
     When ``provider`` is set (``anthropic`` / ``gemini``), writes
-    ``vision_<provider>.json`` (+ quality). When omitted, writes the legacy
-    ``vision_ocr.json`` paths used by the batch runner's single-provider
-    fallback.
+    ``vision_<provider>.json`` (+ quality + optional spellcheck). When omitted,
+    writes the legacy ``vision_ocr.json`` paths used by the batch runner's
+    single-provider fallback.
     """
     page_dir = job.root / _page_dir_name(page_index)
     if not page_dir.is_dir():
@@ -344,6 +346,10 @@ def save_vision_transcript(
         _atomic_write_json(page_dir / _vision_provider_transcript_file(name), transcript)
         if quality is not None:
             _atomic_write_json(page_dir / _vision_provider_quality_file(name), quality)
+        if spellcheck_errors is not None:
+            _atomic_write_json(
+                page_dir / _vision_provider_spellcheck_file(name), spellcheck_errors
+            )
         return
 
     _atomic_write_json(page_dir / VISION_TRANSCRIPT_FILE, transcript)
@@ -492,6 +498,10 @@ def _vision_provider_quality_file(provider: str) -> str:
     return f"vision_{provider}_quality.json"
 
 
+def _vision_provider_spellcheck_file(provider: str) -> str:
+    return f"vision_{provider}_spellcheck.json"
+
+
 def _load_vision_by_provider(page_dir: Path) -> dict[str, dict[str, Any]]:
     """Load provider-keyed vision artifacts if present."""
     out: dict[str, dict[str, Any]] = {}
@@ -500,11 +510,17 @@ def _load_vision_by_provider(page_dir: Path) -> dict[str, dict[str, Any]]:
         if not transcript_path.is_file():
             continue
         quality_path = page_dir / _vision_provider_quality_file(provider)
+        spellcheck_path = page_dir / _vision_provider_spellcheck_file(provider)
         out[provider] = {
             "transcript": json.loads(transcript_path.read_text(encoding="utf-8")),
             "quality": (
                 json.loads(quality_path.read_text(encoding="utf-8"))
                 if quality_path.is_file()
+                else None
+            ),
+            "spellcheck_errors": (
+                json.loads(spellcheck_path.read_text(encoding="utf-8"))
+                if spellcheck_path.is_file()
                 else None
             ),
         }

@@ -35,6 +35,7 @@ class ProviderVisionResult:
     provider: str
     transcript: dict[str, Any] | None = None
     quality: dict[str, Any] | None = None
+    spellcheck_errors: list[dict[str, Any]] | None = None
     composite_score: float | None = None
     decision: str | None = None
     error: str | None = None
@@ -91,6 +92,7 @@ def compare_vision_providers(
                 page_index,
                 transcript=transcript_to_dict(transcript),
                 quality=quality_dict,
+                spellcheck_errors=list(spellcheck_errors),
                 provider=provider,
             )
             out.results.append(
@@ -98,6 +100,7 @@ def compare_vision_providers(
                     provider=provider,
                     transcript=transcript_to_dict(transcript),
                     quality=quality_dict,
+                    spellcheck_errors=list(spellcheck_errors),
                     composite_score=quality.composite_score,
                     decision=decision,
                 )
@@ -134,6 +137,7 @@ def _quality_to_dict(quality: PageQuality, *, line_count: int | None = None) -> 
         "repetition_char": quality.repetition_char,
         "mean_syllables_per_line": quality.mean_syllables_per_line,
         "short_line_ratio": quality.short_line_ratio,
+        "ocr_confidence": quality.ocr_confidence,
     }
     if line_count is not None:
         payload["line_count"] = line_count

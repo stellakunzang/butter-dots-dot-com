@@ -5,7 +5,7 @@ from pathlib import Path
 from app.ocr_assist.job_store import Job, PageState
 from app.ocr_assist.quality import PageQuality
 from app.ocr_assist.runner import RunResult
-from app.ocr_assist.run_job import _print_job_banner, _print_summary
+from app.ocr_assist.run_job import _maybe_open_artifacts, _print_job_banner, _print_summary
 
 
 def _make_page(index: int) -> PageState:
@@ -25,8 +25,28 @@ def _make_quality(score: float = 0.9) -> PageQuality:
         tibetan_only_composite_score=score,
         tibetan_syllable_count=10,
         latin_letter_count=0,
+        plus_sign_count=0,
         repetition_run_length=0,
         repetition_char="",
+        mean_syllables_per_line=10.0,
+        short_line_ratio=0.0,
+        ocr_confidence=score,
+    )
+
+
+def _make_job(tmp_path: Path, *, with_docx: bool = False) -> Job:
+    job_root = tmp_path / "jobdir"
+    job_root.mkdir()
+    if with_docx:
+        (job_root / "output.docx").write_bytes(b"PK")
+    return Job(
+        id="deadbeefcafe",
+        root=job_root,
+        source_file="x.pdf",
+        baseline_settings={},
+        created_at=datetime.now(timezone.utc),
+        page_count=2,
+        status="in_progress",
     )
 
 
@@ -69,21 +89,93 @@ def test_print_summary_mixed(capsys, tmp_path):
 
 
 def test_print_job_banner(capsys, tmp_path):
-    job_root = tmp_path / "jobdir"
-    job_root.mkdir()
-    job = Job(
-        id="deadbeefcafe",
-        root=job_root,
-        source_file="x.pdf",
-        baseline_settings={},
-        created_at=datetime.now(timezone.utc),
-        page_count=2,
-        status="in_progress",
-    )
+    job = _make_job(tmp_path)
     _print_job_banner("created", job)
     out = capsys.readouterr().out
     assert "created job" in out
     assert "job-id:     deadbeefcafe" in out
     assert "directory:" in out
-    assert str(job_root.resolve()) in out
+    assert str(job.root.resolve()) in out
     assert "output.docx" in out
+
+
+def test_maybe_open_artifacts_open_and_reveal(capsys, tmp_path):
+    job = _make_job(tmp_path, with_docx=True)
+    calls: list[list[str]] = []
+
+    def fake_run(argv, check=False):
+        calls.append(list(argv))
+        return None
+
+    _maybe_open_artifacts(
+        job,
+        open_docx=True,
+        reveal=True,
+        platform="darwin",
+        runner=fake_run,
+    )
+    out = capsys.readouterr().out
+    root = str(job.root.resolve())
+    docx = str((job.root / "output.docx").resolve())
+    assert ["open", "-R", root] in calls
+    assert ["open", docx] in calls
+    assert "revealing job directory" in out
+    assert "opening docx:" in out
+
+
+def test_maybe_open_artifacts_missing_docx(capsys, tmp_path):
+    job = _make_job(tmp_path, with_docx=False)
+    calls: list[list[str]] = []
+
+    def fake_run(argv, check=False):
+        calls.append(list(argv))
+        return None
+
+    _maybe_open_artifacts(
+        job,
+        open_docx=True,
+        reveal=False,
+        platform="darwin",
+        runner=fake_run,
+    )
+    err = capsys.readouterr().err
+    assert calls == []
+    assert "--open requested but no docx" in err
+
+
+def test_maybe_open_artifacts_noop_when_flags_off(tmp_path):
+    job = _make_job(tmp_path, with_docx=True)
+    calls: list[list[str]] = []
+
+    def fake_run(argv, check=False):
+        calls.append(list(argv))
+        return None
+
+    _maybe_open_artifacts(
+        job,
+        open_docx=False,
+        reveal=False,
+        platform="darwin",
+        runner=fake_run,
+    )
+    assert calls == []
+
+
+def test_maybe_open_artifacts_skips_non_darwin(capsys, tmp_path):
+    job = _make_job(tmp_path, with_docx=True)
+    calls: list[list[str]] = []
+
+    def fake_run(argv, check=False):
+        calls.append(list(argv))
+        return None
+
+    _maybe_open_artifacts(
+        job,
+        open_docx=True,
+        reveal=True,
+        platform="linux",
+        runner=fake_run,
+    )
+    err = capsys.readouterr().err
+    assert calls == []
+    assert "macOS-only" in err
