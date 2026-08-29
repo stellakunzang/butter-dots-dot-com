@@ -13,7 +13,7 @@ from app.ocr_assist.providers.media import guess_media_type
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_MODEL = "gemini-2.5-pro"
+DEFAULT_MODEL = "gemini-3.1-pro-preview"
 
 _SYSTEM_PROMPT = """You are a Tibetan-script OCR system. Transcribe the page image exactly as written. \
 Do not correct spelling, do not normalize variant glyphs, do not expand abbreviations, do not interpret meaning. \
@@ -64,7 +64,7 @@ class GeminiVisionTranscriber:
         except ImportError as exc:
             raise RuntimeError(
                 "Gemini vision provider requires google-genai. "
-                "Install with: pip install 'google-genai>=1.0.0'"
+                "Install backend deps: pip install -r requirements.txt"
             ) from exc
 
         resolved = resolve_gemini_api_key(api_key)

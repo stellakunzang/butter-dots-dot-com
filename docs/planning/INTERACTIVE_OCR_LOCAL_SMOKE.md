@@ -56,13 +56,12 @@ GEMINI_API_KEY=...   # only if testing Gemini vision
 
 Optional: `DIAGNOSTICIAN_PROVIDER`, `VISION_OCR_PROVIDER`.
 
-### 4. Gemini optional dependency (vision A/B only)
+### 4. Gemini (vision A/B)
 
-`google-genai` is not pinned in `requirements.txt` (httpx conflict). For local Gemini trials:
+`google-genai` is pinned in `backend/requirements.txt` (with `httpx>=0.28.1`).
+A normal `pip install -r requirements.txt` is enough — no separate install step.
 
-```bash
-pip install 'google-genai>=1.0.0'
-```
+Set `GEMINI_API_KEY` (or `GOOGLE_API_KEY`) in `backend/.env` when testing Gemini.
 
 ### 5. Test PDF
 

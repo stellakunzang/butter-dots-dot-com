@@ -273,9 +273,8 @@ venv/bin/python -m app.ocr_assist.run_job /path/to/book.pdf \
   --jobs-root ./jobs --enable-ai -v
 ```
 
-If you previously `pip install`'d `google-genai` for Gemini trials, re-pin
-`httpx==0.26.0` afterward so FastAPI’s TestClient keeps working
-(`pip install 'httpx==0.26.0'`).
+Gemini vision is included in `backend/requirements.txt` (`google-genai`). Set
+`GEMINI_API_KEY` when comparing with Gemini in the UI or CLI.
 
 ### Browser UI
 

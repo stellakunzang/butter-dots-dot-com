@@ -7,6 +7,7 @@ Usage::
     python -m app.ocr_assist.run_job book.pdf --pages 3,7,12
     python -m app.ocr_assist.run_job --job-id <id> --rerun-pages 7
     python -m app.ocr_assist.run_job book.pdf --enable-ai
+    python -m app.ocr_assist.run_job book.pdf --open --reveal
 
 Creates a fresh job under ``--jobs-root`` (default ``./jobs``), or loads an
 existing job via ``--job-id``, then runs pages through ``runner.run_page``.
@@ -22,8 +23,11 @@ from __future__ import annotations
 import argparse
 import logging
 import os
+import subprocess
 import sys
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 from app.config import settings
 from app.ocr_assist.job_store import create_job, load_job, reset_page, OUTPUT_DOCX_FILE, Job
@@ -120,6 +124,17 @@ def main(argv: list[str] | None = None) -> int:
             "Composite score below which a page rejects without retry "
             f"(default: {DEFAULT_THRESHOLDS.reject})."
         ),
+    )
+    parser.add_argument(
+        "--open",
+        action="store_true",
+        dest="open_docx",
+        help="After the run, open output.docx in the default macOS app (if present).",
+    )
+    parser.add_argument(
+        "--reveal",
+        action="store_true",
+        help="After the run, reveal the job directory in Finder (macOS).",
     )
     parser.add_argument(
         "--verbose", "-v", action="store_true", help="Verbose logging."
@@ -247,6 +262,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     _print_summary(results, job=job)
+    _maybe_open_artifacts(job, open_docx=args.open_docx, reveal=args.reveal)
     return 0
 
 
@@ -310,6 +326,50 @@ def _print_summary(results: list[RunResult], *, job: Job | None = None) -> None:
             f"  docx:       (not written yet — no finalized pages; "
             f"expected at {docx_path})"
         )
+
+
+def _maybe_open_artifacts(
+    job: Job,
+    *,
+    open_docx: bool,
+    reveal: bool,
+    platform: str | None = None,
+    runner: Callable[..., Any] | None = None,
+) -> None:
+    """Optionally open output.docx and/or reveal the job dir (macOS ``open``).
+
+    ``platform`` and ``runner`` are injectable for tests (default:
+    ``sys.platform`` and ``subprocess.run``).
+    """
+    if not open_docx and not reveal:
+        return
+
+    plat = platform if platform is not None else sys.platform
+    run = runner if runner is not None else subprocess.run
+    if plat != "darwin":
+        print(
+            "warning: --open/--reveal are macOS-only; skipping "
+            f"(platform={plat!r})",
+            file=sys.stderr,
+        )
+        return
+
+    root = _job_root_abs(job)
+    if reveal:
+        print(f"revealing job directory in Finder: {root}")
+        run(["open", "-R", str(root)], check=False)
+    if open_docx:
+        docx_path = root / OUTPUT_DOCX_FILE
+        if docx_path.is_file():
+            print(f"opening docx: {docx_path}")
+            run(["open", str(docx_path)], check=False)
+        else:
+            print(
+                f"note: --open requested but no docx at {docx_path} "
+                "(no finalized pages yet)",
+                file=sys.stderr,
+            )
+
 
 if __name__ == "__main__":
     raise SystemExit(main())

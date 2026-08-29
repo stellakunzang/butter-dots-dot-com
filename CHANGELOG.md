@@ -30,6 +30,9 @@ and this project uses
 - Public `/interactive-ocr` early-access waitlist (Formspree via
   `/api/ocr-waitlist`), plus an Interactive OCR nav link and updated spellcheck
   page copy mentioning the attested word corpus.
+- OCR CLI `--open` / `--reveal` helpers on macOS after a job finishes; Gemini
+  vision pinned via `google-genai` in requirements (httpx/FastAPI bumps for T-15)
+  with an updated default compare model.
 
 ### Changed
 
