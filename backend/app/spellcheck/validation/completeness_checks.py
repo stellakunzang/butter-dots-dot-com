@@ -108,7 +108,7 @@ def check_syllable_structure_completeness(syllable: str, parsed: Dict[str, any])
     if len(base_consonants) > 5:
         errors_found.append({
             'error_type': 'too_many_consonants',
-            'message': f'Syllable has {len(base_consonants)} consonants - likely multiple syllables without tsheg separator',
+            'message': f'Syllable has {len(base_consonants)} consonants - likely multiple syllables without tsek (་) separator',
             'severity': 'error',
             'component': 'structure',
             'priority': 4

@@ -12,6 +12,9 @@ and this project uses
 
 ### Added
 
+- Learn section at `/learn`: hub page plus a beginner guide to typing Tibetan
+  (Wylie, Mac/Windows/phone keyboards, Jomolhari, and why Word / Pages /
+  Google Docs disagree about Tibetan fonts).
 - Interactive OCR Assist foundation on main (local-dev only, gated by
   `OCR_ASSIST_LOCAL`): per-page BDRC jobs with quality scoring, Claude
   diagnostician retries, optional vision OCR fallback, clean DOCX export, CLI
@@ -36,6 +39,9 @@ and this project uses
 
 ### Changed
 
+- Spelling Rules and Sentence Structure now live under `/learn`. Old URLs
+  redirect. The header is Spell Checker, Interactive OCR, and Learn;
+  Changelog moved to the footer.
 - OCR quality scoring now weights Phase-2 unknown-syllable rate, escalates
   near-empty pages for human rotate/retry instead of hard-rejecting them, exposes
   an `ocr_confidence` signal, and blocks auto-accept when structural or unknown
