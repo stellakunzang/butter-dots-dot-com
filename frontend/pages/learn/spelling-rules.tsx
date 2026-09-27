@@ -1,5 +1,6 @@
 import type {NextPage} from 'next'
-import {Layout, Section, Card, PageTitle, SectionHeading} from '../components'
+import Link from 'next/link'
+import {Layout, Section, Card, PageTitle, SectionHeading} from '../../components'
 
 const SpellingRules: NextPage = () => {
   return (
@@ -7,11 +8,13 @@ const SpellingRules: NextPage = () => {
       title="Tibetan Spelling Rules - Butter Dots"
       description="A guide to classical Tibetan syllable structure and spelling rules"
       showBackLink
+      backHref="/learn"
+      backLabel="← Learn"
     >
       <div className="mb-12 max-w-4xl mx-auto border-b-2 border-gray-200 pb-8">
         <div className="mb-4">
           <span className="text-sm uppercase tracking-wider text-gray-500 font-medium">
-            Reference Guide
+            Learn
           </span>
         </div>
         <PageTitle>Tibetan Spelling Rules</PageTitle>
@@ -88,9 +91,7 @@ const SpellingRules: NextPage = () => {
               <tr className="border-t border-gray-100">
                 <td colSpan={7} className="px-4 py-3 text-center">
                   <span className="text-2xl text-gray-900 mr-4">བསྒྲུབ</span>
-                  <span className="text-gray-500 text-sm">
-                    (<em>bsgrub</em> — to accomplish)
-                  </span>
+                  <span className="text-gray-500 text-sm">to accomplish</span>
                 </td>
               </tr>
             </tbody>
@@ -119,10 +120,16 @@ const SpellingRules: NextPage = () => {
             <p className="mb-3">
               Sits above the root. Only three letters can be superscripts:
             </p>
-            <div className="flex gap-4 text-2xl mb-3">
-              <span title="ra-mgo">ར</span>
-              <span title="la-mgo">ལ</span>
-              <span title="sa-mgo">ས</span>
+            <div className="grid grid-cols-3 gap-2 text-sm mb-3">
+              <div>
+                <span className="text-2xl mr-2">ར</span> ར་མགོ
+              </div>
+              <div>
+                <span className="text-2xl mr-2">ལ</span> ལ་མགོ
+              </div>
+              <div>
+                <span className="text-2xl mr-2">ས</span> ས་མགོ
+              </div>
             </div>
             <p className="text-sm text-gray-500">
               Each superscript only combines with specific roots. For example, ས
@@ -134,44 +141,43 @@ const SpellingRules: NextPage = () => {
             <p className="mb-3">
               Written below the root consonant. Four possible subscripts:
             </p>
-            <div className="flex gap-4 items-end mb-3">
-              <span className="text-2xl" title="ya-btags">
-                ྱ
-              </span>
-              <span className="text-2xl" title="ra-btags">
-                ྲ
-              </span>
-              <span className="text-2xl" title="la-btags">
-                ླ
-              </span>
-              <span className="text-2xl" title="wa-zur">
-                ྭ
-              </span>
+            <div className="grid grid-cols-2 gap-2 text-sm mb-3">
+              <div>
+                <span className="text-2xl mr-2">ྱ</span> ཡ་བཏགས
+              </div>
+              <div>
+                <span className="text-2xl mr-2">ྲ</span> ར་བཏགས
+              </div>
+              <div>
+                <span className="text-2xl mr-2">ླ</span> ལ་བཏགས
+              </div>
+              <div>
+                <span className="text-2xl mr-2">ྭ</span> ཝ་ཟུར
+              </div>
             </div>
             <p className="text-sm text-gray-500">
               Like superscripts, each subscript only combines with certain
-              roots. For example, ya-btags (ྱ) can appear under ཀ (ཀྱ) but not
-              under ང.
+              roots. For example, ཡ་བཏགས can appear under ཀ (ཀྱ) but not under
+              ང.
             </p>
           </Card>
 
-          <Card title="Vowel" variant="bordered">
+          <Card title="Vowel (དབྱངས)" variant="bordered">
             <p className="mb-3">
-              Marked above the stack. The default vowel is <em>a</em>{' '}
-              (unmarked).
+              Marked above or below the stack. The default vowel is unmarked ཨ.
             </p>
             <div className="grid grid-cols-2 gap-2 text-sm mb-3">
               <div>
-                <span className="text-xl mr-2">ི</span> <em>gigu</em>
+                <span className="text-xl mr-2">ི</span> གི་གུ
               </div>
               <div>
-                <span className="text-xl mr-2">ུ</span> <em>shabkyu</em>
+                <span className="text-xl mr-2">ུ</span> ཞབས་ཀྱུ
               </div>
               <div>
-                <span className="text-xl mr-2">ེ</span> <em>drangbu</em>
+                <span className="text-xl mr-2">ེ</span> འགྲེང་བུ
               </div>
               <div>
-                <span className="text-xl mr-2">ོ</span> <em>naro</em>
+                <span className="text-xl mr-2">ོ</span> ན་རོ
               </div>
             </div>
             <p className="text-sm text-gray-500">
@@ -234,15 +240,27 @@ const SpellingRules: NextPage = () => {
           The determining factor is the <strong>suffix</strong> of the preceding
           word (or the absence of a suffix).
         </p>
+        <p className="mb-8 text-gray-500">
+          This section covers which form to write. For what each particle{' '}
+          <em>does</em> — and how to use particles to find where words begin and
+          end — see{' '}
+          <Link
+            href="/learn/sentence-structure"
+            className="text-gray-700 underline underline-offset-2 hover:text-gray-900"
+          >
+            Reading a Tibetan Sentence
+          </Link>
+          .
+        </p>
 
         {/* Relational */}
         <SectionHeading as="h3">
           Relational Particle{' '}
-          <span className="text-gray-500 font-light">(of, &apos;s)</span>
+          <span className="text-gray-500 font-light">(འབྲེལ་སྒྲ)</span>
         </SectionHeading>
         <p className="mb-4">
-          Marks possession or association. The correct form depends on the
-          preceding word&apos;s suffix:
+          Marks possession or association (of, &apos;s). The correct form
+          depends on the preceding word&apos;s suffix:
         </p>
         <ParticleTable
           rows={[
@@ -283,7 +301,7 @@ const SpellingRules: NextPage = () => {
         {/* Agentive */}
         <SectionHeading as="h3" className="mt-10">
           Agentive Particle{' '}
-          <span className="text-gray-500 font-light">(by, with)</span>
+          <span className="text-gray-500 font-light">(བྱེད་སྒྲ)</span>
         </SectionHeading>
         <p className="mb-4">
           Marks the agent, instrument, reason, or source of an action — roughly
@@ -330,11 +348,12 @@ const SpellingRules: NextPage = () => {
         {/* Locative */}
         <SectionHeading as="h3" className="mt-10">
           Locative Particle{' '}
-          <span className="text-gray-500 font-light">(in, at, to)</span>
+          <span className="text-gray-500 font-light">(ལ་དོན)</span>
         </SectionHeading>
         <p className="mb-4">
-          Marks location or direction. The locative has more forms than the
-          other particles:
+          Marks location or direction (in, at, to). The ལ་དོན has more forms
+          than the other particles. རུ is rare — after འ or no suffix, ར is the
+          usual form.
         </p>
         <ParticleTable
           rows={[
@@ -373,6 +392,7 @@ const SpellingRules: NextPage = () => {
               suffixes: 'འ  or no suffix',
               example: 'བཀའ་རུ་',
               exampleGloss: 'into the command; according to the decree',
+              rare: true,
             },
             {
               particle: 'ར',
@@ -435,7 +455,7 @@ const SpellingRules: NextPage = () => {
           <ErrorEntry
             type="Invalid prefix combination"
             example="ཧཧིབ་"
-            description="The letter before the root is not a valid prefix for that root. ཧ (ha) cannot act as a prefix."
+            description="The letter before the root is not a valid prefix for that root. ཧ cannot act as a prefix."
             fix="Only the five prefix letters (ག ད བ མ འ) can precede a root, and only in attested combinations."
           />
           <ErrorEntry
@@ -447,7 +467,7 @@ const SpellingRules: NextPage = () => {
           <ErrorEntry
             type="Invalid subscript combination"
             example="ངྱི"
-            description="The subscript below the root is not valid for that root. ང (nga) cannot take a ya-btags subscript."
+            description="The subscript below the root is not valid for that root. ང cannot take ཡ་བཏགས."
             fix="Subscripts (ྱ ྲ ླ ྭ) only combine with certain roots."
           />
           <ErrorEntry
@@ -484,6 +504,7 @@ interface ParticleRow {
   example: string
   exampleGloss: string
   lenient?: boolean
+  rare?: boolean
 }
 
 function ParticleTable({rows}: {rows: ParticleRow[]}) {
@@ -509,7 +530,7 @@ function ParticleTable({rows}: {rows: ParticleRow[]}) {
               key={row.particle}
               className={[
                 i < rows.length - 1 ? 'border-b border-gray-100' : '',
-                row.lenient ? 'bg-gray-50' : 'bg-white',
+                row.lenient || row.rare ? 'bg-gray-50' : 'bg-white',
               ].join(' ')}
             >
               <td className="px-4 py-3">
@@ -517,6 +538,11 @@ function ParticleTable({rows}: {rows: ParticleRow[]}) {
                 {row.lenient && (
                   <span className="ml-2 text-xs text-gray-400 align-middle">
                     lenient
+                  </span>
+                )}
+                {row.rare && (
+                  <span className="ml-2 text-xs text-gray-400 align-middle">
+                    rare
                   </span>
                 )}
               </td>
