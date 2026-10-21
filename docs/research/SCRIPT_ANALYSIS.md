@@ -1,7 +1,7 @@
 # Analysis: Paul Hackett's Tibetan Spell Checker (2011)
 
 **Source**: Columbia University, Paul G. Hackett  
-**License**: GNU GPL (we can use it!)  
+**License**: GNU GPL v3. The VBA source is not in this repository. At least one rule table (`backend/app/spellcheck/rules/stacking.py`) was derived from it. A GPL derivation stays GPL. This note is not a license grant, and the repository has no project-wide LICENSE until that is resolved.  
 **Approach**: "Exclusive" rule-based (identifies INVALID patterns)
 
 ---
@@ -184,7 +184,7 @@ Sanskrit approach
 ✅ Complete set of invalid Tibetan patterns  
 ✅ No need to research rules from scratch  
 ✅ Proven approach (used since 2011)  
-✅ GPL license (we can use/modify)  
+✅ GPL v3: using the patterns means those portions stay under GPL, not that they can be relicensed  
 ✅ Academic credibility (Columbia University)
 
 ---
@@ -260,7 +260,7 @@ class TibetanSpellChecker:
 - ✅ Reviewed: Paul Hackett's VBA spell checker
 - ✅ Documented: 13 rule categories
 - ✅ Identified: All regex patterns to port
-- ✅ License: GPL, can use/modify
+- ✅ License: GPL v3. Deriving from it does not allow relicensing those portions.
 - ✅ Approach: Exclusive (find invalid, not validate valid)
 
 **Next**: Port patterns to Python in Task 5

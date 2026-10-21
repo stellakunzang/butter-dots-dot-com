@@ -2,9 +2,12 @@
 Download BDRC OCR models from GitHub releases.
 
 The BDRC OCR models are not checked into the repository (too large).
-Run this script once before starting the server:
+Run this script once before starting the server locally:
 
     python3 scripts/download_models.py
+
+The backend image runs the same script at build time
+(`RUN python scripts/download_models.py` in `backend/Dockerfile`).
 
 Models are saved to backend/OCRModels/ (gitignored).
 Line detection models are saved to backend/Models/ (gitignored).

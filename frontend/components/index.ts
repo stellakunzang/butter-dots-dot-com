@@ -1,7 +1,6 @@
 export { Layout } from './Layout'
 export { Button } from './Button'
 export { Section } from './Section'
-export { CodeBlock } from './CodeBlock'
 export { Card } from './Card'
 export { PageTitle, SectionHeading } from './Typography'
 export { TabButton } from './ui/TabButton'

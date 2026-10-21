@@ -64,20 +64,19 @@ Implemented on `fix/deps-and-upload-hardening`, not committed yet.
 
 ### A2. Repo hygiene — `chore/repo-cleanup`
 
-- [ ] **S** Delete boilerplate/dead code: `frontend/pages/api/hello.ts`,
-      `frontend/public/vercel.svg`, `frontend/components/CodeBlock.tsx` (+ its
-      export in `components/index.ts:5`), `backend/BDRC/utils/`.
-- [ ] **S** Move loose files out of `backend/`: `check_file.py` →
-      `scripts/`; `sample_text.*`, `spellchecker_test.rtf`, `test_with_errors.*`
-      → `tests/fixtures/` (or delete if unused); `MANUAL_TESTING.md` → `docs/`.
-- [ ] **S** Check `backend/scripts/download_models.py` against the Dockerfile;
-      delete or document.
-- [ ] **S** Add `LICENSE` and a third-party notice (BDRC is MIT). Confirm
-      whether any GPL code (Paul Hackett's spellchecker,
-      `docs/research/SCRIPT_ANALYSIS.md:4`) was actually incorporated, and word
-      that doc accurately.
-- [ ] **S** Prune stale remote branches (36 remote). Never push
-      `feat/lexicon-pipe-ingest` (third-party dictionary dumps).
+- [x] **S** Deleted `frontend/pages/api/hello.ts`, `frontend/public/vercel.svg`,
+      `frontend/components/CodeBlock.tsx` (and its export), and
+      `backend/BDRC/utils/` (nothing imported it).
+- [x] **S** `check_file.py` → `backend/scripts/` (import path updated).
+      Sample texts → `backend/tests/fixtures/`. `MANUAL_TESTING.md` → `docs/`.
+- [x] **S** `download_models.py` matches the Dockerfile `RUN` and now says so.
+      Kept.
+- [x] **S** `THIRD_PARTY_NOTICES.md` records BDRC as MIT. No project `LICENSE`:
+      `stacking.py` says a rule table was derived from Hackett's GPL v3 VBA,
+      and that source is not in the tree. `SCRIPT_ANALYSIS.md` no longer says
+      the GPL material can be relicensed.
+- [ ] **S** Prune stale remote branches. Not done here — deleting remotes
+      needs an explicit list. Do not push `feat/lexicon-pipe-ingest`.
 
 ### A3. Tests — `test/strengthen-assertions`
 

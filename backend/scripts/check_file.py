@@ -7,8 +7,8 @@ Usage: python check_file.py <input_file>
 import sys
 from pathlib import Path
 
-# Add app directory to path
-sys.path.insert(0, str(Path(__file__).parent))
+# Script lives in backend/scripts; the app package is in backend/.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from app.spellcheck.engine import TibetanSpellChecker
 

@@ -10,15 +10,15 @@ You can now manually test the spell checker with any Tibetan text file!
 
 **Inside Docker** (recommended):
 ```bash
-docker compose exec backend python3 check_file.py <your_file.txt>
+docker compose exec backend python3 scripts/check_file.py <your_file.txt>
 # or
-docker compose exec backend python3 check_file.py <your_file.rtf>
+docker compose exec backend python3 scripts/check_file.py <your_file.rtf>
 ```
 
 **Or directly** (if you have Python installed):
 ```bash
 cd backend
-python3 check_file.py <your_file.txt>
+python3 scripts/check_file.py <your_file.txt>
 ```
 
 ## Sample Files Provided
@@ -27,7 +27,7 @@ python3 check_file.py <your_file.txt>
 Clean text with no errors. Great for testing the checker doesn't flag valid text.
 
 ```bash
-docker compose exec backend python3 check_file.py sample_text.txt
+docker compose exec backend python3 scripts/check_file.py tests/fixtures/sample_text.txt
 ```
 
 **Expected output**: ✅ No errors found!
@@ -36,7 +36,7 @@ docker compose exec backend python3 check_file.py sample_text.txt
 Same as above, but in RTF format to test RTF support.
 
 ```bash
-docker compose exec backend python3 check_file.py sample_text.rtf
+docker compose exec backend python3 scripts/check_file.py tests/fixtures/sample_text.rtf
 ```
 
 **Expected output**: ✅ No errors found! (after RTF conversion)
@@ -45,7 +45,7 @@ docker compose exec backend python3 check_file.py sample_text.rtf
 Contains invalid syllables to test error detection.
 
 ```bash
-docker compose exec backend python3 check_file.py test_with_errors.txt
+docker compose exec backend python3 scripts/check_file.py tests/fixtures/test_with_errors.txt
 ```
 
 **Expected output**: 🟡 Error detected (གཀར - invalid prefix combination)
@@ -58,7 +58,7 @@ docker compose exec backend python3 check_file.py test_with_errors.txt
 cp /path/to/your/tibetan_document.rtf backend/
 
 # Run the checker
-docker compose exec backend python3 check_file.py tibetan_document.rtf
+docker compose exec backend python3 scripts/check_file.py tibetan_document.rtf
 ```
 
 ### Option 2: Mount a volume
@@ -72,12 +72,12 @@ volumes:
 Then:
 ```bash
 docker compose up -d
-docker compose exec backend python3 check_file.py texts/your_file.txt
+docker compose exec backend python3 scripts/check_file.py texts/your_file.txt
 ```
 
 ### Option 3: Use stdin (future enhancement)
 ```bash
-echo "བོད་ཡིག" | docker compose exec -T backend python3 check_file.py -
+echo "བོད་ཡིག" | docker compose exec -T backend python3 scripts/check_file.py -
 ```
 
 ## Understanding the Output
@@ -173,7 +173,7 @@ The spell checker automatically extracts text from RTF files! This means:
 
 This makes it scriptable:
 ```bash
-if docker compose exec backend python3 check_file.py my_text.txt; then
+if docker compose exec backend python3 scripts/check_file.py my_text.txt; then
     echo "Text is clean!"
 else
     echo "Text has errors"
