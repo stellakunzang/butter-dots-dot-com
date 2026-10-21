@@ -9,15 +9,19 @@ pydantic==2.10.6
 pydantic-settings==2.1.0
 
 # Database
+# psycopg2-binary stays: SQLAlchemy uses it when DATABASE_URL is Postgres
+# (Phase 2 dictionary). There is no Alembic migration path in this repo.
 sqlalchemy==2.0.25
 psycopg2-binary==2.9.9
-alembic==1.13.1
 
 # File handling
-python-multipart==0.0.6
+# 0.0.18+ fixes CVE-2024-24762 and CVE-2024-53981; 0.0.32 is current.
+python-multipart==0.0.32
+
+# EmailStr on the spellcheck upload form
+email-validator==2.1.0
 
 # Tibetan text processing
-regex==2023.12.25
 striprtf==0.0.29
 
 # --- PDF / OCR pipeline ---
@@ -34,7 +38,9 @@ opencv-python-headless==4.9.0.80
 numpy==1.26.4
 scipy==1.12.0
 pyewts==0.2.0
-pypdf==4.1.0
+# 6.21.1 patches the JPEG and content-stream advisories affecting 4.1.0.
+# Call sites use PdfReader / PdfWriter only.
+pypdf==6.21.1
 pyctcdecode==0.5.0
 # Thin-plate-spline dewarping (imports as ``tps``); used when use_tps=True
 thin-plate-spline==1.2.2
@@ -48,11 +54,9 @@ python-docx==1.1.0
 # Pillow (image handling)
 Pillow==10.2.0
 
-# HTTP client / testing
+# HTTP client
 # httpx>=0.28.1 required by google-genai (T-15); FastAPI TestClient OK on 0.28.x
 httpx==0.28.1
-pytest==7.4.4
-pytest-asyncio==0.23.3
 
 # Claude API (interactive OCR diagnostician — T-06)
 anthropic==0.105.2

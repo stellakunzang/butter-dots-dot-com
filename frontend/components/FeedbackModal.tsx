@@ -12,6 +12,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ open, onClose }) =
   const [type, setType] = useState<FeedbackType>('bug')
   const [description, setDescription] = useState('')
   const [email, setEmail] = useState('')
+  const [company, setCompany] = useState('')
   const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle')
   const [errorMessage, setErrorMessage] = useState('')
 
@@ -22,6 +23,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ open, onClose }) =
     setType('bug')
     setDescription('')
     setEmail('')
+    setCompany('')
     setStatus('idle')
     setErrorMessage('')
   }, [])
@@ -70,6 +72,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ open, onClose }) =
           type,
           description: description.trim(),
           ...(email.trim() && { email: email.trim() }),
+          company,
         }),
       })
 
@@ -155,6 +158,18 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ open, onClose }) =
                   }
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-gray-500 focus:ring-1 focus:ring-gray-500 resize-none"
                   required
+                />
+              </div>
+
+              <div className="absolute -left-[9999px] h-px w-px overflow-hidden" aria-hidden="true">
+                <label htmlFor="feedback-company">Company</label>
+                <input
+                  id="feedback-company"
+                  name="company"
+                  tabIndex={-1}
+                  autoComplete="off"
+                  value={company}
+                  onChange={(e) => setCompany(e.target.value)}
                 />
               </div>
 

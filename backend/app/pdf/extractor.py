@@ -116,55 +116,65 @@ def extract_scanned(pdf_bytes: bytes) -> list[PageContent]:
     Convert each PDF page to an image, run BDRC OCR, return PageContent with
     line-level text and bounding boxes.
     """
-    import io
     import cv2
     import numpy as np
-    from pdf2image import convert_from_bytes
-    from app.pdf.ocr import get_engine, OCRLine
+    from pdf2image import convert_from_bytes, pdfinfo_from_bytes
+    from app.pdf.ocr import get_engine
 
     engine = get_engine()
     if not engine.ready:
         raise RuntimeError(f"OCR engine unavailable: {engine.error}")
 
-    pil_pages = convert_from_bytes(pdf_bytes, dpi=300)
-    total_pages = len(pil_pages)
+    # Render one page at a time. convert_from_bytes on the whole file holds
+    # every 300 DPI image in memory at once.
+    total_pages = int(pdfinfo_from_bytes(pdf_bytes)["Pages"])
     pages: list[PageContent] = []
 
-    for i, pil_img in enumerate(pil_pages):
-        logger.info("OCR: processing page %d of %d", i + 1, total_pages)
-        # Convert PIL → BGR numpy array for BDRC pipeline
-        img_rgb = np.array(pil_img)
-        img_bgr = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR)
-
-        ocr_lines = engine.run_on_image(img_bgr)
-
-        # Combine line texts into page text
-        text = "\n".join(line.text for line in ocr_lines if line.text)
-
-        # OCR lines as word-level approximations (line bbox, full line text)
-        # Per-word segmentation within lines is a future improvement.
-        words = [
-            WordPosition(
-                text=line.text,
-                x0=float(line.x),
-                y0=float(line.y),
-                x1=float(line.x + line.width),
-                y1=float(line.y + line.height),
-            )
-            for line in ocr_lines
-            if line.text
-        ]
-
-        pages.append(
-            PageContent(
-                page_number=i + 1,
-                text=text,
-                words=words,
-                is_scanned=True,
-                width=float(pil_img.width),
-                height=float(pil_img.height),
-            )
+    for page_number in range(1, total_pages + 1):
+        logger.info("OCR: processing page %d of %d", page_number, total_pages)
+        rendered = convert_from_bytes(
+            pdf_bytes,
+            dpi=300,
+            first_page=page_number,
+            last_page=page_number,
         )
+        pil_img = rendered[0]
+        try:
+            # Convert PIL → BGR numpy array for BDRC pipeline
+            img_rgb = np.array(pil_img)
+            img_bgr = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR)
+
+            ocr_lines = engine.run_on_image(img_bgr)
+
+            # Combine line texts into page text
+            text = "\n".join(line.text for line in ocr_lines if line.text)
+
+            # OCR lines as word-level approximations (line bbox, full line text)
+            # Per-word segmentation within lines is a future improvement.
+            words = [
+                WordPosition(
+                    text=line.text,
+                    x0=float(line.x),
+                    y0=float(line.y),
+                    x1=float(line.x + line.width),
+                    y1=float(line.y + line.height),
+                )
+                for line in ocr_lines
+                if line.text
+            ]
+
+            pages.append(
+                PageContent(
+                    page_number=page_number,
+                    text=text,
+                    words=words,
+                    is_scanned=True,
+                    width=float(pil_img.width),
+                    height=float(pil_img.height),
+                )
+            )
+        finally:
+            pil_img.close()
 
     return pages
 

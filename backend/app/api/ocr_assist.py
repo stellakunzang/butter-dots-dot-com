@@ -17,6 +17,7 @@ from pydantic import BaseModel
 
 
 from app.config import settings
+from app.upload_limits import OCR_ASSIST_MAX_UPLOAD_BYTES
 from app.ocr_assist.compare_vision import VisionCompareResult, compare_vision_providers
 from app.ocr_assist.interventions import append_intervention
 from app.ocr_assist.job_store import (
@@ -35,7 +36,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/ocr-assist", tags=["ocr-assist"])
 
-MAX_UPLOAD_BYTES = 100 * 1024 * 1024  # 100 MB
+MAX_UPLOAD_BYTES = OCR_ASSIST_MAX_UPLOAD_BYTES
 
 # In-process run flags so the UI can show "running" while background BDRC works.
 _running_jobs: set[str] = set()
@@ -171,7 +172,7 @@ async def create_ocr_job(
     if not pdf_bytes:
         raise HTTPException(status_code=400, detail="Empty upload")
     if len(pdf_bytes) > MAX_UPLOAD_BYTES:
-        raise HTTPException(status_code=400, detail="PDF exceeds size limit")
+        raise HTTPException(status_code=413, detail="PDF exceeds size limit")
 
     job = await asyncio.to_thread(
         create_job,
