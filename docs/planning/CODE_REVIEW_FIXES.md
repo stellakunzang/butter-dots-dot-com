@@ -80,23 +80,32 @@ Implemented on `fix/deps-and-upload-hardening`, not committed yet.
 
 ### A3. Tests — `test/strengthen-assertions`
 
-- [ ] **S** Fix the always-true assertion `backend/tests/test_validation.py:256`.
-- [ ] **S** Remove vacuous `if result:` checks in `test_engine.py:78,103`;
-      delete the weaker duplicate of `TestEncodingErrors`.
-- [ ] **S** Remove commented-out assertions `test_engine.py:1019-1022`.
-- [ ] **S** Unskip or delete `frontend/__tests__/pages/spellcheck.test.tsx:154,174`.
-- [ ] **M** Investigate the 4 failing `test_ocr_parity.py[Tashi Gyedpa]` cases
-      ("Genuine error count differs by 30"); confirm whether they run or skip in
-      CI. Add `-rs` to pytest addopts so skips are visible.
-- [ ] **M** Add backend upload tests: non-PDF with `.pdf` extension, oversized,
-      empty, corrupt, path-traversal filename, 15 vs 16 page threshold; download
-      and status endpoints for unknown / unfinished jobs.
-- [ ] **M** Convert `test_validation.py:131-240` to a parametrized
-      `(syllable, expected_error_type)` table; replace bare `is not None`
-      asserts; module-scoped engine fixture in `test_engine.py`.
-- [ ] **S** Check for overlap: `test_docx_export.py` vs `test_docx_exporter.py`,
-      `test_dictionary.py` vs `test_engine_dictionary.py`.
-- [ ] **S** Add `@types/jest` to frontend dev deps.
+- [x] **S** The always-true `or syllable` assertion now expects
+      `unusual_mark_position`.
+- [x] **S** Removed the vacuous superscript check (`རང` is valid) and the
+      weaker encoding check. `TestEncodingErrors` already asserts the same
+      codepoint.
+- [x] **S** Removed the commented-out assertions in `test_readme_example`.
+- [x] **S** Unskipped the two spellcheck page tests. They assert the inline
+      error message; the page has no "Error" heading.
+- [x] **M** Tashi Gyedpa parity: 4 cases fail locally when OCR models are
+      present (genuine error count differs by 30; tolerance is 10). CI runs
+      `pytest` with no models downloaded, and those fixtures skip via
+      `_ocr_available()`. They are also `@pytest.mark.slow`, so
+      `pytest -m "not slow"` skips them too. Tolerance was not raised — the
+      gap is OCR fidelity. `-rs` is in pytest addopts.
+- [x] **M** Upload tests cover non-PDF bytes, oversize, empty, unreadable,
+      path-traversal filename, 15 vs 16 pages, and unknown / unfinished
+      downloads.
+- [x] **M** Impossible-syllable cases are one `(syllable, error_type)` table
+      with a module-scoped engine. `test_engine.py` still builds an engine per
+      test; construction is cheap and a file-wide signature change is not
+      worth it.
+- [x] **S** No overlap to merge: `test_docx_export.py` is the clean OCR DOCX,
+      `test_docx_exporter.py` is the spellcheck-annotated DOCX.
+      `test_dictionary.py` is the dictionary service; `test_engine_dictionary.py`
+      is the engine's use of it.
+- [x] **S** `@types/jest@29` (matches Jest 29).
 
 ### A4. CI and tooling — `ci/lint-typecheck-build`
 

@@ -116,151 +116,37 @@ class TestComponentValidation:
 # Impossible Structures (validation/completeness_checks.py)
 # ============================================================================
 
+@pytest.fixture(scope="module")
+def engine():
+    return TibetanSpellChecker()
+
+
+# (syllable, error_type). The combined QA string is covered separately.
+_IMPOSSIBLE_SYLLABLES = [
+    ("ཨེརྡ", "consonant_after_vowel"),
+    ("ཕ༹ཀལ", "unusual_mark_position"),
+    ("ཨེཨོརོ", "multiple_vowels"),
+    ("ེབ", "missing_root"),
+    ("བྱབབ", "unparsed_characters"),
+    ("བོདྡ", "consonant_after_vowel"),
+    ("བོདབ", "unparsed_characters"),
+    ("ཕ༹ཀ", "unusual_mark_position"),
+    ("བ྄", "unparsed_characters"),
+]
+
+
 class TestImpossibleStructures:
-    """Test detection of structurally impossible syllables"""
-    
-    def test_subscript_after_suffix_impossible(self):
-        """Subscript appearing after suffix is structurally impossible"""
-        engine = TibetanSpellChecker()
-        
-        # ཨེརྡ = a + e-vowel + ra-suffix + da-subscript
-        # Subscripts MUST come before vowels, not after suffixes
-        syllable = "ཨེརྡ"
-        error = engine.check_syllable(syllable)
-        
-        assert error is not None, f"Should detect subscript after suffix in {syllable}"
-        assert error['severity'] in ['error', 'critical']
-    
-    def test_multiple_base_consonants_impossible(self):
-        """Multiple base consonants in one syllable is impossible"""
-        engine = TibetanSpellChecker()
-        
-        # ཕ༹ཀལ = pha + mark + ka + la (multiple base consonants)
-        # A syllable can only have ONE root consonant
-        syllable = "ཕ༹ཀལ"
-        error = engine.check_syllable(syllable)
-        
-        assert error is not None, f"Should detect multiple base consonants in {syllable}"
-        assert error['severity'] in ['error', 'critical']
-    
-    def test_multiple_vowels_on_different_consonants(self):
-        """Multiple vowels attached to different consonants is impossible"""
-        engine = TibetanSpellChecker()
-        
-        # ཨེཨོརོ = a + e-vowel + a + o-vowel + ra + o-vowel
-        # Multiple base consonants with their own vowels = impossible
-        syllable = "ཨེཨོརོ"
-        error = engine.check_syllable(syllable)
-        
-        assert error is not None, f"Should detect multiple vowel groups in {syllable}"
-        assert error['severity'] in ['error', 'critical']
-    
-    def test_vowel_before_root(self):
-        """Vowel appearing before root consonant is impossible"""
-        engine = TibetanSpellChecker()
-        
-        # Vowel mark before any consonant = impossible
-        syllable = "ེབ"  # vowel + ba
-        error = engine.check_syllable(syllable)
-        
-        assert error is not None, f"Should detect vowel before consonant in {syllable}"
-    
-    def test_base_consonant_after_subscript(self):
-        """Base consonant appearing after subscript (except suffix) is impossible"""
-        engine = TibetanSpellChecker()
-        
-        syllable = "བྱབབ"  # bya + ba + ba (too many base consonants)
-        error = engine.check_syllable(syllable)
-        
-        assert error is not None, f"Should detect multiple base consonants in {syllable}"
+    """Structurally impossible syllables, including the QA examples."""
 
-
-class TestUserQAFindings:
-    """Test cases from user's actual QA testing"""
-    
-    def test_user_qa_input_all_invalid(self):
-        """User's QA input: ཨེརྡ་ཕ༹ཀལ་ཨེཨོརོ་ - ALL syllables are invalid"""
-        engine = TibetanSpellChecker()
-        
-        text = "ཨེརྡ་ཕ༹ཀལ་ཨེཨོརོ་"
-        errors = engine.check_text(text)
-        
-        # Should detect errors in ALL THREE syllables
-        error_syllables = {e['word'] for e in errors if e['severity'] != 'info'}
-        
-        assert "ཨེརྡ" in error_syllables, "First syllable ཨེརྡ should be flagged"
-        assert "ཕ༹ཀལ" in error_syllables, "Second syllable ཕ༹ཀལ should be flagged"
-        assert "ཨེཨོརོ" in error_syllables, "Third syllable ཨེཨོརོ should be flagged"
-        
-        assert len(error_syllables) >= 3, f"Should flag all 3 syllables, but only flagged: {error_syllables}"
-    
-    def test_individual_qa_syllable_1(self):
-        """First QA syllable: ཨེརྡ (subscript after suffix)"""
-        engine = TibetanSpellChecker()
-        
-        error = engine.check_syllable("ཨེརྡ")
-        assert error is not None, "ཨེརྡ has subscript after suffix - should be invalid"
-    
-    def test_individual_qa_syllable_2(self):
-        """Second QA syllable: ཕ༹ཀལ (multiple base consonants)"""
-        engine = TibetanSpellChecker()
-        
-        error = engine.check_syllable("ཕ༹ཀལ")
-        assert error is not None, "ཕ༹ཀལ has multiple base consonants - should be invalid"
-    
-    def test_individual_qa_syllable_3(self):
-        """Third QA syllable: ཨེཨོརོ (multiple vowel groups)"""
-        engine = TibetanSpellChecker()
-        
-        error = engine.check_syllable("ཨེཨོརོ")
-        assert error is not None, "ཨེཨོརོ has multiple vowel groups - should be invalid"
-
-
-class TestParserCompleteness:
-    """Test that parser consumes all characters"""
-    
-    def test_parser_identifies_unparsed_characters(self):
-        """Parser should flag when characters remain unparsed"""
-        engine = TibetanSpellChecker()
-        
-        # Create a syllable with trailing garbage
-        # བོད is valid, but བོདྡ has trailing subscript (impossible)
-        syllable = "བོདྡ"  # bod + subscript-da
+    @pytest.mark.parametrize("syllable,expected_error_type", _IMPOSSIBLE_SYLLABLES)
+    def test_syllable_error_type(self, engine, syllable, expected_error_type):
         error = engine.check_syllable(syllable)
-        
-        assert error is not None, "Should detect unparsed trailing subscript"
-    
-    def test_parser_detects_consonant_after_suffix(self):
-        """Extra consonant after suffix should be detected"""
-        engine = TibetanSpellChecker()
-        
-        syllable = "བོདབ"  # bod + ba (ba is NOT valid post-suffix)
-        error = engine.check_syllable(syllable)
-        
-        assert error is not None, "Should detect invalid post-suffix"
+        assert error is not None
+        assert error["error_type"] == expected_error_type
+        assert error["severity"] in ("error", "critical")
 
-
-class TestSpecialMarks:
-    """Test handling of special Tibetan marks"""
-    
-    def test_tsa_phru_mark_unusual(self):
-        """TSA-PHRU mark (U+0F39) in middle of syllable is unusual"""
-        engine = TibetanSpellChecker()
-        
-        # ཕ༹ has TSA-PHRU mark which is a special modifier
-        # When followed by other consonants, it creates invalid structure
-        syllable = "ཕ༹ཀ"
-        error = engine.check_syllable(syllable)
-        
-        # At minimum, should flag as unusual/info
-        assert error is not None or syllable, "Should flag unusual TSA-PHRU usage"
-    
-    def test_halanta_mark_unusual(self):
-        """HALANTA mark (U+0F84) should be rare/flagged"""
-        engine = TibetanSpellChecker()
-        
-        syllable = "བ྄"  # ba + halanta
-        # This is a special case - might be valid in Sanskrit transliteration
-        # But should be noted as unusual at least
-        result = engine.check_syllable(syllable)
-        # May or may not error - depends on if we handle Sanskrit markers
+    def test_user_qa_input_all_invalid(self, engine):
+        """ཨེརྡ་ཕ༹ཀལ་ཨེཨོརོ་ — each syllable is invalid."""
+        errors = engine.check_text("ཨེརྡ་ཕ༹ཀལ་ཨེཨོརོ་")
+        error_syllables = {e["word"] for e in errors if e["severity"] != "info"}
+        assert {"ཨེརྡ", "ཕ༹ཀལ", "ཨེཨོརོ"} <= error_syllables

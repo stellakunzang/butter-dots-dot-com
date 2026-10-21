@@ -3,8 +3,14 @@ import {render, screen, fireEvent, waitFor} from '@testing-library/react'
 import SpellCheckPage from '@/pages/spellcheck'
 import * as api from '@/lib/api'
 
-// Mock the API module
-jest.mock('@/lib/api')
+// Keep the real APIError class so `instanceof` works in the page.
+jest.mock('@/lib/api', () => {
+  const actual = jest.requireActual<typeof import('@/lib/api')>('@/lib/api')
+  return {
+    ...actual,
+    checkText: jest.fn(),
+  }
+})
 
 const mockedApi = api as jest.Mocked<typeof api>
 
@@ -151,7 +157,7 @@ describe('SpellCheckPage', () => {
     })
   })
 
-  it.skip('handles API errors gracefully', async () => {
+  it('handles API errors gracefully', async () => {
     const errorMessage = 'Connection failed'
     mockedApi.checkText.mockRejectedValue(new api.APIError(errorMessage, 0))
 
@@ -161,17 +167,13 @@ describe('SpellCheckPage', () => {
     fireEvent.change(textarea, {target: {value: 'བོད་ཡིག'}})
 
     const submitButton = screen.getByRole('button', {name: /check spelling/i})
-    fireEvent.click(submitButton)
+    fireEvent.submit(submitButton.closest('form')!)
 
-    // Use findByText which waits for the element to appear
-    expect(await screen.findByText('Error')).toBeInTheDocument()
-    expect(await screen.findByText(errorMessage)).toBeInTheDocument()
-
-    // Verify the API was called
     expect(mockedApi.checkText).toHaveBeenCalledWith('བོད་ཡིག')
+    expect(await screen.findByText(errorMessage)).toBeInTheDocument()
   })
 
-  it.skip('clears error message on successful submission', async () => {
+  it('clears error message on successful submission', async () => {
     const errorMessage = 'Connection failed'
     mockedApi.checkText.mockRejectedValueOnce(new api.APIError(errorMessage, 0))
 
@@ -181,9 +183,8 @@ describe('SpellCheckPage', () => {
     fireEvent.change(textarea, {target: {value: 'བོད་ཡིག'}})
 
     let submitButton = screen.getByRole('button', {name: /check spelling/i})
-    fireEvent.click(submitButton)
+    fireEvent.submit(submitButton.closest('form')!)
 
-    // Wait for error to appear
     expect(await screen.findByText(errorMessage)).toBeInTheDocument()
 
     // Now mock successful response
@@ -195,11 +196,11 @@ describe('SpellCheckPage', () => {
     mockedApi.checkText.mockResolvedValue(mockResponse)
 
     submitButton = screen.getByRole('button', {name: /check spelling/i})
-    fireEvent.click(submitButton)
+    fireEvent.submit(submitButton.closest('form')!)
 
     await waitFor(() => {
       expect(screen.queryByText(errorMessage)).not.toBeInTheDocument()
-      expect(screen.getByText(/no errors found/i)).toBeInTheDocument()
+      expect(screen.getByText(/No spelling errors found!/i)).toBeInTheDocument()
     })
   })
 

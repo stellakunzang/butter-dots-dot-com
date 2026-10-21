@@ -67,18 +67,6 @@ class TestSingleSyllableChecking:
         assert 'word' in result
         assert result['word'] == "གཀར"
     
-    def test_check_invalid_superscript(self):
-        """Invalid superscript combination detected"""
-        from app.spellcheck.engine import TibetanSpellChecker
-        
-        engine = TibetanSpellChecker()
-        # Example invalid ra-mgo combination (from VBA)
-        result = engine.check_syllable("རང")  # rnga - invalid
-        
-        if result:  # If detected as invalid
-            assert result['error_type'] in ['invalid_superscript', 'invalid_combination']
-            assert result['severity'] == 'error'
-    
     def test_check_syllable_too_long(self):
         """Syllable with too many letters"""
         from app.spellcheck.engine import TibetanSpellChecker
@@ -91,19 +79,6 @@ class TestSingleSyllableChecking:
         assert result['error_type'] == 'syllable_too_long'
         assert result['severity'] == 'error'
     
-    def test_check_encoding_error(self):
-        """Encoding error should be critical severity"""
-        from app.spellcheck.engine import TibetanSpellChecker
-        
-        engine = TibetanSpellChecker()
-        # Wrong Unicode character (from VBA line 790)
-        wrong = "ཀ\u0FB0"  # Using wrong 'a'
-        result = engine.check_syllable(wrong)
-        
-        if result:
-            assert result['severity'] == 'critical'
-
-
 class TestDoubleVowel:
     """Double vowel marks are structurally impossible and should be flagged."""
 
@@ -1015,8 +990,3 @@ class TestIntegration:
         valid_text = "བོད་ཡིག་"
         errors = engine.check_text(valid_text)
         assert len(errors) == 0
-        
-        # Invalid text (if we have one)
-        # invalid_text = "..."
-        # errors = engine.check_text(invalid_text)
-        # assert len(errors) > 0
