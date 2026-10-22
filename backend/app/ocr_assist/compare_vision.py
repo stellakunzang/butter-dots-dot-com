@@ -4,6 +4,7 @@ On-demand Claude vs Gemini vision compare for a single page.
 Used by the local QA UI/API after BDRC has already run. Does **not** run during
 ``run_all_pages`` — each provider call is explicit and per-page.
 """
+
 from __future__ import annotations
 
 import logging
@@ -107,9 +108,7 @@ def compare_vision_providers(
             )
         except Exception as exc:  # noqa: BLE001 — one provider must not sink the compare
             logger.exception("vision compare failed for provider %s", provider)
-            out.results.append(
-                ProviderVisionResult(provider=provider, error=str(exc))
-            )
+            out.results.append(ProviderVisionResult(provider=provider, error=str(exc)))
     return out
 
 

@@ -1,4 +1,5 @@
 """LLM provider factories for the interactive OCR AI loop."""
+
 from __future__ import annotations
 
 import os

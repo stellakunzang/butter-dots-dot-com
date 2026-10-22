@@ -7,6 +7,7 @@ Backwards compatibility layer. All data and logic has been refactored to:
 
 This file re-exports everything so existing imports continue to work.
 """
+
 from typing import Dict, Optional, Union
 
 # Re-export all stacking rules data
@@ -36,34 +37,69 @@ from ..validation import (
     check_syllable_structure_completeness,
 )
 
+__all__ = [
+    "VALID_PREFIXES",
+    "VALID_SUPERSCRIPTS",
+    "VALID_SUBSCRIPTS",
+    "VALID_SUFFIXES",
+    "VALID_POST_SUFFIXES",
+    "VALID_WA_ZUR_ROOTS",
+    "VALID_YA_BTAGS_ROOTS",
+    "VALID_RA_BTAGS_ROOTS",
+    "VALID_LA_BTAGS_ROOTS",
+    "VALID_RA_MGO_ROOTS",
+    "VALID_LA_MGO_ROOTS",
+    "VALID_SA_MGO_ROOTS",
+    "VALID_GA_PREFIX_ROOTS",
+    "VALID_DA_PREFIX_ROOTS",
+    "VALID_BA_PREFIX_ROOTS",
+    "VALID_MA_PREFIX_ROOTS",
+    "VALID_ACHUNG_PREFIX_ROOTS",
+    "check_syllable_patterns",
+    "check_syllable_structure_completeness",
+    "is_valid_prefix_combination",
+    "is_valid_superscript_combination",
+    "is_valid_subscript_combination",
+    "is_valid_suffix",
+    "is_valid_post_suffix",
+    "parse_syllable_structure",
+    "get_error_severity",
+    "validate_syllable_structure",
+]
+
 
 def is_valid_prefix_combination(prefix: str, root: str) -> bool:
     """Check if a prefix + root combination is valid."""
     from .stacking import is_valid_prefix_root
+
     return is_valid_prefix_root(prefix, root)
 
 
 def is_valid_superscript_combination(superscript: str, root: str) -> bool:
     """Check if a superscript + root combination is valid."""
     from .stacking import is_valid_superscript_root
+
     return is_valid_superscript_root(superscript, root)
 
 
 def is_valid_subscript_combination(root: str, subscript: str) -> bool:
     """Check if a root + subscript combination is valid."""
     from .stacking import is_valid_subscript_root
+
     return is_valid_subscript_root(root, subscript)
 
 
 def is_valid_suffix(suffix: str) -> bool:
     """Check if a character is a valid suffix."""
     from .stacking import is_valid_suffix as _is_valid_suffix
+
     return _is_valid_suffix(suffix)
 
 
 def is_valid_post_suffix(post_suffix: str) -> bool:
     """Check if a character is a valid post-suffix."""
     from .stacking import is_valid_post_suffix as _is_valid_post_suffix
+
     return _is_valid_post_suffix(post_suffix)
 
 
@@ -119,7 +155,9 @@ def get_error_severity(error_type: str) -> str:
     return severity_map.get(error_type, 'warning')
 
 
-def validate_syllable_structure(syllable_or_parsed: Union[str, Dict[str, any]]) -> Optional[Dict[str, any]]:
+def validate_syllable_structure(
+    syllable_or_parsed: Union[str, Dict[str, any]],
+) -> Optional[Dict[str, any]]:
     """
     Validate a syllable structure against Tibetan spelling rules.
 
@@ -132,6 +170,7 @@ def validate_syllable_structure(syllable_or_parsed: Union[str, Dict[str, any]]) 
 
     # Build a TibetanSyllable from the dict
     from ..data_types import TibetanSyllable
+
     model = TibetanSyllable(
         raw=parsed.get('raw', ''),
         prefix=parsed.get('prefix'),
@@ -144,6 +183,7 @@ def validate_syllable_structure(syllable_or_parsed: Union[str, Dict[str, any]]) 
     )
 
     from ..validation import validate_syllable
+
     errors = validate_syllable(model)
     if errors:
         return errors[0].to_dict()

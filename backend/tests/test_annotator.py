@@ -6,8 +6,8 @@ Uses synthetic PDFs built with ReportLab (or fitz directly) to verify that:
   - Scanned PDFs: OCR lines containing error syllables get line-level highlights
   - No crashes on empty error sets
 """
+
 import io
-import pytest
 
 
 def _make_digital_pdf(text: str) -> bytes:
@@ -19,6 +19,7 @@ def _make_digital_pdf(text: str) -> bytes:
     issues — the search_for mechanism is encoding-agnostic.
     """
     import fitz
+
     doc = fitz.open()
     page = doc.new_page(width=595, height=842)  # A4
     page.insert_text((50, 100), text, fontsize=12)
@@ -31,6 +32,7 @@ def _make_digital_pdf(text: str) -> bytes:
 def _count_highlights(pdf_bytes: bytes) -> int:
     """Count the number of highlight annotations across all pages."""
     import fitz
+
     doc = fitz.open(stream=pdf_bytes, filetype="pdf")
     count = 0
     for page in doc:
@@ -103,27 +105,29 @@ class TestAnnotateDigitalPage:
 
 
 class TestAnnotateScannedPage:
-
     def _make_scanned_page_content(self, lines: list[str], dpi: int = 300):
         """Construct a mock PageContent with OCR-style line bboxes."""
         from app.pdf.extractor import PageContent, WordPosition
+
         words = []
         y = 0
         for line_text in lines:
-            words.append(WordPosition(
-                text=line_text,
-                x0=0, y0=y, x1=500, y1=y + 50
-            ))
+            words.append(WordPosition(text=line_text, x0=0, y0=y, x1=500, y1=y + 50))
             y += 60
 
         text = "\n".join(lines)
         return PageContent(
-            page_number=1, text=text, words=words, is_scanned=True,
-            width=500, height=y + 60,
+            page_number=1,
+            text=text,
+            words=words,
+            is_scanned=True,
+            width=500,
+            height=y + 60,
         )
 
     def _make_blank_pdf(self) -> bytes:
         import fitz
+
         doc = fitz.open()
         doc.new_page(width=595, height=842)
         buf = io.BytesIO()
@@ -133,10 +137,13 @@ class TestAnnotateScannedPage:
 
     def test_line_containing_error_gets_highlighted(self):
         from app.pdf.annotator import annotate_pdf
-        page_content = self._make_scanned_page_content([
-            "རིན་པོ་ཆེར་གཀར་གྱི་",
-            "བོད་ཡིག་གི་སྐད་",
-        ])
+
+        page_content = self._make_scanned_page_content(
+            [
+                "རིན་པོ་ཆེར་གཀར་གྱི་",
+                "བོད་ཡིག་གི་སྐད་",
+            ]
+        )
         pdf_bytes = self._make_blank_pdf()
         result = annotate_pdf(pdf_bytes, [page_content], {1: ["གཀར"]})
         # Only the first line contains གཀར — expect exactly 1 highlight
@@ -144,20 +151,26 @@ class TestAnnotateScannedPage:
 
     def test_line_without_error_not_highlighted(self):
         from app.pdf.annotator import annotate_pdf
-        page_content = self._make_scanned_page_content([
-            "བོད་ཡིག་གི་སྐད་",
-        ])
+
+        page_content = self._make_scanned_page_content(
+            [
+                "བོད་ཡིག་གི་སྐད་",
+            ]
+        )
         pdf_bytes = self._make_blank_pdf()
         result = annotate_pdf(pdf_bytes, [page_content], {1: ["གཀར"]})
         assert _count_highlights(result) == 0
 
     def test_multiple_lines_with_errors_all_highlighted(self):
         from app.pdf.annotator import annotate_pdf
-        page_content = self._make_scanned_page_content([
-            "གཀར་ཡིག",
-            "བོད་གཀར་",
-            "ཡིག་གི་",  # no error
-        ])
+
+        page_content = self._make_scanned_page_content(
+            [
+                "གཀར་ཡིག",
+                "བོད་གཀར་",
+                "ཡིག་གི་",  # no error
+            ]
+        )
         pdf_bytes = self._make_blank_pdf()
         result = annotate_pdf(pdf_bytes, [page_content], {1: ["གཀར"]})
         assert _count_highlights(result) == 2

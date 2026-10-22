@@ -12,6 +12,7 @@ Core algorithm:
 KEY PRINCIPLE: Stacking rules are used DURING parsing, not after.
 The valid combination sets are the deciding factor for structural decisions.
 """
+
 from typing import List, Optional
 from ..achung_suffix import ACHUNG_SUFFIX_VOWELS
 from ..data_types import TypedChar, CharType, TibetanSyllable
@@ -49,7 +50,10 @@ def parse_syllable(typed_chars: List[TypedChar]) -> TibetanSyllable:
     if achung_suffix is not None:
         achung_idx, suffix_vowel_char = achung_suffix
         return _parse_with_achung_suffix_vowel(
-            typed_chars, achung_idx, raw, suffix_vowel_char,
+            typed_chars,
+            achung_idx,
+            raw,
+            suffix_vowel_char,
         )
 
     # Step 1: Find superscript (first structural decision, informed by stacking rules)
@@ -71,6 +75,7 @@ def parse_syllable(typed_chars: List[TypedChar]) -> TibetanSyllable:
 # Step 1: Superscript detection
 # ============================================================================
 
+
 def _find_superscript(chars: List[TypedChar]) -> tuple:
     """
     Scan for a valid superscript + root pair.
@@ -86,10 +91,12 @@ def _find_superscript(chars: List[TypedChar]) -> tuple:
         (superscript_index, root_index) or (None, None)
     """
     for i in range(len(chars) - 1):
-        if (chars[i].type == CharType.BASE and
-                chars[i].base_form in VALID_SUPERSCRIPTS and
-                chars[i + 1].type == CharType.SUBJOINED and
-                is_valid_superscript_root(chars[i].base_form, chars[i + 1].base_form)):
+        if (
+            chars[i].type == CharType.BASE
+            and chars[i].base_form in VALID_SUPERSCRIPTS
+            and chars[i + 1].type == CharType.SUBJOINED
+            and is_valid_superscript_root(chars[i].base_form, chars[i + 1].base_form)
+        ):
             return (i, i + 1)
     return (None, None)
 
@@ -97,6 +104,7 @@ def _find_superscript(chars: List[TypedChar]) -> tuple:
 # ============================================================================
 # Step 2: Vowel detection
 # ============================================================================
+
 
 def _find_first_vowel(chars: List[TypedChar]) -> Optional[int]:
     """Find index of first VOWEL char, or None."""
@@ -109,6 +117,7 @@ def _find_first_vowel(chars: List[TypedChar]) -> Optional[int]:
 # ============================================================================
 # Step 3a: Parse with confirmed superscript
 # ============================================================================
+
 
 def _parse_with_superscript(
     chars: List[TypedChar],
@@ -155,6 +164,7 @@ def _parse_with_superscript(
 # Step 3b: Parse with vowel (no superscript)
 # ============================================================================
 
+
 def _parse_with_vowel(
     chars: List[TypedChar],
     vowel_idx: int,
@@ -168,8 +178,6 @@ def _parse_with_vowel(
     """
     result = TibetanSyllable(raw=raw)
 
-    # Find root: the last consonant (base or subjoined) before any subscripts before the vowel
-    # First, collect all consonants before the vowel
     consonants_before = []
     for i in range(vowel_idx):
         if chars[i].type in (CharType.BASE, CharType.SUBJOINED):
@@ -254,6 +262,7 @@ def _parse_with_vowel(
 # Step 3c: Parse without vowel
 # ============================================================================
 
+
 def _parse_no_vowel(
     chars: List[TypedChar],
     raw: str,
@@ -276,10 +285,7 @@ def _parse_no_vowel(
     i = 0
 
     # Check if first char is BASE followed by SUBJOINED
-    if (len(chars) >= 2 and
-            chars[0].type == CharType.BASE and
-            chars[1].type == CharType.SUBJOINED):
-
+    if len(chars) >= 2 and chars[0].type == CharType.BASE and chars[1].type == CharType.SUBJOINED:
         # Is it root + subscript(s)?
         # (Not superscript -- that was already checked in _find_superscript)
         result.root = chars[0].base_form
@@ -299,25 +305,25 @@ def _parse_no_vowel(
     # Two BASE consonants where the second is NOT a valid suffix must be
     # prefix + root (root + invalid-suffix is always wrong).  This mirrors
     # the same logic in _parse_body_consonants which uses len >= 2.
-    if (len(chars) == 2 and
-            chars[0].type == CharType.BASE and
-            chars[0].base_form in VALID_PREFIXES and
-            chars[1].type == CharType.BASE and
-            chars[1].base_form not in VALID_SUFFIXES):
+    if (
+        len(chars) == 2
+        and chars[0].type == CharType.BASE
+        and chars[0].base_form in VALID_PREFIXES
+        and chars[1].type == CharType.BASE
+        and chars[1].base_form not in VALID_SUFFIXES
+    ):
         result.prefix = chars[0].base_form
         result.root = chars[1].base_form
         return result
 
     # Check for prefix — 3+ letter case
-    if (chars[0].type == CharType.BASE and
-            chars[0].base_form in VALID_PREFIXES and
-            len(chars) >= 3):
+    if chars[0].type == CharType.BASE and chars[0].base_form in VALID_PREFIXES and len(chars) >= 3:
         # Could be prefix if there's enough structure after
         # Check: prefix + BASE + SUBJOINED or prefix + BASE + BASE(suffix)
         if chars[1].type == CharType.BASE:
-            if (len(chars) >= 3 and
-                    (chars[2].type == CharType.SUBJOINED or
-                     chars[2].type == CharType.BASE)):
+            if len(chars) >= 3 and (
+                chars[2].type == CharType.SUBJOINED or chars[2].type == CharType.BASE
+            ):
                 result.prefix = chars[0].base_form
                 i = 1
 
@@ -347,6 +353,7 @@ def _parse_no_vowel(
 # ============================================================================
 # Step 3d: Parse with འ + suffix vowel (འི, འོ, …)
 # ============================================================================
+
 
 def _detect_achung_suffix_vowel(
     chars: List[TypedChar],
@@ -503,8 +510,7 @@ def _parse_body_consonants(
         return
 
     # Pattern: BASE + SUBJOINED = root + subscript(s)
-    if (body[0].type == CharType.BASE and
-            body[1].type == CharType.SUBJOINED):
+    if body[0].type == CharType.BASE and body[1].type == CharType.SUBJOINED:
         result.root = body[0].base_form
         i = 1
         while i < len(body) and body[i].type == CharType.SUBJOINED:
@@ -515,10 +521,12 @@ def _parse_body_consonants(
 
     # Pattern: PREFIX + ROOT (+ subscripts)
     # With no suffix in body, two BASE consonants = prefix + root
-    if (body[0].type == CharType.BASE and
-            body[0].base_form in VALID_PREFIXES and
-            len(body) >= 2 and
-            body[1].type == CharType.BASE):
+    if (
+        body[0].type == CharType.BASE
+        and body[0].base_form in VALID_PREFIXES
+        and len(body) >= 2
+        and body[1].type == CharType.BASE
+    ):
         result.prefix = body[0].base_form
         result.root = body[1].base_form
         i = 2
@@ -544,6 +552,7 @@ def _parse_body_consonants(
 # Shared helpers
 # ============================================================================
 
+
 def _collect_suffixes(
     chars: List[TypedChar],
     start: int,
@@ -563,9 +572,11 @@ def _collect_suffixes(
         i += 1
 
         # Post-suffix: only ད or ས after a suffix
-        if (i < len(chars) and
-                chars[i].type == CharType.BASE and
-                chars[i].base_form in VALID_POST_SUFFIXES):
+        if (
+            i < len(chars)
+            and chars[i].type == CharType.BASE
+            and chars[i].base_form in VALID_POST_SUFFIXES
+        ):
             post_suffix = chars[i].base_form
             i += 1
 

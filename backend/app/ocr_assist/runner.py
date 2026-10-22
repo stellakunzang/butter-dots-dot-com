@@ -17,6 +17,7 @@ SDK.
 Resume is implicit: ``run_all_pages`` skips pages that already have
 ``final.txt`` on disk, so re-running a job picks up where it left off.
 """
+
 from __future__ import annotations
 
 import logging
@@ -37,7 +38,6 @@ from app.ocr_assist.contracts import (
     verdict_to_dict,
 )
 from app.ocr_assist.job_store import (
-    AttemptRecord,
     FINAL_TEXT_FILE,
     Job,
     PageState,
@@ -74,6 +74,7 @@ DEFAULT_MAX_ATTEMPTS = 3
 @dataclass
 class _LineCountBaseline:
     """Rolling median line count from accepted pages in the current job (T-13)."""
+
     min_pages: int = MIN_LINE_COUNT_BASELINE
     _counts: list[int] = field(default_factory=list)
 
@@ -130,6 +131,7 @@ class OcrResult:
     number of lines BDRC actually recognized on the page, not a count of
     newlines in ``text`` (which would conflate joined and split lines).
     """
+
     text: str
     line_count: int
 
@@ -141,6 +143,7 @@ class OcrAdapter(Protocol):
     ONNX models to be downloaded. Tests inject a fake that returns canned
     text without touching disk-loaded models.
     """
+
     def __call__(self, image_path: Path, settings: dict[str, Any]) -> OcrResult: ...
 
 
@@ -168,6 +171,7 @@ class RunResult:
     ``error`` holds the stringified exception when ``decision == "error"`` and
     is ``None`` otherwise.
     """
+
     page: PageState
     decision: Decision
     quality: PageQuality | None
@@ -372,9 +376,7 @@ class _AttemptResult:
     line_count: int
 
 
-def _record_line_baseline_from_result(
-    result: RunResult, baseline: _LineCountBaseline
-) -> None:
+def _record_line_baseline_from_result(result: RunResult, baseline: _LineCountBaseline) -> None:
     if result.page.attempts:
         quality = result.page.attempts[-1].quality or {}
         line_count = quality.get("line_count")
@@ -388,9 +390,7 @@ def _record_line_baseline_from_attempt(
     baseline.record_accept(attempt.line_count)
 
 
-def _record_line_baseline_from_line_count(
-    line_count: int, baseline: _LineCountBaseline
-) -> None:
+def _record_line_baseline_from_line_count(line_count: int, baseline: _LineCountBaseline) -> None:
     baseline.record_accept(line_count)
 
 
@@ -462,16 +462,12 @@ def _attempt_once(
     return _AttemptResult(
         ocr_text=result.text,
         quality=quality,
-        verdict=decide(
-            quality, thresholds, context=scoring_ctx, ocr_diagnostics=diagnostics
-        ),
+        verdict=decide(quality, thresholds, context=scoring_ctx, ocr_diagnostics=diagnostics),
         line_count=result.line_count,
     )
 
 
-def _annotate_attempt_verdict(
-    job: Job, page_index: int, verdict: DiagnosticianVerdict
-) -> None:
+def _annotate_attempt_verdict(job: Job, page_index: int, verdict: DiagnosticianVerdict) -> None:
     """Attach the diagnostician's verdict to the most recent attempt directory.
 
     ``save_page_attempt`` already wrote the OCR + quality for this attempt;
@@ -481,9 +477,7 @@ def _annotate_attempt_verdict(
     save_attempt_verdict(job, page_index, verdict_to_dict(verdict))
 
 
-def _apply_settings_overrides(
-    job: Job, page_index: int, overrides: dict[str, Any]
-) -> None:
+def _apply_settings_overrides(job: Job, page_index: int, overrides: dict[str, Any]) -> None:
     page = load_page(job, page_index)
     merged = {**page.settings, **overrides}
     update_page_settings(job, page_index, merged)
@@ -544,9 +538,7 @@ def _try_vision_fallback(
         transcript=transcript_to_dict(transcript),
         quality=quality_dict,
     )
-    verdict = decide(
-        quality, thresholds, context=scoring_ctx, ocr_diagnostics=diagnostics
-    )
+    verdict = decide(quality, thresholds, context=scoring_ctx, ocr_diagnostics=diagnostics)
 
     if verdict == "accept":
         notes = _vision_accept_notes(transcript, needs_human_reason)
@@ -577,9 +569,7 @@ def _try_vision_fallback(
     )
 
 
-def _vision_accept_notes(
-    transcript: VisionTranscript, needs_human_reason: str | None
-) -> str:
+def _vision_accept_notes(transcript: VisionTranscript, needs_human_reason: str | None) -> str:
     parts = ["accepted via vision fallback"]
     if transcript.notes:
         parts.append(f"vision notes: {transcript.notes}")
@@ -666,9 +656,7 @@ def _resolve_page_indices(job: Job, page_indices: Sequence[int] | None) -> list[
         raise ValueError("page_indices must not be empty")
     bad = [i for i in resolved if i < 1 or i > job.page_count]
     if bad:
-        raise ValueError(
-            f"page indices out of range for job with {job.page_count} pages: {bad}"
-        )
+        raise ValueError(f"page indices out of range for job with {job.page_count} pages: {bad}")
     # Preserve caller order but drop duplicates so a typo like 7,7 doesn't
     # double-OCR.
     seen: set[int] = set()
@@ -713,6 +701,7 @@ def _default_ocr_adapter() -> OcrAdapter:
     are forwarded into ``BDRCOCREngine.run_on_image`` so diagnostician
     retry overrides actually change OCR behavior.
     """
+
     def _adapter(image_path: Path, settings: dict[str, Any]) -> OcrResult:
         import cv2
         from app.pdf.ocr import get_engine
@@ -744,6 +733,7 @@ def _default_spellcheck_adapter() -> SpellcheckAdapter:
         nonlocal checker
         if checker is None:
             from app.spellcheck.engine import TibetanSpellChecker
+
             checker = TibetanSpellChecker()
         return checker.check_text(text)
 

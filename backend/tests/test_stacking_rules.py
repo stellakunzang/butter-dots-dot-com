@@ -9,87 +9,86 @@ Tests the data and lookup functions in rules/stacking.py:
 
 Based on traditional Tibetan grammar rules and linguistic research.
 """
-import pytest
 
 
 class TestPrefixRules:
     """Test prefix validation rules"""
-    
+
     def test_valid_prefixes_exist(self):
         """5 letters can be prefixes: ga, da, ba, ma, achung"""
         from app.spellcheck.rules.stacking import VALID_PREFIXES
-        
+
         assert len(VALID_PREFIXES) == 5
         assert "ག" in VALID_PREFIXES  # ga
         assert "ད" in VALID_PREFIXES  # da
         assert "བ" in VALID_PREFIXES  # ba
         assert "མ" in VALID_PREFIXES  # ma
         assert "འ" in VALID_PREFIXES  # achung
-    
+
     def test_ga_prefix_valid_combinations(self):
         """ga (ག) can prefix certain letters"""
         from app.spellcheck.rules.stacking import is_valid_prefix_root
-        
+
         # Valid combinations (from VBA research)
         assert is_valid_prefix_root("ག", "ཡ") is True  # ga-ya
         assert is_valid_prefix_root("ག", "ཉ") is True  # ga-nya
         assert is_valid_prefix_root("ག", "ད") is True  # ga-da
         assert is_valid_prefix_root("ག", "ང") is True  # ga-nga VALID
-        
+
         # Invalid combinations (from VBA line 334)
         # ga CANNOT prefix: ka, kha, cha, ja, tha, tsa, pa, pha, dza, wa, ha
         assert is_valid_prefix_root("ག", "ཀ") is False  # ga-ka invalid
         assert is_valid_prefix_root("ག", "པ") is False  # ga-pa invalid
-    
+
     def test_da_prefix_valid_combinations(self):
         """da (ད) can prefix certain letters"""
         from app.spellcheck.rules.stacking import is_valid_prefix_root
-        
+
         # Valid combinations (from VBA line 334)
         assert is_valid_prefix_root("ད", "ཀ") is True  # da-ka (དཀར dkar)
         assert is_valid_prefix_root("ད", "ག") is True  # da-ga (དགའ dga')
         assert is_valid_prefix_root("ད", "ང") is True  # da-nga (དངོས dngos)
-        
+
         # Invalid combinations (from VBA line 334)
         assert is_valid_prefix_root("ད", "ཁ") is False  # da-kha invalid
         assert is_valid_prefix_root("ད", "ཡ") is False  # da-ya invalid
-    
+
     def test_non_prefix_letter(self):
         """Letters that are not prefixes should fail"""
         from app.spellcheck.rules.stacking import is_valid_prefix_root
-        
+
         # la (ལ) is NOT a valid prefix
         assert is_valid_prefix_root("ལ", "ཀ") is False
         assert is_valid_prefix_root("ས", "ཀ") is False  # sa not a prefix
-    
+
     def test_prefix_with_empty_base(self):
         """Prefix with empty base should be invalid"""
         from app.spellcheck.rules.stacking import is_valid_prefix_root
-        
+
         assert is_valid_prefix_root("ག", "") is False
         assert is_valid_prefix_root("", "ཀ") is False
 
 
 class TestSuperscriptRules:
     """Test superscript (ra-mgo, la-mgo, sa-mgo) validation"""
-    
+
     def test_valid_superscripts_exist(self):
         """Only 3 letters can be superscripts"""
         from app.spellcheck.rules.stacking import VALID_SUPERSCRIPTS
-        
+
         assert len(VALID_SUPERSCRIPTS) == 3
         assert "ར" in VALID_SUPERSCRIPTS  # ra-mgo
-        assert "ལ" in VALID_SUPERSCRIPTS  # la-mgo  
+        assert "ལ" in VALID_SUPERSCRIPTS  # la-mgo
         assert "ས" in VALID_SUPERSCRIPTS  # sa-mgo
-    
+
     def test_ra_mgo_valid_combinations(self):
         """ra-mgo (ར) can superscript certain letters"""
         from app.spellcheck.rules.stacking import is_valid_superscript_root
 
-        assert is_valid_superscript_root("ར", "ཀ") is True   # རྐ rka
-        assert is_valid_superscript_root("ར", "ག") is True   # རྒ rga
-        assert is_valid_superscript_root("ར", "ང") is True   # རྔ rnga
-        assert is_valid_superscript_root("ར", "ཏ") is True   # རྟ rta
+        assert is_valid_superscript_root("ར", "ཀ") is True  # རྐ rka
+        assert is_valid_superscript_root("ར", "ག") is True  # རྒ rga
+        assert is_valid_superscript_root("ར", "ང") is True  # རྔ rnga
+        assert is_valid_superscript_root("ར", "ཏ") is True  # རྟ rta
 
         # ra cannot sit over these roots
         assert is_valid_superscript_root("ར", "ཅ") is False  # ca not in VALID_RA_MGO_ROOTS
@@ -100,10 +99,10 @@ class TestSuperscriptRules:
         """la-mgo (ལ) can superscript certain letters"""
         from app.spellcheck.rules.stacking import is_valid_superscript_root
 
-        assert is_valid_superscript_root("ལ", "ཀ") is True   # ལྐ lka
-        assert is_valid_superscript_root("ལ", "ག") is True   # ལྒ lga
-        assert is_valid_superscript_root("ལ", "ང") is True   # ལྔ lnga
-        assert is_valid_superscript_root("ལ", "ཧ") is True   # ལྷ lha
+        assert is_valid_superscript_root("ལ", "ཀ") is True  # ལྐ lka
+        assert is_valid_superscript_root("ལ", "ག") is True  # ལྒ lga
+        assert is_valid_superscript_root("ལ", "ང") is True  # ལྔ lnga
+        assert is_valid_superscript_root("ལ", "ཧ") is True  # ལྷ lha
 
         # la cannot sit over these roots
         assert is_valid_superscript_root("ལ", "ཉ") is False  # nya not in VALID_LA_MGO_ROOTS
@@ -114,93 +113,93 @@ class TestSuperscriptRules:
         """sa-mgo (ས) can superscript certain letters"""
         from app.spellcheck.rules.stacking import is_valid_superscript_root
 
-        assert is_valid_superscript_root("ས", "ཀ") is True   # སྐ ska
-        assert is_valid_superscript_root("ས", "ག") is True   # སྒ sga
-        assert is_valid_superscript_root("ས", "ང") is True   # སྔ snga
-        assert is_valid_superscript_root("ས", "མ") is True   # སྨ sma
+        assert is_valid_superscript_root("ས", "ཀ") is True  # སྐ ska
+        assert is_valid_superscript_root("ས", "ག") is True  # སྒ sga
+        assert is_valid_superscript_root("ས", "ང") is True  # སྔ snga
+        assert is_valid_superscript_root("ས", "མ") is True  # སྨ sma
 
         # sa cannot sit over these roots
         assert is_valid_superscript_root("ས", "ཅ") is False  # ca not in VALID_SA_MGO_ROOTS
         assert is_valid_superscript_root("ས", "ཇ") is False  # ja not in VALID_SA_MGO_ROOTS
         assert is_valid_superscript_root("ས", "ར") is False  # ra not in VALID_SA_MGO_ROOTS
-    
+
     def test_non_superscript_letter(self):
         """Non-superscript letters should fail"""
         from app.spellcheck.rules.stacking import is_valid_superscript_root
-        
+
         # ga (ག) cannot be a superscript
         assert is_valid_superscript_root("ག", "ཀ") is False
 
 
 class TestSubscriptRules:
     """Test subscript (ya-btags, ra-btags, la-btags, wa-zur) validation"""
-    
+
     def test_valid_subscripts_exist(self):
         """Only 4 letters can be subscripts"""
         from app.spellcheck.rules.stacking import VALID_SUBSCRIPTS
-        
+
         assert len(VALID_SUBSCRIPTS) == 4
-        assert "\u0FB1" in VALID_SUBSCRIPTS  # ya-btags (U+0FB1)
-        assert "\u0FB2" in VALID_SUBSCRIPTS  # ra-btags (U+0FB2)
-        assert "\u0FB3" in VALID_SUBSCRIPTS  # la-btags (U+0FB3)
-        assert "\u0FAD" in VALID_SUBSCRIPTS  # wa-zur (U+0FAD)
-    
+        assert "\u0fb1" in VALID_SUBSCRIPTS  # ya-btags (U+0FB1)
+        assert "\u0fb2" in VALID_SUBSCRIPTS  # ra-btags (U+0FB2)
+        assert "\u0fb3" in VALID_SUBSCRIPTS  # la-btags (U+0FB3)
+        assert "\u0fad" in VALID_SUBSCRIPTS  # wa-zur (U+0FAD)
+
     def test_ya_btags_valid_combinations(self):
         """ya-btags (U+0FB1) can subscript certain letters"""
         from app.spellcheck.rules.stacking import is_valid_subscript_root
 
-        assert is_valid_subscript_root("ཀ", "\u0FB1") is True   # ཀྱ kya
-        assert is_valid_subscript_root("ག", "\u0FB1") is True   # གྱ gya
-        assert is_valid_subscript_root("པ", "\u0FB1") is True   # པྱ pya
-        assert is_valid_subscript_root("བ", "\u0FB1") is True   # བྱ bya
-        assert is_valid_subscript_root("མ", "\u0FB1") is True   # མྱ mya
+        assert is_valid_subscript_root("ཀ", "\u0fb1") is True  # ཀྱ kya
+        assert is_valid_subscript_root("ག", "\u0fb1") is True  # གྱ gya
+        assert is_valid_subscript_root("པ", "\u0fb1") is True  # པྱ pya
+        assert is_valid_subscript_root("བ", "\u0fb1") is True  # བྱ bya
+        assert is_valid_subscript_root("མ", "\u0fb1") is True  # མྱ mya
 
-        assert is_valid_subscript_root("ང", "\u0FB1") is False  # nga + ya invalid
-        assert is_valid_subscript_root("ད", "\u0FB1") is False  # da + ya invalid
-        assert is_valid_subscript_root("ན", "\u0FB1") is False  # na + ya invalid
+        assert is_valid_subscript_root("ང", "\u0fb1") is False  # nga + ya invalid
+        assert is_valid_subscript_root("ད", "\u0fb1") is False  # da + ya invalid
+        assert is_valid_subscript_root("ན", "\u0fb1") is False  # na + ya invalid
 
     def test_ra_btags_valid_combinations(self):
         """ra-btags (U+0FB2) can subscript certain letters"""
         from app.spellcheck.rules.stacking import is_valid_subscript_root
 
-        assert is_valid_subscript_root("ཀ", "\u0FB2") is True   # ཀྲ kra
-        assert is_valid_subscript_root("ག", "\u0FB2") is True   # གྲ gra
-        assert is_valid_subscript_root("ཏ", "\u0FB2") is True   # ཏྲ tra
-        assert is_valid_subscript_root("ད", "\u0FB2") is True   # དྲ dra
-        assert is_valid_subscript_root("ཧ", "\u0FB2") is True   # ཧྲ hra
+        assert is_valid_subscript_root("ཀ", "\u0fb2") is True  # ཀྲ kra
+        assert is_valid_subscript_root("ག", "\u0fb2") is True  # གྲ gra
+        assert is_valid_subscript_root("ཏ", "\u0fb2") is True  # ཏྲ tra
+        assert is_valid_subscript_root("ད", "\u0fb2") is True  # དྲ dra
+        assert is_valid_subscript_root("ཧ", "\u0fb2") is True  # ཧྲ hra
 
-        assert is_valid_subscript_root("ང", "\u0FB2") is False  # nga + ra invalid
-        assert is_valid_subscript_root("ཅ", "\u0FB2") is False  # ca + ra invalid
-        assert is_valid_subscript_root("ན", "\u0FB2") is False  # na + ra invalid
+        assert is_valid_subscript_root("ང", "\u0fb2") is False  # nga + ra invalid
+        assert is_valid_subscript_root("ཅ", "\u0fb2") is False  # ca + ra invalid
+        assert is_valid_subscript_root("ན", "\u0fb2") is False  # na + ra invalid
 
     def test_la_btags_valid_combinations(self):
         """la-btags (U+0FB3) can subscript certain letters"""
         from app.spellcheck.rules.stacking import is_valid_subscript_root
 
-        assert is_valid_subscript_root("ཀ", "\u0FB3") is True   # ཀླ kla
-        assert is_valid_subscript_root("ག", "\u0FB3") is True   # གླ gla
-        assert is_valid_subscript_root("བ", "\u0FB3") is True   # བླ bla
-        assert is_valid_subscript_root("ཟ", "\u0FB3") is True   # ཟླ zla
-        assert is_valid_subscript_root("ར", "\u0FB3") is True   # རླ rla
-        assert is_valid_subscript_root("ས", "\u0FB3") is True   # སླ sla
+        assert is_valid_subscript_root("ཀ", "\u0fb3") is True  # ཀླ kla
+        assert is_valid_subscript_root("ག", "\u0fb3") is True  # གླ gla
+        assert is_valid_subscript_root("བ", "\u0fb3") is True  # བླ bla
+        assert is_valid_subscript_root("ཟ", "\u0fb3") is True  # ཟླ zla
+        assert is_valid_subscript_root("ར", "\u0fb3") is True  # རླ rla
+        assert is_valid_subscript_root("ས", "\u0fb3") is True  # སླ sla
 
-        assert is_valid_subscript_root("ང", "\u0FB3") is False  # nga + la invalid
-        assert is_valid_subscript_root("ད", "\u0FB3") is False  # da + la invalid
-        assert is_valid_subscript_root("མ", "\u0FB3") is False  # ma + la invalid
+        assert is_valid_subscript_root("ང", "\u0fb3") is False  # nga + la invalid
+        assert is_valid_subscript_root("ད", "\u0fb3") is False  # da + la invalid
+        assert is_valid_subscript_root("མ", "\u0fb3") is False  # ma + la invalid
 
     def test_wa_zur_valid_combinations(self):
         """wa-zur (U+0FAD) can subscript certain letters"""
         from app.spellcheck.rules.stacking import is_valid_subscript_root
 
-        assert is_valid_subscript_root("ཀ", "\u0FAD") is True   # ཀྭ kwa
-        assert is_valid_subscript_root("ག", "\u0FAD") is True   # གྭ gwa
-        assert is_valid_subscript_root("ཞ", "\u0FAD") is True   # ཞྭ zhwa
-        assert is_valid_subscript_root("ར", "\u0FAD") is True   # རྭ rwa
-        assert is_valid_subscript_root("ཧ", "\u0FAD") is True   # ཧྭ hwa
+        assert is_valid_subscript_root("ཀ", "\u0fad") is True  # ཀྭ kwa
+        assert is_valid_subscript_root("ག", "\u0fad") is True  # གྭ gwa
+        assert is_valid_subscript_root("ཞ", "\u0fad") is True  # ཞྭ zhwa
+        assert is_valid_subscript_root("ར", "\u0fad") is True  # རྭ rwa
+        assert is_valid_subscript_root("ཧ", "\u0fad") is True  # ཧྭ hwa
 
-        assert is_valid_subscript_root("ང", "\u0FAD") is False  # nga + wa invalid
-        assert is_valid_subscript_root("བ", "\u0FAD") is False  # ba + wa invalid
-        assert is_valid_subscript_root("མ", "\u0FAD") is False  # ma + wa invalid
+        assert is_valid_subscript_root("ང", "\u0fad") is False  # nga + wa invalid
+        assert is_valid_subscript_root("བ", "\u0fad") is False  # ba + wa invalid
+        assert is_valid_subscript_root("མ", "\u0fad") is False  # ma + wa invalid
 
 
 class TestPrefixRuleBugs_QA_20260211:
@@ -226,6 +225,7 @@ class TestPrefixRuleBugs_QA_20260211:
     def test_da_nga_should_be_valid(self):
         """ད+ང is NOT in VBA's invalid list. དངོས (dngos) is a common word."""
         from app.spellcheck.rules.stacking import is_valid_prefix_root
+
         assert is_valid_prefix_root("ད", "ང") is True
 
     # ---- Bug 2: ད + ཏ should be INVALID ----
@@ -233,6 +233,7 @@ class TestPrefixRuleBugs_QA_20260211:
     def test_da_ta_should_be_invalid(self):
         """ད+ཏ IS in VBA's invalid list (U+0F4F is within 0F45-0F50 range)."""
         from app.spellcheck.rules.stacking import is_valid_prefix_root
+
         assert is_valid_prefix_root("ད", "ཏ") is False
 
     # ---- Bug 3: ད has ལ instead of ཤ ----
@@ -240,11 +241,13 @@ class TestPrefixRuleBugs_QA_20260211:
     def test_da_sha_should_be_invalid(self):
         """ད+ཤ IS in VBA (U+0F64 = ཤ sha). Reference doc mislabeled it as ལ."""
         from app.spellcheck.rules.stacking import is_valid_prefix_root
+
         assert is_valid_prefix_root("ད", "ཤ") is False
 
     def test_da_la_should_be_valid(self):
         """ད+ལ is NOT in VBA. ལ (U+0F63) was confused with ཤ (U+0F64)."""
         from app.spellcheck.rules.stacking import is_valid_prefix_root
+
         assert is_valid_prefix_root("ད", "ལ") is True
 
     # ---- Bug 4: མ has ལ instead of ཤ ----
@@ -252,11 +255,13 @@ class TestPrefixRuleBugs_QA_20260211:
     def test_ma_sha_should_be_invalid(self):
         """མ+ཤ IS in VBA (U+0F64 = ཤ). Same mislabeling as ད."""
         from app.spellcheck.rules.stacking import is_valid_prefix_root
+
         assert is_valid_prefix_root("མ", "ཤ") is False
 
     def test_ma_la_should_be_valid(self):
         """མ+ལ is NOT in VBA. ལ (U+0F63) was confused with ཤ (U+0F64)."""
         from app.spellcheck.rules.stacking import is_valid_prefix_root
+
         assert is_valid_prefix_root("མ", "ལ") is True
 
     # ---- Bugs 5-6: འ prefix keyed as ར, plus ལ/ཤ confusion ----
@@ -264,32 +269,37 @@ class TestPrefixRuleBugs_QA_20260211:
     def test_achung_ka_should_be_invalid(self):
         """འ+ཀ IS in VBA (U+0F60 = འ is the 5th prefix, not ར)."""
         from app.spellcheck.rules.stacking import is_valid_prefix_root
+
         assert is_valid_prefix_root("འ", "ཀ") is False
 
     def test_achung_sha_should_be_invalid(self):
         """འ+ཤ IS in VBA (U+0F64 in འ's invalid list)."""
         from app.spellcheck.rules.stacking import is_valid_prefix_root
+
         assert is_valid_prefix_root("འ", "ཤ") is False
 
     def test_achung_ta_should_be_invalid(self):
         """འ+ཏ IS in VBA (U+0F4F in འ's invalid list)."""
         from app.spellcheck.rules.stacking import is_valid_prefix_root
+
         assert is_valid_prefix_root("འ", "ཏ") is False
 
     def test_achung_valid_roots(self):
         """འ can prefix these roots (NOT in VBA's invalid list for U+0F60).
         Verified against real words: འགྲོ, འཇིག, འདིར, འབྲས, འཛིན."""
         from app.spellcheck.rules.stacking import is_valid_prefix_root
-        assert is_valid_prefix_root("འ", "ག") is True   # འགྲོ ('gro = go)
-        assert is_valid_prefix_root("འ", "ཇ") is True   # འཇིག ('jig = destroy)
-        assert is_valid_prefix_root("འ", "ད") is True   # འདིར ('dir = here)
-        assert is_valid_prefix_root("འ", "བ") is True   # འབྲས ('bras = rice)
-        assert is_valid_prefix_root("འ", "ཛ") is True   # འཛིན ('dzin = hold)
-        assert is_valid_prefix_root("འ", "ར") is True   # not in invalid list
+
+        assert is_valid_prefix_root("འ", "ག") is True  # འགྲོ ('gro = go)
+        assert is_valid_prefix_root("འ", "ཇ") is True  # འཇིག ('jig = destroy)
+        assert is_valid_prefix_root("འ", "ད") is True  # འདིར ('dir = here)
+        assert is_valid_prefix_root("འ", "བ") is True  # འབྲས ('bras = rice)
+        assert is_valid_prefix_root("འ", "ཛ") is True  # འཛིན ('dzin = hold)
+        assert is_valid_prefix_root("འ", "ར") is True  # not in invalid list
 
     def test_achung_invalid_roots(self):
         """འ CANNOT prefix these roots (IN VBA's invalid list for U+0F60)."""
         from app.spellcheck.rules.stacking import is_valid_prefix_root
+
         assert is_valid_prefix_root("འ", "ཞ") is False  # U+0F5E in VBA invalid
         assert is_valid_prefix_root("འ", "ཟ") is False  # U+0F5F in VBA invalid
         assert is_valid_prefix_root("འ", "ཡ") is False  # U+0F61 in VBA invalid
@@ -302,6 +312,7 @@ class TestPrefixRuleBugs_QA_20260211:
         The VBA source only defines 5 prefix groups (U+0F42, 0F51, 0F56, 0F58, 0F60).
         """
         from app.spellcheck.rules.stacking import VALID_PREFIXES
+
         assert "ག" in VALID_PREFIXES
         assert "ད" in VALID_PREFIXES
         assert "བ" in VALID_PREFIXES
@@ -313,11 +324,11 @@ class TestPrefixRuleBugs_QA_20260211:
 
 class TestRuleHelpers:
     """Test helper/compatibility functions"""
-    
+
     def test_error_severity_mapping(self):
         """Error types map to correct severity"""
         from app.spellcheck.rules import get_error_severity
-        
+
         assert get_error_severity("encoding_error") == "critical"
         assert get_error_severity("invalid_prefix") == "error"
         assert get_error_severity("sanskrit_marker") == "info"

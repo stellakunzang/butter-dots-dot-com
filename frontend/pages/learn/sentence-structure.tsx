@@ -1,35 +1,12 @@
 import type {NextPage} from 'next'
 import Link from 'next/link'
+import {Layout, Section, Card, SectionHeading} from '../../components'
+import {LearnHeader} from '../../components/learn/LearnHeader'
 import {
-  Layout,
-  Section,
-  Card,
-  PageTitle,
-  SectionHeading,
-} from '../../components'
-
-const EXAMPLE_SENTENCE =
-  'མ་ནམ་མཁའ་དང་མཉམ་པའི་སེམས་ཅན་ཐམས་ཅད་བདེ་བ་དང་བདེ་བའི་རྒྱུ་དང་ལྡན་པར་གྱུར་ཅིག།'
-
-const EXAMPLE_SYLLABLES = EXAMPLE_SENTENCE.replace(/[།\s]/g, '')
-  .split('་')
-  .filter(Boolean)
-
-const EXAMPLE_WORDS: {tibetan: string; gloss: string}[] = [
-  {tibetan: 'མ', gloss: 'mother'},
-  {tibetan: 'ནམ་མཁའ', gloss: 'space'},
-  {tibetan: 'དང', gloss: 'and'},
-  {tibetan: 'མཉམ་པའི', gloss: 'equal'},
-  {tibetan: 'སེམས་ཅན', gloss: 'sentient beings'},
-  {tibetan: 'ཐམས་ཅད', gloss: 'all'},
-  {tibetan: 'བདེ་བ', gloss: 'happiness'},
-  {tibetan: 'དང', gloss: 'and'},
-  {tibetan: 'བདེ་བའི', gloss: 'of happiness'},
-  {tibetan: 'རྒྱུ', gloss: 'cause'},
-  {tibetan: 'དང', gloss: 'and'},
-  {tibetan: 'ལྡན་པར', gloss: 'endowed with'},
-  {tibetan: 'གྱུར་ཅིག', gloss: 'may they become'},
-]
+  EXAMPLE_SENTENCE,
+  EXAMPLE_SYLLABLES,
+  EXAMPLE_WORDS,
+} from '../../content/learn/sentence'
 
 const SentenceStructure: NextPage = () => {
   return (
@@ -40,19 +17,10 @@ const SentenceStructure: NextPage = () => {
       backHref="/learn"
       backLabel="← Learn"
     >
-      <div className="mb-12 max-w-4xl mx-auto border-b-2 border-gray-200 pb-8">
-        <div className="mb-4">
-          <span className="text-sm uppercase tracking-wider text-gray-500 font-medium">
-            Learn
-          </span>
-        </div>
-        <PageTitle>Reading a Tibetan Sentence</PageTitle>
-        <p className="text-xl text-gray-600 font-light leading-relaxed">
-          The Tibetan language marks syllables, not words. To read a sentence
-          you have to work out for yourself where each word begins and ends —
-          and the particles are your best clue. This guide explains what the
-          particles do and how to use them to take a sentence apart.
-        </p>
+      <LearnHeader
+        title="Reading a Tibetan Sentence"
+        lede="The Tibetan language marks syllables, not words. To read a sentence you have to work out for yourself where each word begins and ends — and the particles are your best clue. This guide explains what the particles do and how to use them to take a sentence apart."
+      >
         <p className="mt-4 text-gray-500">
           For the spelling of each particle — which form is correct after which
           letter — see{' '}
@@ -64,7 +32,7 @@ const SentenceStructure: NextPage = () => {
           </Link>
           . This page is about what the particles mean.
         </p>
-      </div>
+      </LearnHeader>
 
       {/* ------------------------------------------------------------------ */}
       {/* Where words begin and end                                            */}

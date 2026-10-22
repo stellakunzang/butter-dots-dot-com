@@ -1,5 +1,7 @@
-import React, {useEffect, useState} from 'react'
+import React, {useEffect, useRef, useState} from 'react'
 import {getJobStatus, getResultURLs, JobStatusResponse} from '@/lib/api'
+import {Alert} from '../ui/Alert'
+import {Spinner} from '../ui/Spinner'
 import {PDFDownloadLink} from './PDFDownloadLink'
 
 interface JobStatusProps {
@@ -13,9 +15,12 @@ const POLL_INTERVAL_MS = 3000
 export function JobStatus({jobId, email, onCompleted}: JobStatusProps) {
   const [status, setStatus] = useState<JobStatusResponse | null>(null)
   const [pollError, setPollError] = useState<string | null>(null)
+  const onCompletedRef = useRef(onCompleted)
+  onCompletedRef.current = onCompleted
 
   useEffect(() => {
     let cancelled = false
+    let timer: ReturnType<typeof setTimeout> | undefined
 
     const poll = async () => {
       try {
@@ -24,14 +29,14 @@ export function JobStatus({jobId, email, onCompleted}: JobStatusProps) {
         setStatus(s)
 
         if (s.status === 'completed') {
-          onCompleted(s)
+          onCompletedRef.current(s)
           return
         }
         if (s.status === 'failed') {
           return
         }
 
-        setTimeout(poll, POLL_INTERVAL_MS)
+        timer = setTimeout(poll, POLL_INTERVAL_MS)
       } catch (err) {
         if (cancelled) return
         setPollError(err instanceof Error ? err.message : 'Polling failed')
@@ -41,35 +46,22 @@ export function JobStatus({jobId, email, onCompleted}: JobStatusProps) {
     poll()
     return () => {
       cancelled = true
+      if (timer) clearTimeout(timer)
     }
-  }, [jobId, onCompleted])
+  }, [jobId])
 
   if (pollError) {
     return (
-      <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+      <Alert tone="error">
         <strong>Polling error:</strong> {pollError}
-      </div>
+      </Alert>
     )
   }
 
   if (!status) {
     return (
       <div className="flex items-center gap-2 text-sm text-gray-500">
-        <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-          <circle
-            className="opacity-25"
-            cx="12"
-            cy="12"
-            r="10"
-            stroke="currentColor"
-            strokeWidth="4"
-          />
-          <path
-            className="opacity-75"
-            fill="currentColor"
-            d="M4 12a8 8 0 018-8v8H4z"
-          />
-        </svg>
+        <Spinner />
         Checking status…
       </div>
     )
@@ -77,14 +69,9 @@ export function JobStatus({jobId, email, onCompleted}: JobStatusProps) {
 
   if (status.status === 'failed') {
     return (
-      <div className="rounded-lg border border-red-200 bg-red-50 p-4">
-        <p className="text-sm font-semibold text-red-800 mb-1">
-          Processing failed
-        </p>
-        <p className="text-sm text-red-700">
-          {status.error_message || 'An unknown error occurred.'}
-        </p>
-      </div>
+      <Alert tone="error" title="Processing failed">
+        {status.error_message || 'An unknown error occurred.'}
+      </Alert>
     )
   }
 
@@ -139,8 +126,8 @@ function PDFResultLinks({
           : `${errorCount} spelling error${errorCount === 1 ? '' : 's'} found.`}
       </p>
       <div className="flex flex-wrap gap-2">
-        <PDFDownloadLink href={urls.pdf} label="Annotated PDF" colorClass="bg-green-100 text-green-700 hover:bg-green-200" />
-        <PDFDownloadLink href={urls.docx} label="Editable Word doc" colorClass="bg-blue-100 text-blue-700 hover:bg-blue-200" />
+        <PDFDownloadLink href={urls.pdf} label="Annotated PDF" variant="pdf" />
+        <PDFDownloadLink href={urls.docx} label="Editable Word doc" variant="docx" />
       </div>
     </div>
   )

@@ -6,7 +6,7 @@ from app.config import settings
 app = FastAPI(
     title="Tibetan Spellchecker API",
     version="0.1.0",
-    description="API for Tibetan spell checking with PDF support"
+    description="API for Tibetan spell checking with PDF support",
 )
 
 # CORS — origins loaded from ALLOWED_ORIGINS env var / .env file

@@ -1,6 +1,7 @@
 """
 SpellError -- a spelling error found during validation.
 """
+
 from dataclasses import dataclass
 
 
@@ -15,6 +16,7 @@ class SpellError:
         severity: 'critical', 'error', or 'info'
         component: Which syllable component triggered the error
     """
+
     error_type: str
     message: str
     severity: str

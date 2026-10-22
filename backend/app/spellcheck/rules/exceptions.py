@@ -15,10 +15,12 @@ explaining why it's excepted.
 #
 #   ནའང་ = ན་ (locative "in/at") + འང་ → "even in/at"
 #   ལའང་ = ལ་ (locative "to/at")  + འང་ → "even to/at"
-EXCEPTED_SYLLABLES: frozenset = frozenset({
-    'ནའང',
-    'ལའང',
-})
+EXCEPTED_SYLLABLES: frozenset = frozenset(
+    {
+        'ནའང',
+        'ལའང',
+    }
+)
 
 
 def is_excepted(syllable: str) -> bool:

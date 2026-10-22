@@ -14,6 +14,7 @@ exercised:
 Together with the runner-level fallback tests in ``test_runner.py`` these
 pin down the vision module's behavior end-to-end without burning tokens.
 """
+
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -30,6 +31,7 @@ from app.ocr_assist.vision_ocr import (
 @dataclass
 class _FakeToolUse:
     """Minimal stand-in for ``anthropic.types.ToolUseBlock``."""
+
     name: str
     input: dict
     type: str = "tool_use"
@@ -136,26 +138,20 @@ class TestParseTranscript:
         assert transcript.notes is None
 
     def test_no_tool_use_block_raises(self, image_file):
-        client = _FakeClient(
-            _FakeResponse(content=[_FakeTextBlock(text="I refuse")])
-        )
+        client = _FakeClient(_FakeResponse(content=[_FakeTextBlock(text="I refuse")]))
         with pytest.raises(VisionOcrError):
             VisionOcr(client=client)(image_path=image_file)
 
     def test_wrong_tool_name_raises(self, image_file):
         client = _FakeClient(
-            _FakeResponse(
-                content=[_FakeToolUse(name="diagnose", input={"text": "x"})]
-            )
+            _FakeResponse(content=[_FakeToolUse(name="diagnose", input={"text": "x"})])
         )
         with pytest.raises(VisionOcrError):
             VisionOcr(client=client)(image_path=image_file)
 
     def test_missing_text_raises(self, image_file):
         client = _FakeClient(
-            _FakeResponse(
-                content=[_FakeToolUse(name="transcribe", input={"notes": "x"})]
-            )
+            _FakeResponse(content=[_FakeToolUse(name="transcribe", input={"notes": "x"})])
         )
         with pytest.raises(VisionOcrError):
             VisionOcr(client=client)(image_path=image_file)
@@ -164,9 +160,7 @@ class TestParseTranscript:
 class TestRequestShape:
     def test_request_includes_image_system_and_tool(self, image_file):
         client = _FakeClient(
-            _FakeResponse(
-                content=[_FakeToolUse(name="transcribe", input={"text": "x"})]
-            )
+            _FakeResponse(content=[_FakeToolUse(name="transcribe", input={"text": "x"})])
         )
         VisionOcr(client=client, model="claude-opus-4-7")(image_path=image_file)
 
@@ -200,9 +194,7 @@ class TestRequestShape:
         # Vision is the costly fallback that runs at most once per failed page;
         # default to the strongest model. Callers can pass model= to override.
         client = _FakeClient(
-            _FakeResponse(
-                content=[_FakeToolUse(name="transcribe", input={"text": "x"})]
-            )
+            _FakeResponse(content=[_FakeToolUse(name="transcribe", input={"text": "x"})])
         )
         VisionOcr(client=client)(image_path=image_file)
         assert client.calls[0]["model"] == "claude-opus-4-8"
@@ -213,6 +205,7 @@ class TestTranscriptToDict:
         assert transcript_to_dict(VisionTranscript(text="བཀྲ")) == {"text": "བཀྲ"}
 
     def test_with_notes(self):
-        assert transcript_to_dict(
-            VisionTranscript(text="བཀྲ", notes="faded ink")
-        ) == {"text": "བཀྲ", "notes": "faded ink"}
+        assert transcript_to_dict(VisionTranscript(text="བཀྲ", notes="faded ink")) == {
+            "text": "བཀྲ",
+            "notes": "faded ink",
+        }

@@ -1,6 +1,7 @@
 """
 TibetanSyllable -- the canonical parsed syllable representation.
 """
+
 from dataclasses import dataclass, field
 from typing import Optional, List
 
@@ -28,6 +29,7 @@ class TibetanSyllable:
         post_suffix: Optional post-suffix letter (ད or ས)
         unparsed: Characters the parser could not assign to a component
     """
+
     raw: str
     prefix: Optional[str] = None
     superscript: Optional[str] = None

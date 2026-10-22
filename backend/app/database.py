@@ -16,6 +16,7 @@ Or check availability first:
     if db_available():
         ...
 """
+
 from contextlib import contextmanager
 from typing import Generator
 
@@ -30,7 +31,7 @@ _SessionFactory = None
 if settings.database_url:
     _engine = create_engine(
         settings.database_url,
-        pool_pre_ping=True,   # detect stale connections
+        pool_pre_ping=True,  # detect stale connections
         pool_size=5,
         max_overflow=10,
     )

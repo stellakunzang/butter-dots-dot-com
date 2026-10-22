@@ -1,0 +1,10 @@
+.env
+.env.*
+venv
+jobs
+uploads
+results
+*.pdf
+__pycache__
+.pytest_cache
+.git

@@ -7,6 +7,7 @@ Jobs don't survive restarts — acceptable at this stage.
 Future: replace with a DB-backed store (SQLAlchemy model) when persistence
 or multi-instance deployment is needed.
 """
+
 import uuid
 import logging
 from dataclasses import dataclass, field
@@ -32,7 +33,7 @@ class PDFJob:
     email: Optional[str]
     page_count: int
     status: JobStatus = JobStatus.PENDING
-    progress: int = 0          # 0–100
+    progress: int = 0  # 0–100
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     completed_at: Optional[datetime] = None
 

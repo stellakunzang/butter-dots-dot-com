@@ -1,13 +1,18 @@
 # Interactive Page-by-Page OCR with AI Assistance
 
-**Status:** Local QA slice landed on PRs [#65](https://github.com/stellakunzang/butter-dots-dot-com/pull/65) / [#66](https://github.com/stellakunzang/butter-dots-dot-com/pull/66) (stacks into `feat/interactive-ocr`) — BDRC CLI, clean DOCX, minimal `/ocr-assist` UI with on-demand Claude vs Gemini compare. Bulk jobs stay BDRC-only; AI is per-page only. You still run T-16 smoke on your real PDF.
+**Status:** Historical. The auto-accept loop, diagnostician, and vision compare
+described here are being removed. Current direction is
+[CODE_REVIEW_FIXES.md](CODE_REVIEW_FIXES.md) Track B. This file stays as the
+record of the design.
+
+**Status (when written):** Local QA slice landed on PRs [#65](https://github.com/stellakunzang/butter-dots-dot-com/pull/65) / [#66](https://github.com/stellakunzang/butter-dots-dot-com/pull/66) (stacks into `feat/interactive-ocr`) — BDRC CLI, clean DOCX, minimal `/ocr-assist` UI with on-demand Claude vs Gemini compare. Bulk jobs stay BDRC-only; AI is per-page only. You still run T-16 smoke on your real PDF.
 **Goal:** Convert a Tibetan text into a Word document, one page at a time, where pages that come out clean auto-advance and pages that don't get an AI-assisted retry loop and (if still bad) surface to a human. No more global-tweak-that-breaks-other-pages.
 **Scope:** Local-only for now. Single-user workflow. Future use case: photos of physical books (not yet in scope but shouldn't be architecturally blocked).
 
 **Related docs:**
-- [INTERACTIVE_OCR_WORKFLOW.md](INTERACTIVE_OCR_WORKFLOW.md) — branching, chat workflow
 - [INTERACTIVE_OCR_LOCAL_SMOKE.md](INTERACTIVE_OCR_LOCAL_SMOKE.md) — local AI-loop smoke + vision A/B (Phases B–E)
-- Root [README.md](../../README.md) § “Interactive OCR CLI” / browser UI — copy-paste local QA
+- [../guides/OCR_CLI.md](../guides/OCR_CLI.md) — current local CLI
+- [CODE_REVIEW_FIXES.md](CODE_REVIEW_FIXES.md) Track B — this design is being cut back
 
 Calibration thresholds, hard floors, and false-accept counts: [§ Quality scorer calibration](#quality-scorer-calibration-t-10) below.
 

@@ -9,6 +9,7 @@ backwards-compatible dict output via TibetanSyllable.to_dict().
 Syllable structure:
     PREFIX + SUPERSCRIPT + ROOT + SUBSCRIPT(S) + VOWEL + SUFFIX + POST-SUFFIX
 """
+
 from typing import Dict
 from .char_typing import type_characters
 from .parsing import parse_syllable
@@ -57,6 +58,7 @@ class TibetanSyllableParser:
         """
         if not syllable:
             from .data_types import TibetanSyllable
+
             return TibetanSyllable(raw="")
 
         typed_chars = type_characters(syllable)

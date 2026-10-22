@@ -1,13 +1,15 @@
 """
 Spell check API endpoints — text and PDF upload.
 """
+
 import asyncio
 import json
 import logging
 from pathlib import Path
 
-from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
+from pydantic import EmailStr, TypeAdapter, ValidationError
 
 from app.schemas.spellcheck import (
     ErrorResponse,
@@ -19,13 +21,21 @@ from app.schemas.spellcheck import (
     SpellCheckResponse,
 )
 from app.spellcheck.engine import TibetanSpellChecker
+from app.upload_limits import SPELLCHECK_MAX_PAGES, SPELLCHECK_MAX_UPLOAD_BYTES
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-MAX_UPLOAD_BYTES = 50 * 1024 * 1024  # 50 MB
+MAX_UPLOAD_BYTES = SPELLCHECK_MAX_UPLOAD_BYTES
+MAX_PAGES = SPELLCHECK_MAX_PAGES
 SYNC_PAGE_LIMIT = 15
+# Multipart framing sits outside the file part, so Content-Length may be
+# slightly larger than the PDF itself.
+_CONTENT_LENGTH_SLACK = 64 * 1024
+_READ_CHUNK = 1024 * 1024
+_email_adapter = TypeAdapter(EmailStr)
+_PROCESSING_FAILED = "PDF processing failed"
 
 RESULTS_DIR = Path(__file__).parent.parent.parent / "results"
 UPLOADS_DIR = Path(__file__).parent.parent.parent / "uploads"
@@ -39,6 +49,7 @@ _checker = TibetanSpellChecker()
 # ---------------------------------------------------------------------------
 # Text spell check (existing endpoint — unchanged)
 # ---------------------------------------------------------------------------
+
 
 @router.post("/spellcheck/text", response_model=SpellCheckResponse)
 async def check_text(request: SpellCheckRequest):
@@ -81,20 +92,22 @@ async def check_text(request: SpellCheckRequest):
             errors=errors,
         )
 
-    except Exception as e:
+    except Exception:
         logger.exception("Error processing spell check")
-        raise HTTPException(status_code=500, detail=f"Error processing spell check: {e}")
+        raise HTTPException(status_code=500, detail="Error processing spell check")
 
 
 # ---------------------------------------------------------------------------
 # PDF upload
 # ---------------------------------------------------------------------------
 
+
 @router.post("/spellcheck/upload")
 async def upload_pdf(
+    request: Request,
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
-    email: str = Form(None),
+    email: str | None = Form(None),
 ):
     """
     Upload a PDF for OCR and spell checking.
@@ -108,11 +121,15 @@ async def upload_pdf(
     if not file.filename or not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF files are accepted")
 
-    pdf_bytes = await file.read()
+    _reject_declared_length(request)
+
+    pdf_bytes = await _read_capped(file)
     if not pdf_bytes:
         raise HTTPException(status_code=400, detail="Empty file")
-    if len(pdf_bytes) > MAX_UPLOAD_BYTES:
-        raise HTTPException(status_code=413, detail="File too large. Maximum size is 50 MB.")
+    if not pdf_bytes.startswith(b"%PDF-"):
+        raise HTTPException(status_code=400, detail="Only PDF files are accepted")
+
+    notify_email = _optional_email(email)
 
     # Quick page count check before committing to full processing
     try:
@@ -121,12 +138,23 @@ async def upload_pdf(
 
         with pdfplumber.open(_io.BytesIO(pdf_bytes)) as _pdf:
             page_count = len(_pdf.pages)
-    except Exception as e:
-        raise HTTPException(status_code=422, detail=f"Could not read PDF: {e}")
+    except Exception:
+        logger.exception("Could not read uploaded PDF")
+        raise HTTPException(status_code=422, detail="Could not read PDF")
+
+    if page_count < 1:
+        raise HTTPException(status_code=422, detail="PDF has no pages")
+    if page_count > MAX_PAGES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"PDF exceeds the {MAX_PAGES}-page limit.",
+        )
 
     if page_count <= SYNC_PAGE_LIMIT:
         return await _process_sync(pdf_bytes, file.filename, page_count)
-    return await _queue_async_job(pdf_bytes, file.filename, page_count, email, background_tasks)
+    return await _queue_async_job(
+        pdf_bytes, file.filename, page_count, notify_email, background_tasks
+    )
 
 
 async def _process_sync(pdf_bytes: bytes, filename: str, page_count: int):
@@ -168,17 +196,17 @@ async def _process_sync(pdf_bytes: bytes, filename: str, page_count: int):
             docx_url=f"/api/v1/spellcheck/result/{job.id}/docx",
         )
 
-    except Exception as e:
-        job_store.mark_failed(job.id, str(e))
+    except Exception:
         logger.exception("Sync PDF processing failed for job %s", job.id)
-        raise HTTPException(status_code=500, detail=f"PDF processing failed: {e}")
+        job_store.mark_failed(job.id, _PROCESSING_FAILED)
+        raise HTTPException(status_code=500, detail=_PROCESSING_FAILED)
 
 
 async def _queue_async_job(
     pdf_bytes: bytes,
     filename: str,
     page_count: int,
-    email: str,
+    email: str | None,
     background_tasks: BackgroundTasks,
 ):
     """Queue a large PDF for background processing."""
@@ -192,19 +220,27 @@ async def _queue_async_job(
 
     background_tasks.add_task(_background_process, job.id, upload_path, filename, email)
 
+    if email:
+        message = (
+            f"Your {page_count}-page PDF has been queued. "
+            f"Results will be sent to {email} when complete. "
+            f"You can also poll GET /api/v1/spellcheck/job/{job.id} for status."
+        )
+    else:
+        message = (
+            f"Your {page_count}-page PDF has been queued. "
+            f"Poll GET /api/v1/spellcheck/job/{job.id} for status."
+        )
+
     return PDFUploadAsyncResponse(
         job_id=job.id,
         page_count=page_count,
         status="pending",
-        message=(
-            f"Your {page_count}-page PDF has been queued. "
-            f"Results will be sent to {email} when complete. "
-            f"You can also poll GET /api/v1/spellcheck/job/{job.id} for status."
-        ),
+        message=message,
     )
 
 
-def _background_process(job_id: str, upload_path: Path, filename: str, email: str) -> None:
+def _background_process(job_id: str, upload_path: Path, filename: str, email: str | None) -> None:
     """Background task: process a large PDF and send email when done."""
     import asyncio
     from app import jobs as job_store
@@ -235,14 +271,15 @@ def _background_process(job_id: str, upload_path: Path, filename: str, email: st
 
         job_store.mark_completed(job_id, pdf_path, docx_path, all_errors)
 
-        # Send email notification (async stub — run in new event loop)
-        from app.config import settings
-        download_url = f"{settings.public_base_url}/api/v1/spellcheck/result/{job_id}/pdf"
-        asyncio.run(send_results_email(to=email, job_id=job_id, download_url=download_url))
+        if email:
+            from app.config import settings
 
-    except Exception as e:
-        job_store.mark_failed(job_id, str(e))
+            download_url = f"{settings.public_base_url}/api/v1/spellcheck/result/{job_id}/pdf"
+            asyncio.run(send_results_email(to=email, job_id=job_id, download_url=download_url))
+
+    except Exception:
         logger.exception("Background processing failed for job %s", job_id)
+        job_store.mark_failed(job_id, _PROCESSING_FAILED)
     finally:
         # Clean up upload
         try:
@@ -276,15 +313,17 @@ def _log_spellcheck_result(source: str, text_length: int, errors: list[dict]) ->
 
     logger.info(
         "spellcheck_result %s",
-        json.dumps({
-            "source": source,
-            "text_length": text_length,
-            "error_count": len(errors),
-            "phase1_errors": len(phase1),
-            "unknown_words": len(unknown),
-            "corpus_hits": len(corpus_hits),
-            "dict_active": dict_active,
-        }),
+        json.dumps(
+            {
+                "source": source,
+                "text_length": text_length,
+                "error_count": len(errors),
+                "phase1_errors": len(phase1),
+                "unknown_words": len(unknown),
+                "corpus_hits": len(corpus_hits),
+                "dict_active": dict_active,
+            }
+        ),
     )
 
 
@@ -330,6 +369,7 @@ def _run_spellcheck(pages) -> tuple[dict[int, list[str]], list[dict]]:
 # Job status polling
 # ---------------------------------------------------------------------------
 
+
 @router.get("/spellcheck/job/{job_id}", response_model=JobStatusResponse)
 async def get_job_status(job_id: str):
     """Poll the status of an async PDF processing job."""
@@ -359,6 +399,7 @@ async def get_job_status(job_id: str):
 # Result downloads
 # ---------------------------------------------------------------------------
 
+
 @router.get("/spellcheck/result/{job_id}/pdf")
 async def download_pdf(job_id: str):
     """Download the annotated PDF for a completed job."""
@@ -368,7 +409,7 @@ async def download_pdf(job_id: str):
     return FileResponse(
         path=str(job.pdf_result_path),
         media_type="application/pdf",
-        filename=f"spellcheck_{job.original_filename}",
+        filename=_download_filename(job.original_filename, suffix=".pdf"),
     )
 
 
@@ -378,12 +419,61 @@ async def download_docx(job_id: str):
     job = _get_completed_job(job_id)
     if not job.docx_result_path or not job.docx_result_path.exists():
         raise HTTPException(status_code=404, detail="DOCX result not found")
-    stem = Path(job.original_filename).stem
     return FileResponse(
         path=str(job.docx_result_path),
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        filename=f"spellcheck_{stem}.docx",
+        filename=_download_filename(job.original_filename, suffix=".docx"),
     )
+
+
+def _reject_declared_length(request: Request) -> None:
+    raw = request.headers.get("content-length")
+    if raw is None:
+        return
+    try:
+        declared = int(raw)
+    except ValueError:
+        return
+    if declared > MAX_UPLOAD_BYTES + _CONTENT_LENGTH_SLACK:
+        raise HTTPException(
+            status_code=413,
+            detail="File too large. Maximum size is 50 MB.",
+        )
+
+
+async def _read_capped(upload: UploadFile) -> bytes:
+    chunks: list[bytes] = []
+    total = 0
+    while True:
+        chunk = await upload.read(_READ_CHUNK)
+        if not chunk:
+            break
+        total += len(chunk)
+        if total > MAX_UPLOAD_BYTES:
+            raise HTTPException(
+                status_code=413,
+                detail="File too large. Maximum size is 50 MB.",
+            )
+        chunks.append(chunk)
+    return b"".join(chunks)
+
+
+def _optional_email(raw: str | None) -> str | None:
+    if raw is None or not raw.strip():
+        return None
+    try:
+        return str(_email_adapter.validate_python(raw.strip()))
+    except ValidationError:
+        raise HTTPException(status_code=422, detail="Invalid email address")
+
+
+def _download_filename(original: str, *, suffix: str) -> str:
+    """Build a Content-Disposition name that cannot carry a header injection."""
+    stem = Path(original or "document").name
+    stem = Path(stem).stem
+    cleaned = "".join(ch if ch.isalnum() or ch in "._- " else "_" for ch in stem)
+    cleaned = cleaned.strip(" ._-")[:80] or "document"
+    return f"spellcheck_{cleaned}{suffix}"
 
 
 def _get_completed_job(job_id: str):

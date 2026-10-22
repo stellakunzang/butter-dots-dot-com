@@ -20,7 +20,7 @@ VALID_PREFIXES = {'ག', 'ད', 'བ', 'མ', 'འ'}  # ga, da, ba, ma, achung
 VALID_SUPERSCRIPTS = {'ར', 'ལ', 'ས'}  # ra-mgo, la-mgo, sa-mgo
 
 # The 4 valid subscripts (in subjoined form)
-VALID_SUBSCRIPTS = {'\u0FB1', '\u0FB2', '\u0FB3', '\u0FAD'}  # ya, ra, la, wa
+VALID_SUBSCRIPTS = {'\u0fb1', '\u0fb2', '\u0fb3', '\u0fad'}  # ya, ra, la, wa
 
 # The 10 valid suffixes
 VALID_SUFFIXES = {'ག', 'ང', 'ད', 'ན', 'བ', 'མ', 'འ', 'ར', 'ལ', 'ས'}
@@ -34,17 +34,11 @@ VALID_POST_SUFFIXES = {'ད', 'ས'}  # da, sa
 # Which roots can each superscript sit above?
 # ============================================================================
 
-VALID_RA_MGO_ROOTS = {
-    'ཀ', 'ག', 'ང', 'ཇ', 'ཉ', 'ཏ', 'ད', 'ན', 'བ', 'མ', 'ཙ', 'ཛ'
-}
+VALID_RA_MGO_ROOTS = {'ཀ', 'ག', 'ང', 'ཇ', 'ཉ', 'ཏ', 'ད', 'ན', 'བ', 'མ', 'ཙ', 'ཛ'}
 
-VALID_LA_MGO_ROOTS = {
-    'ཀ', 'ག', 'ང', 'ཅ', 'ཇ', 'ཏ', 'ད', 'པ', 'བ', 'ཧ'
-}
+VALID_LA_MGO_ROOTS = {'ཀ', 'ག', 'ང', 'ཅ', 'ཇ', 'ཏ', 'ད', 'པ', 'བ', 'ཧ'}
 
-VALID_SA_MGO_ROOTS = {
-    'ཀ', 'ག', 'ང', 'ཉ', 'ཏ', 'ད', 'ན', 'པ', 'བ', 'མ', 'ཙ'
-}
+VALID_SA_MGO_ROOTS = {'ཀ', 'ག', 'ང', 'ཉ', 'ཏ', 'ད', 'ན', 'པ', 'བ', 'མ', 'ཙ'}
 
 # Map superscript letter -> set of valid roots beneath it
 _SUPERSCRIPT_ROOT_MAP = {
@@ -59,28 +53,20 @@ _SUPERSCRIPT_ROOT_MAP = {
 # Which roots can each subscript sit below?
 # ============================================================================
 
-VALID_YA_BTAGS_ROOTS = {
-    'ཀ', 'ཁ', 'ག', 'པ', 'ཕ', 'བ', 'མ'
-}
+VALID_YA_BTAGS_ROOTS = {'ཀ', 'ཁ', 'ག', 'པ', 'ཕ', 'བ', 'མ'}
 
-VALID_RA_BTAGS_ROOTS = {
-    'ཀ', 'ཁ', 'ག', 'ཏ', 'ཐ', 'ད', 'པ', 'ཕ', 'བ', 'མ', 'ཤ', 'ས', 'ཧ'
-}
+VALID_RA_BTAGS_ROOTS = {'ཀ', 'ཁ', 'ག', 'ཏ', 'ཐ', 'ད', 'པ', 'ཕ', 'བ', 'མ', 'ཤ', 'ས', 'ཧ'}
 
-VALID_LA_BTAGS_ROOTS = {
-    'ཀ', 'ག', 'བ', 'ཟ', 'ར', 'ས'
-}
+VALID_LA_BTAGS_ROOTS = {'ཀ', 'ག', 'བ', 'ཟ', 'ར', 'ས'}
 
-VALID_WA_ZUR_ROOTS = {
-    'ཀ', 'ཁ', 'ག', 'ཅ', 'ཉ', 'ཏ', 'ད', 'ཙ', 'ཚ', 'ཞ', 'ཟ', 'ར', 'ཤ', 'ས', 'ཧ'
-}
+VALID_WA_ZUR_ROOTS = {'ཀ', 'ཁ', 'ག', 'ཅ', 'ཉ', 'ཏ', 'ད', 'ཙ', 'ཚ', 'ཞ', 'ཟ', 'ར', 'ཤ', 'ས', 'ཧ'}
 
 # Map subscript letter (subjoined form) -> set of valid roots above it
 _SUBSCRIPT_ROOT_MAP = {
-    '\u0FB1': VALID_YA_BTAGS_ROOTS,   # ya-btags
-    '\u0FB2': VALID_RA_BTAGS_ROOTS,   # ra-btags
-    '\u0FB3': VALID_LA_BTAGS_ROOTS,   # la-btags
-    '\u0FAD': VALID_WA_ZUR_ROOTS,     # wa-zur
+    '\u0fb1': VALID_YA_BTAGS_ROOTS,  # ya-btags
+    '\u0fb2': VALID_RA_BTAGS_ROOTS,  # ra-btags
+    '\u0fb3': VALID_LA_BTAGS_ROOTS,  # la-btags
+    '\u0fad': VALID_WA_ZUR_ROOTS,  # wa-zur
 }
 
 
@@ -98,36 +84,112 @@ VALID_GA_PREFIX_ROOTS = {
     # Attested: གཅིག gcig, གཉིས gnyis, གཏོང gtong, གདན gdan,
     #   གནས gnas, གཙོ gtso, གཞི gzhi, གཟུགས gzugs,
     #   གཡུ g.yu, གཤེགས gshegs, གསོལ gsol, གང gang
-    'ག', 'ང', 'ཅ', 'ཉ', 'ཏ', 'ད', 'ན', 'བ', 'མ',
-    'ཙ', 'ཞ', 'ཟ', 'འ', 'ཡ', 'ར', 'ལ', 'ཤ', 'ས', 'ཨ',
+    'ག',
+    'ང',
+    'ཅ',
+    'ཉ',
+    'ཏ',
+    'ད',
+    'ན',
+    'བ',
+    'མ',
+    'ཙ',
+    'ཞ',
+    'ཟ',
+    'འ',
+    'ཡ',
+    'ར',
+    'ལ',
+    'ཤ',
+    'ས',
+    'ཨ',
 }
 
 VALID_DA_PREFIX_ROOTS = {
     # Attested: དཀར dkar, དགའ dga', དངོས dngos, དངུལ dngul,
     #   དཔལ dpal, དབང dbang, དམག dmag
-    'ཀ', 'ག', 'ང', 'ད', 'ན', 'པ', 'བ', 'མ',
-    'འ', 'ར', 'ལ', 'ས', 'ཨ',
+    'ཀ',
+    'ག',
+    'ང',
+    'ད',
+    'ན',
+    'པ',
+    'བ',
+    'མ',
+    'འ',
+    'ར',
+    'ལ',
+    'ས',
+    'ཨ',
 }
 
 VALID_BA_PREFIX_ROOTS = {
     # Attested: བཀའ bka', བགྲོ bgro, བཅོས bcos, བཏང btang,
     #   བདེ bde, བསམ bsam, བཞི bzhi
-    'ཀ', 'ག', 'ང', 'ཅ', 'ཏ', 'ད', 'ན', 'བ', 'མ',
-    'ཙ', 'ཞ', 'ཟ', 'འ', 'ར', 'ལ', 'ཤ', 'ས', 'ཨ',
+    'ཀ',
+    'ག',
+    'ང',
+    'ཅ',
+    'ཏ',
+    'ད',
+    'ན',
+    'བ',
+    'མ',
+    'ཙ',
+    'ཞ',
+    'ཟ',
+    'འ',
+    'ར',
+    'ལ',
+    'ཤ',
+    'ས',
+    'ཨ',
 }
 
 VALID_MA_PREFIX_ROOTS = {
     # Attested: མཁའ mkha', མགོ mgo, མཆོད mchod, མཇལ mjal,
     #   མཉམ mnyam, མཐོ mtho, མདུན mdun, མནའ mna'
-    'ཁ', 'ག', 'ང', 'ཆ', 'ཇ', 'ཉ', 'ཐ', 'ད', 'ན', 'བ', 'མ',
-    'ཚ', 'ཛ', 'འ', 'ར', 'ལ', 'ས', 'ཨ',
+    'ཁ',
+    'ག',
+    'ང',
+    'ཆ',
+    'ཇ',
+    'ཉ',
+    'ཐ',
+    'ད',
+    'ན',
+    'བ',
+    'མ',
+    'ཚ',
+    'ཛ',
+    'འ',
+    'ར',
+    'ལ',
+    'ས',
+    'ཨ',
 }
 
 VALID_ACHUNG_PREFIX_ROOTS = {
     # Attested: འགྲོ 'gro, འཇིག 'jig, འདིར 'dir, འབྲས 'bras,
     #   འཛིན 'dzin, འཕགས 'phags
-    'ཁ', 'ག', 'ང', 'ཆ', 'ཇ', 'ཐ', 'ད', 'ན', 'ཕ', 'བ', 'མ',
-    'ཚ', 'ཛ', 'འ', 'ར', 'ལ', 'ས', 'ཨ',
+    'ཁ',
+    'ག',
+    'ང',
+    'ཆ',
+    'ཇ',
+    'ཐ',
+    'ད',
+    'ན',
+    'ཕ',
+    'བ',
+    'མ',
+    'ཚ',
+    'ཛ',
+    'འ',
+    'ར',
+    'ལ',
+    'ས',
+    'ཨ',
 }
 
 # Map prefix letter -> set of valid roots after it
@@ -143,6 +205,7 @@ _PREFIX_ROOT_MAP = {
 # ============================================================================
 # Lookup functions
 # ============================================================================
+
 
 def _to_base(char: str) -> str:
     """Convert subjoined form to base form if needed."""

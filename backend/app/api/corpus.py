@@ -1,6 +1,7 @@
 """
 Corpus API endpoints — word corpus statistics.
 """
+
 from fastapi import APIRouter
 
 from app.schemas.spellcheck import CorpusStatsResponse

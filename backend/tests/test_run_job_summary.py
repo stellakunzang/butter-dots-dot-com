@@ -1,4 +1,5 @@
 """Unit tests for run_job._print_summary."""
+
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -65,8 +66,15 @@ def test_print_summary_mixed(capsys, tmp_path):
     (job_root / "output.docx").write_bytes(b"PK")
 
     results = [
-        RunResult(page=_make_page(0), decision="accept", quality=_make_quality(0.95), verdict="accept"),
-        RunResult(page=_make_page(1), decision="needs_review", quality=_make_quality(0.42), verdict="escalate"),
+        RunResult(
+            page=_make_page(0), decision="accept", quality=_make_quality(0.95), verdict="accept"
+        ),
+        RunResult(
+            page=_make_page(1),
+            decision="needs_review",
+            quality=_make_quality(0.42),
+            verdict="escalate",
+        ),
         RunResult(page=_make_page(2), decision="error", quality=None, error="timeout"),
     ]
 
@@ -80,7 +88,7 @@ def test_print_summary_mixed(capsys, tmp_path):
     assert "composite=0.420" in captured
     assert "error=timeout" in captured
     # error row must NOT try to print composite_score
-    lines = [l for l in captured.splitlines() if "page   2" in l]
+    lines = [line for line in captured.splitlines() if "page   2" in line]
     assert len(lines) == 1
     assert "composite" not in lines[0]
     assert "job-id:     abc123def456" in captured

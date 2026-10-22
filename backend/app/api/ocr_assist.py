@@ -4,6 +4,7 @@ Local-only interactive OCR assist API.
 Gated by ``OCR_ASSIST_LOCAL=true``. Bulk jobs are BDRC + quality scorer only;
 AI vision compare is an explicit per-page action.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -17,6 +18,7 @@ from pydantic import BaseModel
 
 
 from app.config import settings
+from app.upload_limits import OCR_ASSIST_MAX_UPLOAD_BYTES
 from app.ocr_assist.compare_vision import VisionCompareResult, compare_vision_providers
 from app.ocr_assist.interventions import append_intervention
 from app.ocr_assist.job_store import (
@@ -35,7 +37,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/ocr-assist", tags=["ocr-assist"])
 
-MAX_UPLOAD_BYTES = 100 * 1024 * 1024  # 100 MB
+MAX_UPLOAD_BYTES = OCR_ASSIST_MAX_UPLOAD_BYTES
 
 # In-process run flags so the UI can show "running" while background BDRC works.
 _running_jobs: set[str] = set()
@@ -171,7 +173,7 @@ async def create_ocr_job(
     if not pdf_bytes:
         raise HTTPException(status_code=400, detail="Empty upload")
     if len(pdf_bytes) > MAX_UPLOAD_BYTES:
-        raise HTTPException(status_code=400, detail="PDF exceeds size limit")
+        raise HTTPException(status_code=413, detail="PDF exceeds size limit")
 
     job = await asyncio.to_thread(
         create_job,
@@ -233,9 +235,7 @@ async def page_action(job_id: str, page_index: int, body: PageActionRequest):
         raise HTTPException(status_code=404, detail="Page out of range")
 
     if body.action == "accept":
-        return await asyncio.to_thread(
-            _action_accept, job, page_index, body.text, kind="accept"
-        )
+        return await asyncio.to_thread(_action_accept, job, page_index, body.text, kind="accept")
     if body.action == "edit_accept":
         if body.text is None:
             raise HTTPException(status_code=400, detail="text is required for edit_accept")
@@ -253,9 +253,7 @@ async def page_action(job_id: str, page_index: int, body: PageActionRequest):
     if body.action == "compare_vision":
         providers = body.providers or ["anthropic", "gemini"]
         if not providers:
-            raise HTTPException(
-                status_code=400, detail="providers must list at least one model"
-            )
+            raise HTTPException(status_code=400, detail="providers must list at least one model")
         compare = await asyncio.to_thread(
             compare_vision_providers,
             job,

@@ -2,10 +2,9 @@
  * Local interactive OCR assist API client (feature-branch / OCR_ASSIST_LOCAL).
  */
 
-import { APIError } from './api'
-import type { SpellCheckError } from './api'
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+import {getApiUrl} from './config'
+import {request} from './http'
+import type {SpellCheckError} from './api'
 
 export interface OcrAssistPageSummary {
   index: number
@@ -66,42 +65,26 @@ export interface OcrAssistPageDetail {
   image_url: string
 }
 
-async function parseError(response: Response): Promise<APIError> {
-  const errorData = await response.json().catch(() => null)
-  const detail = errorData?.detail
-  const message =
-    typeof detail === 'string'
-      ? detail
-      : `Request failed with status ${response.status}`
-  return new APIError(message, response.status, errorData)
-}
-
 export async function createOcrAssistJob(file: File): Promise<OcrAssistJob> {
   const form = new FormData()
   form.append('file', file)
-  const response = await fetch(`${API_URL}/api/v1/ocr-assist/jobs`, {
+  return request<OcrAssistJob>('/api/v1/ocr-assist/jobs', {
     method: 'POST',
     body: form,
   })
-  if (!response.ok) throw await parseError(response)
-  return response.json()
 }
 
 export async function getOcrAssistJob(jobId: string): Promise<OcrAssistJob> {
-  const response = await fetch(`${API_URL}/api/v1/ocr-assist/jobs/${jobId}`)
-  if (!response.ok) throw await parseError(response)
-  return response.json()
+  return request<OcrAssistJob>(`/api/v1/ocr-assist/jobs/${jobId}`)
 }
 
 export async function getOcrAssistPage(
   jobId: string,
   pageIndex: number
 ): Promise<OcrAssistPageDetail> {
-  const response = await fetch(
-    `${API_URL}/api/v1/ocr-assist/jobs/${jobId}/pages/${pageIndex}`
+  return request<OcrAssistPageDetail>(
+    `/api/v1/ocr-assist/jobs/${jobId}/pages/${pageIndex}`
   )
-  if (!response.ok) throw await parseError(response)
-  return response.json()
 }
 
 export async function postOcrAssistPageAction(
@@ -121,27 +104,27 @@ export async function postOcrAssistPageAction(
   page: OcrAssistPageDetail
   compare?: { results: VisionProviderResult[] }
 }> {
-  const response = await fetch(
-    `${API_URL}/api/v1/ocr-assist/jobs/${jobId}/pages/${pageIndex}/action`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
+  const data = await request<
+    OcrAssistPageDetail & {
+      page?: OcrAssistPageDetail
+      compare?: {results: VisionProviderResult[]}
     }
-  )
-  if (!response.ok) throw await parseError(response)
-  const data = await response.json()
+  >(`/api/v1/ocr-assist/jobs/${jobId}/pages/${pageIndex}/action`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(body),
+  })
   // compare_vision returns { page, compare }; other actions return the page body.
-  if (data.compare) {
-    return data
+  if (data.compare && data.page) {
+    return {page: data.page, compare: data.compare}
   }
-  return { page: data }
+  return {page: data}
 }
 
 export function ocrAssistImageUrl(jobId: string, pageIndex: number): string {
-  return `${API_URL}/api/v1/ocr-assist/jobs/${jobId}/pages/${pageIndex}/image`
+  return `${getApiUrl()}/api/v1/ocr-assist/jobs/${jobId}/pages/${pageIndex}/image`
 }
 
 export function ocrAssistDocxUrl(jobId: string): string {
-  return `${API_URL}/api/v1/ocr-assist/jobs/${jobId}/docx`
+  return `${getApiUrl()}/api/v1/ocr-assist/jobs/${jobId}/docx`
 }

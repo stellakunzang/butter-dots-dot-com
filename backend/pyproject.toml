@@ -1,0 +1,10 @@
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+extend-exclude = ["BDRC"]
+
+[tool.ruff.lint]
+# Defaults (pycodestyle E4/E7/E9 and Pyflakes). BDRC is vendored upstream.
+
+[tool.ruff.format]
+quote-style = "preserve"

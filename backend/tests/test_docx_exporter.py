@@ -2,9 +2,8 @@
 Tests for the DOCX exporter — specifically that error markup is applied at
 syllable granularity rather than flagging an entire line.
 """
-import pytest
+
 from docx import Document
-from docx.oxml.ns import qn
 
 from app.pdf.docx_exporter import _add_line_with_errors, build_docx
 from app.pdf.extractor import PageContent
@@ -23,7 +22,6 @@ def _run_texts_and_errors(para):
 
 
 class TestAddLineWithErrors:
-
     def _make_para(self):
         doc = Document()
         return doc.add_paragraph()
@@ -94,7 +92,6 @@ class TestAddLineWithErrors:
 
 
 class TestBuildDocx:
-
     def _pages_and_errors(self):
         page = PageContent(
             page_number=1,
@@ -113,6 +110,7 @@ class TestBuildDocx:
     def test_build_docx_valid_docx_format(self):
         """Result should be openable as a valid docx."""
         import io
+
         pages, errors = self._pages_and_errors()
         result = build_docx(pages, errors, "test.pdf")
         doc = Document(io.BytesIO(result))

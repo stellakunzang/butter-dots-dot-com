@@ -15,10 +15,9 @@ that pdfplumber cannot decode correctly.
 Returns a list of PageContent objects that the rest of the pipeline operates on,
 regardless of which path was taken.
 """
+
 import logging
 from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +28,7 @@ DIGITAL_TEXT_THRESHOLD = 10
 @dataclass
 class WordPosition:
     """A word and its bounding box on a page (in PDF points for digital, pixels for scanned)."""
+
     text: str
     x0: float
     y0: float
@@ -39,8 +39,9 @@ class WordPosition:
 @dataclass
 class PageContent:
     """Extracted content for a single page."""
+
     page_number: int  # 1-based
-    text: str         # Full page text, newline-separated lines
+    text: str  # Full page text, newline-separated lines
     words: list[WordPosition] = field(default_factory=list)
     is_scanned: bool = False
     # Original page dimensions (PDF points or pixels)
@@ -116,55 +117,65 @@ def extract_scanned(pdf_bytes: bytes) -> list[PageContent]:
     Convert each PDF page to an image, run BDRC OCR, return PageContent with
     line-level text and bounding boxes.
     """
-    import io
     import cv2
     import numpy as np
-    from pdf2image import convert_from_bytes
-    from app.pdf.ocr import get_engine, OCRLine
+    from pdf2image import convert_from_bytes, pdfinfo_from_bytes
+    from app.pdf.ocr import get_engine
 
     engine = get_engine()
     if not engine.ready:
         raise RuntimeError(f"OCR engine unavailable: {engine.error}")
 
-    pil_pages = convert_from_bytes(pdf_bytes, dpi=300)
-    total_pages = len(pil_pages)
+    # Render one page at a time. convert_from_bytes on the whole file holds
+    # every 300 DPI image in memory at once.
+    total_pages = int(pdfinfo_from_bytes(pdf_bytes)["Pages"])
     pages: list[PageContent] = []
 
-    for i, pil_img in enumerate(pil_pages):
-        logger.info("OCR: processing page %d of %d", i + 1, total_pages)
-        # Convert PIL → BGR numpy array for BDRC pipeline
-        img_rgb = np.array(pil_img)
-        img_bgr = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR)
-
-        ocr_lines = engine.run_on_image(img_bgr)
-
-        # Combine line texts into page text
-        text = "\n".join(line.text for line in ocr_lines if line.text)
-
-        # OCR lines as word-level approximations (line bbox, full line text)
-        # Per-word segmentation within lines is a future improvement.
-        words = [
-            WordPosition(
-                text=line.text,
-                x0=float(line.x),
-                y0=float(line.y),
-                x1=float(line.x + line.width),
-                y1=float(line.y + line.height),
-            )
-            for line in ocr_lines
-            if line.text
-        ]
-
-        pages.append(
-            PageContent(
-                page_number=i + 1,
-                text=text,
-                words=words,
-                is_scanned=True,
-                width=float(pil_img.width),
-                height=float(pil_img.height),
-            )
+    for page_number in range(1, total_pages + 1):
+        logger.info("OCR: processing page %d of %d", page_number, total_pages)
+        rendered = convert_from_bytes(
+            pdf_bytes,
+            dpi=300,
+            first_page=page_number,
+            last_page=page_number,
         )
+        pil_img = rendered[0]
+        try:
+            # Convert PIL → BGR numpy array for BDRC pipeline
+            img_rgb = np.array(pil_img)
+            img_bgr = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR)
+
+            ocr_lines = engine.run_on_image(img_bgr)
+
+            # Combine line texts into page text
+            text = "\n".join(line.text for line in ocr_lines if line.text)
+
+            # OCR lines as word-level approximations (line bbox, full line text)
+            # Per-word segmentation within lines is a future improvement.
+            words = [
+                WordPosition(
+                    text=line.text,
+                    x0=float(line.x),
+                    y0=float(line.y),
+                    x1=float(line.x + line.width),
+                    y1=float(line.y + line.height),
+                )
+                for line in ocr_lines
+                if line.text
+            ]
+
+            pages.append(
+                PageContent(
+                    page_number=page_number,
+                    text=text,
+                    words=words,
+                    is_scanned=True,
+                    width=float(pil_img.width),
+                    height=float(pil_img.height),
+                )
+            )
+        finally:
+            pil_img.close()
 
     return pages
 
@@ -180,8 +191,8 @@ BROKEN_CMAP_HIMALAYA_VOWEL_THRESHOLD = 3
 # phantom patterns are kept as a backstop for cases where the font name is
 # embedded differently or stripped by the PDF producer.
 _HIMALAYA_VOWEL_O_PHANTOMS = [
-    "\u0F90\u0FB1\u0F7C",  # subjoined KA + subjoined YA + vowel O
-    "\u0FA9\u0F7C",         # subjoined TSA + vowel O
+    "\u0f90\u0fb1\u0f7c",  # subjoined KA + subjoined YA + vowel O
+    "\u0fa9\u0f7c",  # subjoined TSA + vowel O
 ]
 
 # Convenience export used by tests.

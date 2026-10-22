@@ -1,4 +1,5 @@
 """API tests for local ocr-assist routes (OCR_ASSIST_LOCAL)."""
+
 from pathlib import Path
 
 import pytest
@@ -37,6 +38,7 @@ def client(monkeypatch, tmp_path):
 
     import app.config as config_mod
     import app.main as main_mod
+
     importlib.reload(config_mod)
     importlib.reload(main_mod)
 
@@ -74,9 +76,7 @@ def test_create_job_and_poll(client, tmp_path):
 
     docx = client.get(f"/api/v1/ocr-assist/jobs/{job_id}/docx")
     assert docx.status_code == 200
-    assert docx.headers["content-type"].startswith(
-        "application/vnd.openxmlformats-officedocument"
-    )
+    assert docx.headers["content-type"].startswith("application/vnd.openxmlformats-officedocument")
 
 
 def test_docx_available_with_partial_acceptance(client):
@@ -101,9 +101,7 @@ def test_docx_available_with_partial_acceptance(client):
 
     docx = client.get(f"/api/v1/ocr-assist/jobs/{job_id}/docx")
     assert docx.status_code == 200
-    assert docx.headers["content-type"].startswith(
-        "application/vnd.openxmlformats-officedocument"
-    )
+    assert docx.headers["content-type"].startswith("application/vnd.openxmlformats-officedocument")
 
 
 def _read_jsonl(path: Path) -> list[dict]:

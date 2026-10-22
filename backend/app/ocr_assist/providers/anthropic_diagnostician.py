@@ -1,4 +1,5 @@
 """Anthropic Claude implementation of the OCR diagnostician contract."""
+
 from __future__ import annotations
 
 import json
@@ -238,9 +239,7 @@ def _render_prior_attempts(prior_attempts: list[AttemptRecord]) -> str:
         verdict_summary = "no verdict"
         if attempt.ai_verdict:
             tool = attempt.ai_verdict.get("tool", "?")
-            rationale = attempt.ai_verdict.get("rationale") or attempt.ai_verdict.get(
-                "reason", ""
-            )
+            rationale = attempt.ai_verdict.get("rationale") or attempt.ai_verdict.get("reason", "")
             verdict_summary = f"{tool}: {rationale}"
         lines.append(
             f"- attempt {attempt.number}: composite={composite}; verdict={verdict_summary}"

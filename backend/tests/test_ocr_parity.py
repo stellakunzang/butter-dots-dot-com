@@ -32,6 +32,7 @@ To run only the internal-API tests (faster, no HTTP overhead):
 To run only the full-stack API tests:
   pytest tests/test_ocr_parity.py::TestParityAPIEndpoints -v
 """
+
 import io
 from pathlib import Path
 
@@ -86,6 +87,7 @@ TOLERATED_OCR_ONLY_TYPES = {"non_tibetan_skipped"}
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _error_types(errors: list[dict]) -> set[str]:
     return {e.get("error_type", "") for e in errors}
 
@@ -134,6 +136,7 @@ def _load_fixture_cases() -> list[pytest.param]:
 # Sentinel: skip cleanly when no fixtures exist yet
 # ---------------------------------------------------------------------------
 
+
 class TestNoFixturesYet:
     """Keeps the suite green while the parity/ directory is still empty."""
 
@@ -175,6 +178,7 @@ class TestPDFPipelineFixtures:
     @pytest.fixture(scope="class")
     def spellchecker(self):
         from app.spellcheck.engine import TibetanSpellChecker
+
         return TibetanSpellChecker()
 
     @pytest.mark.parametrize("txt_path,pdf_path", _FIXTURE_CASES)
@@ -248,6 +252,7 @@ class TestPDFPipelineFixtures:
 # Full-stack API parity: exercises the HTTP layer
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.slow
 @pytest.mark.skipif(not _FIXTURE_CASES, reason="No parity fixtures found")
 class TestParityAPIEndpoints:
@@ -267,6 +272,7 @@ class TestParityAPIEndpoints:
     def client(self):
         from fastapi.testclient import TestClient
         from app.main import app
+
         return TestClient(app)
 
     @pytest.mark.parametrize("txt_path,pdf_path", _FIXTURE_CASES)
@@ -280,9 +286,9 @@ class TestParityAPIEndpoints:
         ground_truth = txt_path.read_text(encoding="utf-8").strip()
 
         text_resp = client.post("/api/v1/spellcheck/text", json={"text": ground_truth})
-        assert text_resp.status_code == 200, (
-            f"Text endpoint returned {text_resp.status_code}: {text_resp.text}"
-        )
+        assert (
+            text_resp.status_code == 200
+        ), f"Text endpoint returned {text_resp.status_code}: {text_resp.text}"
         copy_types = _error_types(text_resp.json()["errors"])
 
         pdf_bytes = pdf_path.read_bytes()
@@ -290,9 +296,9 @@ class TestParityAPIEndpoints:
             "/api/v1/spellcheck/upload",
             files={"file": (pdf_path.name, io.BytesIO(pdf_bytes), "application/pdf")},
         )
-        assert upload_resp.status_code == 200, (
-            f"Upload endpoint returned {upload_resp.status_code}: {upload_resp.text}"
-        )
+        assert (
+            upload_resp.status_code == 200
+        ), f"Upload endpoint returned {upload_resp.status_code}: {upload_resp.text}"
         assert "errors" in upload_resp.json(), (
             "Upload response is missing 'errors' key — got an async response instead of sync. "
             "Check that the fixture PDF is within the sync page limit."

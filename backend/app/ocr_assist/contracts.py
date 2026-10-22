@@ -4,11 +4,12 @@ Provider-agnostic types and callables for the interactive OCR AI loop.
 The runner depends on these contracts, not on a specific LLM vendor. Concrete
 implementations live under ``app.ocr_assist.providers``.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Literal, Protocol, Union
+from typing import Any, Literal, Protocol, Union
 
 from app.ocr_assist.job_store import AttemptRecord
 from app.ocr_assist.quality import PageQuality
@@ -17,6 +18,7 @@ from app.ocr_assist.quality import PageQuality
 @dataclass(frozen=True)
 class VisionTranscript:
     """A vision model's literal read of a page image."""
+
     text: str
     notes: str | None = None
 

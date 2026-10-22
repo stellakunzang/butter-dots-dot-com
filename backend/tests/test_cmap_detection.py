@@ -15,9 +15,10 @@ Two corruption patterns are guarded:
 These tests verify detection fires correctly, does not fire on clean text, and
 that extract_pdf routes to OCR when either pattern is present.
 """
+
 import io
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 import pytest
 
@@ -27,7 +28,6 @@ from app.pdf.extractor import (
     _uses_broken_cmap_font,
     _HIMALAYA_VOWEL_O_PHANTOM,
     _HIMALAYA_VOWEL_O_PHANTOMS,
-    BROKEN_CMAP_PUA_THRESHOLD,
     BROKEN_CMAP_HIMALAYA_VOWEL_THRESHOLD,
 )
 
@@ -35,6 +35,7 @@ from app.pdf.extractor import (
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _pages(text: str) -> list[PageContent]:
     return [PageContent(page_number=1, text=text)]
@@ -44,6 +45,7 @@ def _minimal_pdf_bytes() -> bytes:
     """A valid single-page PDF with no text layer — used to satisfy extract_pdf's
     is_scanned_pdf() call without needing real Tibetan content."""
     import fitz
+
     doc = fitz.open()
     doc.new_page(width=595, height=842)
     buf = io.BytesIO()
@@ -56,8 +58,8 @@ def _minimal_pdf_bytes() -> bytes:
 # _has_broken_cmap: PUA detection
 # ---------------------------------------------------------------------------
 
-class TestPUADetection:
 
+class TestPUADetection:
     def test_clean_tibetan_not_flagged(self):
         text = "བོད་ཡིག་གི་སྐད་ཡིག"
         assert not _has_broken_cmap(_pages(text))
@@ -70,32 +72,29 @@ class TestPUADetection:
 
     def test_below_threshold_not_flagged(self):
         # One PUA character among many non-PUA — well under 5%
-        pua_char = "\uE001"
+        pua_char = "\ue001"
         text = "བོད་ཡིག་གི་སྐད་ཡིག" * 10 + pua_char
         assert not _has_broken_cmap(_pages(text))
 
     def test_above_threshold_flagged(self):
         # All PUA characters — 100%, well above 5%
-        text = "\uE001\uE002\uE003\uE004\uE005" * 20
+        text = "\ue001\ue002\ue003\ue004\ue005" * 20
         assert _has_broken_cmap(_pages(text))
 
     def test_exactly_at_threshold_not_flagged(self):
         # Ratio == threshold is not strictly greater, should not trigger
         non_pua = "a" * 95
-        pua = "\uE001" * 5  # exactly 5%
+        pua = "\ue001" * 5  # exactly 5%
         assert not _has_broken_cmap(_pages(non_pua + pua))
 
     def test_just_above_threshold_flagged(self):
         non_pua = "a" * 94
-        pua = "\uE001" * 6  # ~6%, above 5%
+        pua = "\ue001" * 6  # ~6%, above 5%
         assert _has_broken_cmap(_pages(non_pua + pua))
 
     def test_mixed_pages_accumulates_across_pages(self):
         # Spread PUA across multiple pages — should still detect
-        pages = [
-            PageContent(page_number=i + 1, text="\uE001" * 10 + "a" * 10)
-            for i in range(5)
-        ]
+        pages = [PageContent(page_number=i + 1, text="\ue001" * 10 + "a" * 10) for i in range(5)]
         assert _has_broken_cmap(pages)
 
 
@@ -103,8 +102,8 @@ class TestPUADetection:
 # _has_broken_cmap: Himalaya vowel-O phantom detection
 # ---------------------------------------------------------------------------
 
-class TestHimalayaVowelPhantomDetection:
 
+class TestHimalayaVowelPhantomDetection:
     def test_clean_tibetan_not_flagged(self):
         text = "བོད་ཡིག་གི་སྐད་ཡིག"
         assert not _has_broken_cmap(_pages(text))
@@ -125,8 +124,7 @@ class TestHimalayaVowelPhantomDetection:
 
     def test_phantom_spread_across_pages_flagged(self):
         pages = [
-            PageContent(page_number=i + 1, text=_HIMALAYA_VOWEL_O_PHANTOM * 2)
-            for i in range(3)
+            PageContent(page_number=i + 1, text=_HIMALAYA_VOWEL_O_PHANTOM * 2) for i in range(3)
         ]
         # 6 total > threshold of 3
         assert _has_broken_cmap(pages)
@@ -154,8 +152,8 @@ class TestHimalayaVowelPhantomDetection:
 # _uses_broken_cmap_font: font-name detection
 # ---------------------------------------------------------------------------
 
-class TestFontNameDetection:
 
+class TestFontNameDetection:
     def test_clean_pdf_not_flagged(self):
         # A PDF with no Himalaya font should not trigger font detection
         assert not _uses_broken_cmap_font(_minimal_pdf_bytes())
@@ -179,6 +177,7 @@ class TestFontNameDetection:
 # extract_pdf routing: OCR fallback triggered when CMap is broken
 # ---------------------------------------------------------------------------
 
+
 class TestExtractPDFRouting:
     """
     Verify that extract_pdf routes to OCR (is_scanned=True) when _has_broken_cmap
@@ -196,12 +195,16 @@ class TestExtractPDFRouting:
         clean_text = "བོད་ཡིག་གི་སྐད་ཡིག"
         pdf_bytes = _minimal_pdf_bytes()
 
-        with patch("app.pdf.extractor.extract_digital", return_value=self._dummy_pages(clean_text)) as mock_digital, \
-             patch("app.pdf.extractor.extract_scanned") as mock_ocr, \
-             patch("app.pdf.extractor.is_scanned_pdf", return_value=False), \
-             patch("app.pdf.extractor._uses_broken_cmap_font", return_value=False):
-
+        with (
+            patch(
+                "app.pdf.extractor.extract_digital", return_value=self._dummy_pages(clean_text)
+            ) as mock_digital,
+            patch("app.pdf.extractor.extract_scanned") as mock_ocr,
+            patch("app.pdf.extractor.is_scanned_pdf", return_value=False),
+            patch("app.pdf.extractor._uses_broken_cmap_font", return_value=False),
+        ):
             from app.pdf.extractor import extract_pdf
+
             pages, is_scanned = extract_pdf(pdf_bytes)
 
         assert not is_scanned
@@ -213,12 +216,16 @@ class TestExtractPDFRouting:
         ocr_text = "བོད་ཡིག་གི་སྐད་ཡིག"
         pdf_bytes = _minimal_pdf_bytes()
 
-        with patch("app.pdf.extractor.is_scanned_pdf", return_value=False), \
-             patch("app.pdf.extractor._uses_broken_cmap_font", return_value=True), \
-             patch("app.pdf.extractor.extract_digital") as mock_digital, \
-             patch("app.pdf.extractor.extract_scanned", return_value=self._dummy_pages(ocr_text)) as mock_ocr:
-
+        with (
+            patch("app.pdf.extractor.is_scanned_pdf", return_value=False),
+            patch("app.pdf.extractor._uses_broken_cmap_font", return_value=True),
+            patch("app.pdf.extractor.extract_digital") as mock_digital,
+            patch(
+                "app.pdf.extractor.extract_scanned", return_value=self._dummy_pages(ocr_text)
+            ) as mock_ocr,
+        ):
             from app.pdf.extractor import extract_pdf
+
             pages, is_scanned = extract_pdf(pdf_bytes)
 
         assert is_scanned
@@ -232,12 +239,18 @@ class TestExtractPDFRouting:
         ocr_text = "བོད་ཡིག་གི་སྐད་ཡིག"
         pdf_bytes = _minimal_pdf_bytes()
 
-        with patch("app.pdf.extractor.extract_digital", return_value=self._dummy_pages(corrupted_text)), \
-             patch("app.pdf.extractor.extract_scanned", return_value=self._dummy_pages(ocr_text)) as mock_ocr, \
-             patch("app.pdf.extractor.is_scanned_pdf", return_value=False), \
-             patch("app.pdf.extractor._uses_broken_cmap_font", return_value=False):
-
+        with (
+            patch(
+                "app.pdf.extractor.extract_digital", return_value=self._dummy_pages(corrupted_text)
+            ),
+            patch(
+                "app.pdf.extractor.extract_scanned", return_value=self._dummy_pages(ocr_text)
+            ) as mock_ocr,
+            patch("app.pdf.extractor.is_scanned_pdf", return_value=False),
+            patch("app.pdf.extractor._uses_broken_cmap_font", return_value=False),
+        ):
             from app.pdf.extractor import extract_pdf
+
             pages, is_scanned = extract_pdf(pdf_bytes)
 
         assert is_scanned
@@ -245,16 +258,22 @@ class TestExtractPDFRouting:
         assert pages[0].text == ocr_text
 
     def test_pua_corrupted_pdf_falls_back_to_ocr(self):
-        corrupted_text = "\uE001" * 100
+        corrupted_text = "\ue001" * 100
         ocr_text = "བོད་ཡིག་གི་སྐད་ཡིག"
         pdf_bytes = _minimal_pdf_bytes()
 
-        with patch("app.pdf.extractor.extract_digital", return_value=self._dummy_pages(corrupted_text)), \
-             patch("app.pdf.extractor.extract_scanned", return_value=self._dummy_pages(ocr_text)) as mock_ocr, \
-             patch("app.pdf.extractor.is_scanned_pdf", return_value=False), \
-             patch("app.pdf.extractor._uses_broken_cmap_font", return_value=False):
-
+        with (
+            patch(
+                "app.pdf.extractor.extract_digital", return_value=self._dummy_pages(corrupted_text)
+            ),
+            patch(
+                "app.pdf.extractor.extract_scanned", return_value=self._dummy_pages(ocr_text)
+            ) as mock_ocr,
+            patch("app.pdf.extractor.is_scanned_pdf", return_value=False),
+            patch("app.pdf.extractor._uses_broken_cmap_font", return_value=False),
+        ):
             from app.pdf.extractor import extract_pdf
+
             pages, is_scanned = extract_pdf(pdf_bytes)
 
         assert is_scanned
@@ -265,11 +284,13 @@ class TestExtractPDFRouting:
         ocr_text = "བོད་ཡིག་གི་སྐད་ཡིག"
         pdf_bytes = _minimal_pdf_bytes()
 
-        with patch("app.pdf.extractor.is_scanned_pdf", return_value=True), \
-             patch("app.pdf.extractor.extract_digital") as mock_digital, \
-             patch("app.pdf.extractor.extract_scanned", return_value=self._dummy_pages(ocr_text)):
-
+        with (
+            patch("app.pdf.extractor.is_scanned_pdf", return_value=True),
+            patch("app.pdf.extractor.extract_digital") as mock_digital,
+            patch("app.pdf.extractor.extract_scanned", return_value=self._dummy_pages(ocr_text)),
+        ):
             from app.pdf.extractor import extract_pdf
+
             pages, is_scanned = extract_pdf(pdf_bytes)
 
         assert is_scanned

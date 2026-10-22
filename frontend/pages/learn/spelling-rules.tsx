@@ -1,6 +1,17 @@
 import type {NextPage} from 'next'
 import Link from 'next/link'
-import {Layout, Section, Card, PageTitle, SectionHeading} from '../../components'
+import {Layout, Section, Card, SectionHeading} from '../../components'
+import {ErrorExample} from '../../components/learn/ErrorExample'
+import {LearnHeader} from '../../components/learn/LearnHeader'
+import {ParticleTable} from '../../components/learn/ParticleTable'
+import {SyllableAnatomy} from '../../components/learn/SyllableAnatomy'
+import {SPELL_ERROR_EXAMPLES} from '../../content/learn/errors'
+import {
+  AGENTIVE_PARTICLES,
+  INDEFINITE_PARTICLES,
+  LOCATIVE_PARTICLES,
+  RELATIONAL_PARTICLES,
+} from '../../content/learn/particles'
 
 const SpellingRules: NextPage = () => {
   return (
@@ -11,18 +22,10 @@ const SpellingRules: NextPage = () => {
       backHref="/learn"
       backLabel="← Learn"
     >
-      <div className="mb-12 max-w-4xl mx-auto border-b-2 border-gray-200 pb-8">
-        <div className="mb-4">
-          <span className="text-sm uppercase tracking-wider text-gray-500 font-medium">
-            Learn
-          </span>
-        </div>
-        <PageTitle>Tibetan Spelling Rules</PageTitle>
-        <p className="text-xl text-gray-600 font-light leading-relaxed">
-          Tibetan syllables follow strict structural rules. This guide explains
-          the components of a syllable and the rules the spellchecker enforces.
-        </p>
-      </div>
+      <LearnHeader
+        title="Tibetan Spelling Rules"
+        lede="Tibetan syllables follow strict structural rules. This guide explains the components of a syllable and the rules the spellchecker enforces."
+      />
 
       {/* ------------------------------------------------------------------ */}
       {/* Syllable structure                                                   */}
@@ -35,68 +38,7 @@ const SpellingRules: NextPage = () => {
           filled — most syllables use only two or three.
         </p>
 
-        {/* Visual diagram */}
-        <div className="my-8 p-6 bg-gray-50 rounded-xl border border-gray-200 overflow-x-auto">
-          <table className="w-full text-center border-collapse">
-            <thead>
-              <tr>
-                <th className="px-4 py-2 text-xs uppercase tracking-wider text-gray-400 font-medium border-b border-gray-200">
-                  Prefix
-                </th>
-                <th className="px-4 py-2 text-xs uppercase tracking-wider text-gray-400 font-medium border-b border-gray-200">
-                  Superscript
-                </th>
-                <th className="px-4 py-2 text-xs uppercase tracking-wider text-gray-400 font-medium border-b border-gray-200 bg-yellow-50">
-                  Root
-                </th>
-                <th className="px-4 py-2 text-xs uppercase tracking-wider text-gray-400 font-medium border-b border-gray-200">
-                  Subscript
-                </th>
-                <th className="px-4 py-2 text-xs uppercase tracking-wider text-gray-400 font-medium border-b border-gray-200">
-                  Vowel
-                </th>
-                <th className="px-4 py-2 text-xs uppercase tracking-wider text-gray-400 font-medium border-b border-gray-200">
-                  Suffix
-                </th>
-                <th className="px-4 py-2 text-xs uppercase tracking-wider text-gray-400 font-medium border-b border-gray-200">
-                  Post-suffix
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td className="px-4 py-3 text-gray-500 text-sm">before root</td>
-                <td className="px-4 py-3 text-gray-500 text-sm">above root</td>
-                <td className="px-4 py-3 text-gray-900 font-semibold text-sm bg-yellow-50">
-                  root letter
-                </td>
-                <td className="px-4 py-3 text-gray-500 text-sm">below root</td>
-                <td className="px-4 py-3 text-gray-500 text-sm">
-                  above or below stack
-                </td>
-                <td className="px-4 py-3 text-gray-500 text-sm">after root</td>
-                <td className="px-4 py-3 text-gray-500 text-sm">final</td>
-              </tr>
-              <tr className="border-t border-gray-100">
-                <td className="px-4 py-3 text-2xl text-gray-700">བ</td>
-                <td className="px-4 py-3 text-2xl text-gray-700">ས</td>
-                <td className="px-4 py-3 text-3xl font-semibold text-gray-900 bg-yellow-50">
-                  ག
-                </td>
-                <td className="px-4 py-3 text-gray-400 text-sm">ྲ</td>
-                <td className="px-4 py-3 text-2xl text-gray-700">ུ</td>
-                <td className="px-4 py-3 text-2xl text-gray-700">བ</td>
-                <td className="px-4 py-3 text-gray-400 text-sm">—</td>
-              </tr>
-              <tr className="border-t border-gray-100">
-                <td colSpan={7} className="px-4 py-3 text-center">
-                  <span className="text-2xl text-gray-900 mr-4">བསྒྲུབ</span>
-                  <span className="text-gray-500 text-sm">to accomplish</span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        <SyllableAnatomy />
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
           <Card title="Prefix (སྔོན་འཇུག)" variant="bordered">
@@ -262,41 +204,7 @@ const SpellingRules: NextPage = () => {
           Marks possession or association (of, &apos;s). The correct form
           depends on the preceding word&apos;s suffix:
         </p>
-        <ParticleTable
-          rows={[
-            {
-              particle: 'ཀྱི',
-              suffixes: 'ད  བ  ས',
-              example: 'བོད་ཀྱི་',
-              exampleGloss: 'of Tibet',
-            },
-            {
-              particle: 'གི',
-              suffixes: 'ག  ང',
-              example: 'ཆོས་གི་',
-              exampleGloss: 'of the dharma',
-            },
-            {
-              particle: 'གྱི',
-              suffixes: 'ན  མ  ར  ལ',
-              example: 'སེམས་ཅན་གྱི་',
-              exampleGloss: 'of beings',
-            },
-            {
-              particle: 'འི',
-              suffixes: 'འ  or no suffix',
-              example: 'ལྷའི་',
-              exampleGloss: 'of the deity',
-            },
-            {
-              particle: 'ཡི',
-              suffixes: 'any (lenient variant)',
-              example: 'ལྷ་ཡི་',
-              exampleGloss: 'used in poetry for metrical reasons',
-              lenient: true,
-            },
-          ]}
-        />
+        <ParticleTable rows={RELATIONAL_PARTICLES} />
 
         {/* Agentive */}
         <SectionHeading as="h3" className="mt-10">
@@ -309,41 +217,7 @@ const SpellingRules: NextPage = () => {
           of.&rdquo; The forms follow the same suffix groupings as the
           relational particle:
         </p>
-        <ParticleTable
-          rows={[
-            {
-              particle: 'ཀྱིས',
-              suffixes: 'ད  བ  ས',
-              example: 'བོད་ཀྱིས་',
-              exampleGloss: 'by Tibet',
-            },
-            {
-              particle: 'གིས',
-              suffixes: 'ག  ང',
-              example: 'ཆོས་གིས་',
-              exampleGloss: 'by the dharma',
-            },
-            {
-              particle: 'གྱིས',
-              suffixes: 'ན  མ  ར  ལ',
-              example: 'སེམས་ཅན་གྱིས་',
-              exampleGloss: 'by beings',
-            },
-            {
-              particle: 'ས',
-              suffixes: 'འ  or no suffix',
-              example: 'ལྷས་',
-              exampleGloss: 'by the deity',
-            },
-            {
-              particle: 'ཡིས',
-              suffixes: 'any (lenient variant)',
-              example: '',
-              exampleGloss: 'used in poetry for metrical reasons',
-              lenient: true,
-            },
-          ]}
-        />
+        <ParticleTable rows={AGENTIVE_PARTICLES} />
 
         {/* Locative */}
         <SectionHeading as="h3" className="mt-10">
@@ -355,53 +229,7 @@ const SpellingRules: NextPage = () => {
           than the other particles. རུ is rare — after འ or no suffix, ར is the
           usual form.
         </p>
-        <ParticleTable
-          rows={[
-            {
-              particle: 'ན',
-              suffixes: 'any suffix or no suffix',
-              example: 'བོད་ན་',
-              exampleGloss: 'in Tibet',
-            },
-            {
-              particle: 'ལ',
-              suffixes: 'any suffix or no suffix',
-              example: 'བོད་ལ་',
-              exampleGloss: 'to Tibet',
-            },
-            {
-              particle: 'སུ',
-              suffixes: 'ས',
-              example: 'ཆོས་སུ་',
-              exampleGloss: 'into the dharma',
-            },
-            {
-              particle: 'ཏུ',
-              suffixes: 'ག  བ  (or post-suffix ད)',
-              example: 'ཕྱོགས་ཏུ་',
-              exampleGloss: 'in the direction',
-            },
-            {
-              particle: 'དུ',
-              suffixes: 'ང  ད  ན  མ  ར  ལ',
-              example: 'བར་དུ་',
-              exampleGloss: 'until',
-            },
-            {
-              particle: 'རུ',
-              suffixes: 'འ  or no suffix',
-              example: 'བཀའ་རུ་',
-              exampleGloss: 'into the command; according to the decree',
-              rare: true,
-            },
-            {
-              particle: 'ར',
-              suffixes: 'འ',
-              example: 'ཆེར་',
-              exampleGloss: 'greatly',
-            },
-          ]}
-        />
+        <ParticleTable rows={LOCATIVE_PARTICLES} />
 
         {/* Indefinite */}
         <SectionHeading as="h3" className="mt-10">
@@ -412,28 +240,7 @@ const SpellingRules: NextPage = () => {
           The indefinite article / number one. Three forms based on the
           preceding suffix:
         </p>
-        <ParticleTable
-          rows={[
-            {
-              particle: 'ཅིག',
-              suffixes: 'ག  ད  བ',
-              example: 'ཆོས་ཅིག་',
-              exampleGloss: 'a dharma',
-            },
-            {
-              particle: 'ཤིག',
-              suffixes: 'ས',
-              example: 'ཕྱོགས་ཤིག་',
-              exampleGloss: 'a direction',
-            },
-            {
-              particle: 'ཞིག',
-              suffixes: 'ང  ན  མ  ར  ལ  འ  or no suffix',
-              example: 'ལྷ་ཞིག་',
-              exampleGloss: 'a deity',
-            },
-          ]}
-        />
+        <ParticleTable rows={INDEFINITE_PARTICLES} />
       </Section>
 
       {/* ------------------------------------------------------------------ */}
@@ -446,160 +253,12 @@ const SpellingRules: NextPage = () => {
         </p>
 
         <div className="space-y-4">
-          <ErrorEntry
-            type="Wrong particle form"
-            example="བོད་གི་"
-            description="The particle doesn't match the suffix of the word before it. Here གི་ is used after བོད་ (which ends in ད), but ད calls for ཀྱི་."
-            fix="Use ཀྱི་ after words ending in ད, བ, or ས."
-          />
-          <ErrorEntry
-            type="Invalid prefix combination"
-            example="ཧཧིབ་"
-            description="The letter before the root is not a valid prefix for that root. ཧ cannot act as a prefix."
-            fix="Only the five prefix letters (ག ད བ མ འ) can precede a root, and only in attested combinations."
-          />
-          <ErrorEntry
-            type="Invalid superscript combination"
-            example=""
-            description="A superscript letter is stacked above a root it cannot combine with. Each of the three superscripts (ར ལ ས) only stacks above specific roots — for example, ས can sit above ཀ to form སྐ, but not above ར."
-            fix="Check which roots are valid for that superscript."
-          />
-          <ErrorEntry
-            type="Invalid subscript combination"
-            example="ངྱི"
-            description="The subscript below the root is not valid for that root. ང cannot take ཡ་བཏགས."
-            fix="Subscripts (ྱ ྲ ླ ྭ) only combine with certain roots."
-          />
-          <ErrorEntry
-            type="Invalid suffix"
-            example="ཀཝ་"
-            description="The letter after the root is not one of the ten valid suffixes."
-            fix="Only these ten letters can be suffixes: ག ང ད ན བ མ འ ར ལ ས."
-          />
-          <ErrorEntry
-            type="Double vowel"
-            example=""
-            description="Two vowel marks appear on the same syllable, which is structurally impossible."
-            fix="Each syllable can only carry one vowel mark."
-          />
-          <ErrorEntry
-            type="Encoding error (critical)"
-            example="wrong character"
-            description="A character that looks like Tibetan is actually the wrong Unicode codepoint — a common issue when text is copied from certain older fonts or systems."
-            fix="Re-type the syllable from scratch using a Unicode Tibetan keyboard, or use a font conversion tool."
-          />
+          {SPELL_ERROR_EXAMPLES.map(entry => (
+            <ErrorExample key={entry.type} {...entry} />
+          ))}
         </div>
       </Section>
     </Layout>
-  )
-}
-
-// -------------------------------------------------------------------------
-// Sub-components
-// -------------------------------------------------------------------------
-
-interface ParticleRow {
-  particle: string
-  suffixes: string
-  example: string
-  exampleGloss: string
-  lenient?: boolean
-  rare?: boolean
-}
-
-function ParticleTable({rows}: {rows: ParticleRow[]}) {
-  return (
-    <div className="overflow-x-auto rounded-lg border border-gray-200 mb-2">
-      <table className="w-full text-sm border-collapse">
-        <thead className="bg-gray-50">
-          <tr>
-            <th className="px-4 py-3 text-left text-xs uppercase tracking-wider text-gray-500 font-medium border-b border-gray-200 w-24">
-              Particle
-            </th>
-            <th className="px-4 py-3 text-left text-xs uppercase tracking-wider text-gray-500 font-medium border-b border-gray-200">
-              Used after suffix
-            </th>
-            <th className="px-4 py-3 text-left text-xs uppercase tracking-wider text-gray-500 font-medium border-b border-gray-200">
-              Example
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, i) => (
-            <tr
-              key={row.particle}
-              className={[
-                i < rows.length - 1 ? 'border-b border-gray-100' : '',
-                row.lenient || row.rare ? 'bg-gray-50' : 'bg-white',
-              ].join(' ')}
-            >
-              <td className="px-4 py-3">
-                <span className="text-2xl text-gray-900">{row.particle}</span>
-                {row.lenient && (
-                  <span className="ml-2 text-xs text-gray-400 align-middle">
-                    lenient
-                  </span>
-                )}
-                {row.rare && (
-                  <span className="ml-2 text-xs text-gray-400 align-middle">
-                    rare
-                  </span>
-                )}
-              </td>
-              <td className="px-4 py-3 text-gray-600 font-mono tracking-wide">
-                {row.suffixes}
-              </td>
-              <td className="px-4 py-3">
-                {row.example && (
-                  <>
-                    <span className="text-xl text-gray-900 mr-2">
-                      {row.example}
-                    </span>
-                    <span className="text-gray-400 italic">
-                      {row.exampleGloss}
-                    </span>
-                  </>
-                )}
-                {!row.example && (
-                  <span className="text-gray-400 italic">
-                    {row.exampleGloss}
-                  </span>
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  )
-}
-
-interface ErrorEntryProps {
-  type: string
-  example: string
-  description: string
-  fix: string
-}
-
-function ErrorEntry({type, example, description, fix}: ErrorEntryProps) {
-  return (
-    <div className="p-5 bg-white rounded-lg border border-gray-200">
-      <div className="flex items-start gap-4 flex-wrap">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-3 mb-2 flex-wrap">
-            <h4 className="text-base font-semibold text-gray-900 m-0">
-              {type}
-            </h4>
-            <span className="text-lg text-red-600 font-medium">{example}</span>
-          </div>
-          <p className="text-sm text-gray-600 mb-2">{description}</p>
-          <p className="text-sm text-gray-500">
-            <span className="font-medium text-gray-700">Fix: </span>
-            {fix}
-          </p>
-        </div>
-      </div>
-    </div>
   )
 }
 

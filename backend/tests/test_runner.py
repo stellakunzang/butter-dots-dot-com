@@ -20,6 +20,7 @@ with a callable so the suite never makes a real API call. Covers:
 OCR and spellcheck are injected as fakes so the suite never loads BDRC models
 or opens a database connection.
 """
+
 import json
 from pathlib import Path
 
@@ -35,7 +36,6 @@ from app.ocr_assist.diagnostician import (
 from app.ocr_assist.job_store import (
     create_job,
     load_page,
-    save_page_attempt,
     finalize_page,
 )
 from app.ocr_assist.quality import Thresholds
@@ -58,6 +58,7 @@ GARBLED_TEXT = CLEAN_TEXT + "\nxxxx hello yyy zzz totally not tibetan at all"
 @pytest.fixture
 def fake_pdf(monkeypatch):
     """Bypass pdf2image: render to a small list of in-memory PIL images."""
+
     def _fake_render(pdf_bytes: bytes, *, dpi: int):
         return [Image.new("RGB", (40, 40), "white") for _ in range(3)]
 
@@ -130,11 +131,13 @@ class TestRunPageNeedsReview:
         # Clean text + a single encoding_error severity=critical → hard floor
         # in `decide` forces escalate.
         def bad_spellcheck(text: str) -> list[dict]:
-            return [{
-                "word": "བཀྲ",
-                "error_type": "encoding_error",
-                "severity": "critical",
-            }]
+            return [
+                {
+                    "word": "བཀྲ",
+                    "error_type": "encoding_error",
+                    "severity": "critical",
+                }
+            ]
 
         result = run_page(job, 1, ocr=clean_ocr, spellcheck=bad_spellcheck)
         assert result.decision == "needs_review"
@@ -192,9 +195,7 @@ class TestRunAllPages:
             ocr_calls.append(image_path)
             return OcrResult(text=CLEAN_TEXT, line_count=2)
 
-        results = run_all_pages(
-            job, ocr=counting_ocr, spellcheck=no_errors, page_indices=[1, 3]
-        )
+        results = run_all_pages(job, ocr=counting_ocr, spellcheck=no_errors, page_indices=[1, 3])
         assert {r.page.index for r in results} == {1, 3}
         assert len(ocr_calls) == 2
         assert load_page(job, 2).final_text is None
@@ -231,9 +232,7 @@ class TestRawVerdict:
                 for _ in range(12)
             ]
 
-        result = run_page(
-            job, 1, ocr=clean_ocr, spellcheck=bad_spellcheck, thresholds=strict
-        )
+        result = run_page(job, 1, ocr=clean_ocr, spellcheck=bad_spellcheck, thresholds=strict)
         assert result.decision == "needs_review"
         assert result.verdict == "reject"
 
@@ -330,9 +329,7 @@ class TestThresholdsOverride:
             return OcrResult(text=noisy, line_count=6)
 
         lax = Thresholds(accept=0.0, reject=0.0)
-        result = run_page(
-            job, 1, ocr=noisy_ocr, spellcheck=no_errors, thresholds=lax
-        )
+        result = run_page(job, 1, ocr=noisy_ocr, spellcheck=no_errors, thresholds=lax)
         assert result.decision == "accept"
         assert result.page.final_text == noisy
 
@@ -390,9 +387,7 @@ class TestDiagnosticianRetryWithSettings:
             max_attempts=2,
         )
 
-        settings = json.loads(
-            (job.root / "page-001" / "settings.json").read_text()
-        )
+        settings = json.loads((job.root / "page-001" / "settings.json").read_text())
         # Baseline ``model_variant`` is preserved; the override is layered on.
         assert settings["model_variant"] == "Modern"
         assert settings["k_factor"] == 3.0
@@ -472,9 +467,7 @@ class TestDiagnosticianAccurateAsSanskrit:
 
 class TestDiagnosticianNeedsHuman:
     def test_needs_human_queues_for_review(self, job):
-        diagnostician = _stub_diagnostician(
-            [NeedsHuman(reason="image is upside-down and torn")]
-        )
+        diagnostician = _stub_diagnostician([NeedsHuman(reason="image is upside-down and torn")])
 
         result = run_page(
             job,
@@ -761,9 +754,7 @@ class TestVisionFallbackAfterAttemptsExhausted:
             call_count["n"] += 1
             return OcrResult(text="།ས་ས", line_count=1)
 
-        diagnostician = _stub_diagnostician(
-            [NeedsHuman(reason="page may be rotated")]
-        )
+        diagnostician = _stub_diagnostician([NeedsHuman(reason="page may be rotated")])
         result = run_page(
             job,
             1,
@@ -779,14 +770,13 @@ class TestVisionFallbackAfterAttemptsExhausted:
         assert abs(float(load_page(job, 1).settings.get("rotate", 0) or 0)) < 1e-6
         assert call_count["n"] == 1
 
+
 class TestVisionFallbackAfterNeedsHuman:
     def test_needs_human_still_consults_vision(self, job):
         # The diagnostician flagging NeedsHuman means BDRC retries won't help.
         # Vision is a different engine and gets one shot. Here it succeeds, so
         # the page finalizes from vision even though Claude flagged it.
-        diagnostician = _stub_diagnostician(
-            [NeedsHuman(reason="multi-column layout")]
-        )
+        diagnostician = _stub_diagnostician([NeedsHuman(reason="multi-column layout")])
         vision = _stub_vision([VisionTranscript(text=CLEAN_TEXT)])
 
         result = run_page(
@@ -808,9 +798,7 @@ class TestVisionFallbackAfterNeedsHuman:
 
     def test_needs_human_with_no_vision_returns_needs_review(self, job):
         # No vision callable → NeedsHuman is still terminal.
-        diagnostician = _stub_diagnostician(
-            [NeedsHuman(reason="torn page")]
-        )
+        diagnostician = _stub_diagnostician([NeedsHuman(reason="torn page")])
 
         result = run_page(
             job,
@@ -829,9 +817,7 @@ class TestVisionFallbackAfterNeedsHuman:
 class TestLineCountBaseline:
     """T-13: rolling median line count from accepted pages gates short pages."""
 
-    def test_short_page_escalates_after_baseline_established(
-        self, tmp_path: Path, monkeypatch
-    ):
+    def test_short_page_escalates_after_baseline_established(self, tmp_path: Path, monkeypatch):
         def _fake_render(pdf_bytes: bytes, *, dpi: int):
             return [Image.new("RGB", (40, 40), "white") for _ in range(4)]
 

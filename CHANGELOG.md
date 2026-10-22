@@ -8,54 +8,21 @@ and this project uses
 
 ---
 
-## [Unreleased]
+## [0.7.0] - 2026-10-22
 
 ### Added
 
-- Learn section at `/learn`: hub page plus a beginner guide to typing Tibetan
-  (Wylie, Mac/Windows/phone keyboards, Jomolhari, and why Word / Pages /
-  Google Docs disagree about Tibetan fonts).
-- Interactive OCR Assist foundation on main (local-dev only, gated by
-  `OCR_ASSIST_LOCAL`): per-page BDRC jobs with quality scoring, Claude
-  diagnostician retries, optional vision OCR fallback, clean DOCX export, CLI
-  runners, and a minimal `/ocr-assist` upload/review UI with on-demand Claude vs
-  Gemini compare.
-- Corpus build script rewritten for Monlam, botok, and Steinert sources, with
-  `backend/data/README.md` for how to obtain dumps and load Postgres
-  (`build_corpus.py` — still a manual ops step; not auto-run on deploy).
-- OCR Assist intervention log: accept / edit-accept / retry outcomes append to
-  `interventions.jsonl` so high-confidence-but-wrong pages become labeled data
-  later. Retry accepts human `use_tps` / `rotate` overrides; TPS dewarping is an
-  optional dependency when that flag is set.
-- `/ocr-assist` UI for local Interactive OCR: page review with spellcheck
-  highlighting, confidence, rotate/TPS retry controls, vision-model compare
-  tabs, and partial DOCX download while a job is in progress.
-- Public `/interactive-ocr` early-access waitlist (Formspree via
-  `/api/ocr-waitlist`), plus an Interactive OCR nav link and updated spellcheck
-  page copy mentioning the attested word corpus.
-- OCR CLI `--open` / `--reveal` helpers on macOS after a job finishes; Gemini
-  vision pinned via `google-genai` in requirements (httpx/FastAPI bumps for T-15)
-  with an updated default compare model.
+- Learn section at `/learn`: a hub, a beginner guide to typing Tibetan, and
+  the spelling-rules and sentence-structure pages.
+- Early-access page at `/interactive-ocr`. It takes a waitlist signup.
+  Interactive OCR is not available on the site.
 
 ### Changed
 
-- Spelling Rules and Sentence Structure now live under `/learn`. Old URLs
-  redirect. The header is Spell Checker, Interactive OCR, and Learn;
-  Changelog moved to the footer.
-- OCR quality scoring now weights Phase-2 unknown-syllable rate, escalates
-  near-empty pages for human rotate/retry instead of hard-rejecting them, exposes
-  an `ocr_confidence` signal, and blocks auto-accept when structural or unknown
-  ratios are too high. Tibetan punctuation and rnam bcad count as syllable
-  boundaries for scoring/spellcheck splits.
-- Spellcheck errors from each OCR attempt are persisted for the assist UI to
-  highlight later.
-- OCR Assist stays local-only: CI asserts `ocr_assist_local` defaults to false, and the API refuses to mount if `OCR_ASSIST_LOCAL` is set on Render.
-- Lexicon data is stored relationally: `word`, `source`, `word_source`, and
-  `definition` replace JSONB on the old spelling list; `lexicon_staging_line` is
-  there for upcoming ingest. Existing databases can run
-  `database/migrations/002_lexicon_schema.sql`; fresh installs use the updated
-  `schema.sql`. `DictionaryService`, `build_corpus.py`, and `seed_corpus.py`
-  target the new tables.
+- The header is Spell Checker, Interactive OCR, and Learn. Changelog is in
+  the footer. `/spelling-rules` and `/sentence-structure` redirect into
+  `/learn`.
+- The spellcheck page says words are checked against an attested corpus.
 
 ---
 

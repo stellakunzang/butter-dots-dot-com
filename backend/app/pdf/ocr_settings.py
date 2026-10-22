@@ -6,6 +6,7 @@ The interactive OCR workflow persists a settings dict on each page
 (``Ume`` → ``Ume_Druma``) and supplies defaults so callers can pass the
 dict straight through to ``BDRCOCREngine.run_on_image``.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass

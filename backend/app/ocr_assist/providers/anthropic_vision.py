@@ -1,4 +1,5 @@
 """Anthropic Claude implementation of the vision transcription contract."""
+
 from __future__ import annotations
 
 import logging
@@ -84,9 +85,7 @@ class AnthropicVisionTranscriber:
     def _build_client(api_key: str | None) -> Any:
         import anthropic
 
-        return anthropic.Anthropic(
-            api_key=resolve_anthropic_api_key(api_key)
-        )
+        return anthropic.Anthropic(api_key=resolve_anthropic_api_key(api_key))
 
     def __call__(self, *, image_path: Path) -> VisionTranscript:
         user_content: list[dict[str, Any]] = [

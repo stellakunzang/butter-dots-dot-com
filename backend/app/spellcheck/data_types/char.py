@@ -1,17 +1,19 @@
 """
 Character-level data types for the spellcheck pipeline.
 """
+
 from dataclasses import dataclass
 from enum import Enum
 
 
 class CharType(Enum):
     """Unicode-based character classification for Tibetan characters."""
-    BASE = "base"              # Base consonant (U+0F40-0F6C)
-    SUBJOINED = "subjoined"    # Subjoined consonant (U+0F90-0FBC)
-    VOWEL = "vowel"            # Vowel mark (U+0F71-0F7C)
-    MARK = "mark"              # Other Tibetan marks (U+0F00-0F3F, etc.)
-    OTHER = "other"            # Non-Tibetan or unrecognized
+
+    BASE = "base"  # Base consonant (U+0F40-0F6C)
+    SUBJOINED = "subjoined"  # Subjoined consonant (U+0F90-0FBC)
+    VOWEL = "vowel"  # Vowel mark (U+0F71-0F7C)
+    MARK = "mark"  # Other Tibetan marks (U+0F00-0F3F, etc.)
+    OTHER = "other"  # Non-Tibetan or unrecognized
 
 
 @dataclass
@@ -29,6 +31,7 @@ class TypedChar:
         position: Index in the original string
         base_form: Base consonant form (subjoined converted to base, others unchanged)
     """
+
     char: str
     type: CharType
     position: int

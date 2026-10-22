@@ -8,6 +8,7 @@ spellchecker -- all other checks operate on a single syllable in isolation.
 Called from engine.check_text (not check_syllable) because it requires
 knowledge of the previous syllable.
 """
+
 from typing import Optional, Dict
 from ..rules.particles import is_particle, get_particle_rule, is_valid_particle_context
 from ..data_types import TibetanSyllable
@@ -34,6 +35,7 @@ _PREFERRED_SUGGESTIONS: dict = {
     ('locative', 'འ'): 'ར',
 }
 
+
 def _correct_form_for_suffix(category: str, suffix: Optional[str]) -> Optional[str]:
     """Return the expected particle form for this category and suffix."""
     override = _PREFERRED_SUGGESTIONS.get((category, suffix))
@@ -44,8 +46,8 @@ def _correct_form_for_suffix(category: str, suffix: Optional[str]) -> Optional[s
 
     mapping = {
         'relational': RELATIONAL,
-        'agentive':   AGENTIVE,
-        'locative':   LOCATIVE,
+        'agentive': AGENTIVE,
+        'locative': LOCATIVE,
         'indefinite': INDEFINITE,
     }.get(category, {})
 
