@@ -17,6 +17,10 @@ docker compose up --build       # rebuild after dependency changes
 docker compose logs -f backend  # one service
 ```
 
+Postgres is published on `127.0.0.1:5432` only. The backend image runs as
+uid 1000. If a bind mount is not writable, start with your own ids:
+`BACKEND_UID=$(id -u) BACKEND_GID=$(id -g) docker compose up`.
+
 OCR models are a one-time download, about 300 MB, into gitignored
 `backend/OCRModels/` and `backend/Models/`:
 
