@@ -154,11 +154,11 @@ README with Track B.
       Render, not Railway. Restating comments removed in
       `completeness_checks.py` and `parser.py`.
 - [x] **S** Pull request template has a How tested section.
-- [x] **M** `[Unreleased]` lists only what is live on the site: Learn, the
-      redirects and nav, the spellcheck corpus sentence, and the
+- [x] **M** `0.7.0` (2026-10-22) lists only what is live on the site: Learn,
+      the redirects and nav, the spellcheck corpus sentence, and the
       `/interactive-ocr` waitlist. Local OCR assist, the diagnostician, vision,
       the corpus loader, and the lexicon migration are not in the public
-      changelog. A dated version waits for the PR. Last release is `0.6.1`.
+      changelog.
 
 ### A6. Frontend shared code — `refactor/frontend-shared`
 

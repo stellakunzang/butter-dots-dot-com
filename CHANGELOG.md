@@ -8,10 +8,7 @@ and this project uses
 
 ---
 
-## [Unreleased]
-
-Live on the site since 0.6.1. Hidden local tools and ops scripts are not listed
-here. They go in the changelog of the version that turns them on.
+## [0.7.0] - 2026-10-22
 
 ### Added
 
