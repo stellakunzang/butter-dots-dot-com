@@ -18,6 +18,7 @@ Sources:
                 converted to Unicode via pyewts. Default dir: sibling
                 tibetan-translator/build/dictionaries/.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -31,7 +32,7 @@ from typing import Iterator
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
 
-TSHEG = "\u0F0B"  # ་
+TSHEG = "\u0f0b"  # ་
 TIBETAN_RANGE = (0x0F00, 0x0FFF)
 
 # Default for first local builds. Raise to 2+ once sources are trusted.
@@ -50,14 +51,13 @@ STEINERT_PUBLIC_DICTS = (
     "10-RichardBarron",
 )
 
-DEFAULT_STEINERT_DIR = (
-    BACKEND_ROOT.parent.parent / "tibetan-translator" / "build" / "dictionaries"
-)
+DEFAULT_STEINERT_DIR = BACKEND_ROOT.parent.parent / "tibetan-translator" / "build" / "dictionaries"
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def normalize(text: str) -> str:
     return unicodedata.normalize("NFC", text.strip())
@@ -75,6 +75,7 @@ def _strip_bom(text: str) -> str:
 # ---------------------------------------------------------------------------
 # Source extractors
 # ---------------------------------------------------------------------------
+
 
 def extract_monlam(data_path: Path) -> Iterator[str]:
     """
@@ -193,6 +194,7 @@ def extract_steinert_dir(data_path: Path) -> Iterator[str]:
 # Cross-referencing
 # ---------------------------------------------------------------------------
 
+
 def cross_reference(
     sources: dict[str, list[str]],
     threshold: int = CROSS_REFERENCE_THRESHOLD,
@@ -223,6 +225,7 @@ def cross_reference(
             "word": word,
             "word_normalized": word,
             "sources": data["sources"],
+            "source_count": data["source_count"],
             "first_seen_in": data["sources"][0],
         }
         for word, data in word_data.items()
@@ -241,6 +244,7 @@ def cross_reference(
 # ---------------------------------------------------------------------------
 # Database loader
 # ---------------------------------------------------------------------------
+
 
 def load_to_database(words: list[dict], replace: bool = False) -> int:
     """Insert validated headwords into word and word_source (batched)."""
@@ -277,14 +281,15 @@ def load_to_database(words: list[dict], replace: bool = False) -> int:
             chunk = words[i : i + batch_size]
             session.execute(
                 text("""
-                    INSERT INTO word (word, word_normalized, first_seen_in)
-                    VALUES (:word, :word_normalized, :first_seen_in)
+                    INSERT INTO word (word, word_normalized, source_count, first_seen_in)
+                    VALUES (:word, :word_normalized, :source_count, :first_seen_in)
                     ON CONFLICT (word) DO NOTHING
                 """),
                 [
                     {
                         "word": w["word"],
                         "word_normalized": w["word_normalized"],
+                        "source_count": w["source_count"],
                         "first_seen_in": w["first_seen_in"],
                     }
                     for w in chunk
@@ -300,9 +305,7 @@ def load_to_database(words: list[dict], replace: bool = False) -> int:
         # Map source_key → id once.
         source_ids = {
             row[0]: row[1]
-            for row in session.execute(
-                text("SELECT source_key, id FROM source")
-            ).fetchall()
+            for row in session.execute(text("SELECT source_key, id FROM source")).fetchall()
         }
 
         # Resolve word → id for provenance links (only words we care about).
@@ -351,6 +354,7 @@ def load_to_database(words: list[dict], replace: bool = False) -> int:
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
+
 
 def _source_map(steinert_dir: Path) -> dict:
     return {

@@ -2,8 +2,9 @@
 BDRC OCR adapter.
 
 Wraps the BDRC/Monlam OCRPipeline (MIT licensed) as a simple server-side
-interface. The pipeline is loaded once at module import time as a singleton
-so model weights are only read from disk on the first use.
+interface. The pipeline is loaded once, on first use, as a singleton so
+model weights are only read from disk then. Loading and model swaps take
+an in-process lock; OCR itself runs outside that lock.
 
 Per-page settings (``k_factor``, ``bbox_tolerance``, ``model_variant``,
 ``rotate``) from the interactive OCR job store are accepted by
@@ -16,6 +17,7 @@ Source: https://github.com/buda-base/tibetan-ocr-app
 from __future__ import annotations
 
 import logging
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional
@@ -77,9 +79,16 @@ class BDRCOCREngine:
         self._error: Optional[str] = None
         self._active_model_name: str | None = None
         self._model_config_cache: dict[str, Any] = {}
+        self._lock = threading.Lock()
 
     def _load(self) -> None:
         """Load the ONNX models. Called lazily on first use."""
+        with self._lock:
+            if self._ready or self._error is not None:
+                return
+            self._load_unlocked()
+
+    def _load_unlocked(self) -> None:
         try:
             from BDRC.Inference import OCRPipeline
             from BDRC.Data import LineDetectionConfig
@@ -201,21 +210,22 @@ class BDRCOCREngine:
 
     def _ensure_ocr_model(self, model_name: str) -> None:
         """Load and activate ``model_name`` if it differs from the current one."""
-        if self._active_model_name == model_name:
-            return
+        with self._lock:
+            if self._active_model_name == model_name:
+                return
 
-        config = self._load_model_config(model_name)
-        if config is None:
-            logger.warning(
-                "OCR model %r not available; keeping active model %r",
-                model_name,
-                self._active_model_name,
-            )
-            return
+            config = self._load_model_config(model_name)
+            if config is None:
+                logger.warning(
+                    "OCR model %r not available; keeping active model %r",
+                    model_name,
+                    self._active_model_name,
+                )
+                return
 
-        self._pipeline.update_ocr_model(config)
-        self._active_model_name = model_name
-        logger.info("Switched BDRC OCR model to %s", model_name)
+            self._pipeline.update_ocr_model(config)
+            self._active_model_name = model_name
+            logger.info("Switched BDRC OCR model to %s", model_name)
 
     def _load_model_config(self, model_name: str) -> Any | None:
         if model_name in self._model_config_cache:
@@ -239,10 +249,13 @@ class BDRCOCREngine:
 
 # Module-level singleton — loaded on first use
 _engine: Optional[BDRCOCREngine] = None
+_engine_lock = threading.Lock()
 
 
 def get_engine() -> BDRCOCREngine:
     global _engine
     if _engine is None:
-        _engine = BDRCOCREngine()
+        with _engine_lock:
+            if _engine is None:
+                _engine = BDRCOCREngine()
     return _engine

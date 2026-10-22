@@ -9,8 +9,15 @@ from app.spellcheck.dictionary import DictionaryService
 
 router = APIRouter()
 
-# Shared instance — loaded once at module import time.
-_dictionary = DictionaryService()
+_dictionary: DictionaryService | None = None
+
+
+def get_dictionary() -> DictionaryService:
+    """Return the shared corpus, creating it on first use."""
+    global _dictionary
+    if _dictionary is None:
+        _dictionary = DictionaryService()
+    return _dictionary
 
 
 @router.get("/corpus/stats", response_model=CorpusStatsResponse)
@@ -23,4 +30,4 @@ async def corpus_stats():
     - **word_count**: number of entries in word
     - **syllable_count**: unique syllables extracted from all entries
     """
-    return CorpusStatsResponse(**_dictionary.stats())
+    return CorpusStatsResponse(**get_dictionary().stats())

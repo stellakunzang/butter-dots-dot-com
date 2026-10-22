@@ -1,7 +1,8 @@
 -- Tibetan Spellchecker Database Schema
 -- PostgreSQL 15+
 
--- Jobs table: Track PDF spell check jobs
+-- Jobs table: completed PDF jobs, kept so a finished job can be inspected
+-- while OCR work is still in progress. The API queue itself is in-memory.
 CREATE TABLE jobs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     status VARCHAR(50) NOT NULL,  -- 'pending', 'processing', 'completed', 'failed'
@@ -48,6 +49,7 @@ CREATE TABLE word (
     id SERIAL PRIMARY KEY,
     word TEXT UNIQUE NOT NULL,
     word_normalized TEXT NOT NULL,
+    source_count INTEGER NOT NULL DEFAULT 1,
     first_seen_in VARCHAR(50),
     times_seen INTEGER NOT NULL DEFAULT 0,
     dialect VARCHAR(20),

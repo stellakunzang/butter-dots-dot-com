@@ -20,6 +20,7 @@ from app.schemas.spellcheck import (
     SpellCheckRequest,
     SpellCheckResponse,
 )
+from app.spellcheck.dictionary import DictionaryService
 from app.spellcheck.engine import TibetanSpellChecker
 from app.upload_limits import SPELLCHECK_MAX_PAGES, SPELLCHECK_MAX_UPLOAD_BYTES
 
@@ -39,11 +40,31 @@ _PROCESSING_FAILED = "PDF processing failed"
 
 RESULTS_DIR = Path(__file__).parent.parent.parent / "results"
 UPLOADS_DIR = Path(__file__).parent.parent.parent / "uploads"
-RESULTS_DIR.mkdir(exist_ok=True)
-UPLOADS_DIR.mkdir(exist_ok=True)
 
-# Shared checker instance — loads DictionaryService (and DB connection) once at startup.
-_checker = TibetanSpellChecker()
+# Shared checker. Built on application startup, not at import, so importing
+# this module does not open a database connection.
+_checker: TibetanSpellChecker | None = None
+
+
+def ensure_storage() -> None:
+    RESULTS_DIR.mkdir(exist_ok=True)
+    UPLOADS_DIR.mkdir(exist_ok=True)
+
+
+def get_checker(dictionary: DictionaryService | None = None) -> TibetanSpellChecker:
+    """Return the process-wide checker, creating it on first use.
+
+    The first call uses ``dictionary`` or the shared corpus service, so
+    startup loads the word table once. Later calls return that checker.
+    """
+    global _checker
+    if _checker is None:
+        if dictionary is None:
+            from app.api.corpus import get_dictionary
+
+            dictionary = get_dictionary()
+        _checker = TibetanSpellChecker(dictionary=dictionary)
+    return _checker
 
 
 # ---------------------------------------------------------------------------
@@ -65,7 +86,7 @@ async def check_text(request: SpellCheckRequest):
     - Syllable structure
     """
     try:
-        raw_errors = await asyncio.to_thread(_checker.check_text, request.text)
+        raw_errors = await asyncio.to_thread(get_checker().check_text, request.text)
 
         errors = [
             ErrorResponse(
@@ -159,6 +180,7 @@ async def upload_pdf(
 
 async def _process_sync(pdf_bytes: bytes, filename: str, page_count: int):
     """Process a small PDF synchronously and return all results."""
+    ensure_storage()
     from app import jobs as job_store
     from app.pdf.extractor import extract_pdf
     from app.pdf.annotator import annotate_pdf
@@ -210,6 +232,7 @@ async def _queue_async_job(
     background_tasks: BackgroundTasks,
 ):
     """Queue a large PDF for background processing."""
+    ensure_storage()
     from app import jobs as job_store
 
     job = job_store.create_job(filename, page_count, email=email)
@@ -242,6 +265,7 @@ async def _queue_async_job(
 
 def _background_process(job_id: str, upload_path: Path, filename: str, email: str | None) -> None:
     """Background task: process a large PDF and send email when done."""
+    ensure_storage()
     import asyncio
     from app import jobs as job_store
     from app.pdf.extractor import extract_pdf
@@ -271,15 +295,21 @@ def _background_process(job_id: str, upload_path: Path, filename: str, email: st
 
         job_store.mark_completed(job_id, pdf_path, docx_path, all_errors)
 
-        if email:
-            from app.config import settings
-
-            download_url = f"{settings.public_base_url}/api/v1/spellcheck/result/{job_id}/pdf"
-            asyncio.run(send_results_email(to=email, job_id=job_id, download_url=download_url))
-
     except Exception:
         logger.exception("Background processing failed for job %s", job_id)
         job_store.mark_failed(job_id, _PROCESSING_FAILED)
+    else:
+        if email:
+            try:
+                from app.config import settings
+
+                download_url = f"{settings.public_base_url}/api/v1/spellcheck/result/{job_id}/pdf"
+                asyncio.run(send_results_email(to=email, job_id=job_id, download_url=download_url))
+            except Exception:
+                logger.exception(
+                    "Result email failed for completed job %s; the download is still available",
+                    job_id,
+                )
     finally:
         # Clean up upload
         try:
@@ -335,7 +365,7 @@ def _run_spellcheck(pages) -> tuple[dict[int, list[str]], list[dict]]:
         errors_by_page: dict mapping page_number → list of error word strings
         all_errors: flat list of error dicts (serialisable for JSON output)
     """
-    checker = _checker
+    checker = get_checker()
     errors_by_page: dict[int, list[str]] = {}
     all_errors: list[dict] = []
 

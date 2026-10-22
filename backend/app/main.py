@@ -1,12 +1,23 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api import corpus, health, spellcheck
 from app.config import settings
 
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    spellcheck.ensure_storage()
+    spellcheck.get_checker(corpus.get_dictionary())
+    yield
+
+
 app = FastAPI(
     title="Tibetan Spellchecker API",
     version="0.1.0",
     description="API for Tibetan spell checking with PDF support",
+    lifespan=lifespan,
 )
 
 # CORS — origins loaded from ALLOWED_ORIGINS env var / .env file

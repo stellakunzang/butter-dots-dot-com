@@ -5,6 +5,7 @@ services:
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
     plan: free
+    healthCheckPath: /api/v1/health
     envVars:
       - key: ALLOWED_ORIGINS
         value: https://www.butterdots.com,https://butterdots.com

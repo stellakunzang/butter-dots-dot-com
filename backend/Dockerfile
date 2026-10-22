@@ -18,10 +18,19 @@ COPY . .
 
 # Download BDRC OCR models at build time
 # Models are saved to /app/OCRModels/ and /app/Models/Lines|Layout/
-RUN python scripts/download_models.py
+RUN python scripts/download_models.py \
+    && useradd --create-home --uid 1000 --shell /usr/sbin/nologin appuser \
+    && mkdir -p /app/uploads /app/results \
+    && chmod +x /app/docker-entrypoint.sh \
+    && chown -R appuser:appuser /app
+
+USER appuser
 
 # Default port (Render injects PORT=10000; falls back to 8000 locally)
 ENV PORT=8000
-EXPOSE ${PORT}
+EXPOSE 8000
 
-CMD uvicorn app.main:app --host 0.0.0.0 --port $PORT
+HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
+    CMD ["python", "-c", "import os,urllib.request; urllib.request.urlopen('http://127.0.0.1:%s/api/v1/health' % os.environ.get('PORT', '8000'))"]
+
+CMD ["/app/docker-entrypoint.sh"]

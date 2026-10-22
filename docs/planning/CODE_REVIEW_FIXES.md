@@ -193,20 +193,25 @@ land first.
 Note: `app/pdf/ocr.py` (BDRC engine) is shared by the public PDF spellcheck
 path and OCR assist, so its fixes live here, not in Track B.
 
-- [ ] **S** Lock around lazy `_load` and `update_ocr_model` in the shared
-      `BDRCOCREngine` (`app/pdf/ocr.py:66-248`).
-- [ ] **M** `app/jobs.py`: lock around `_jobs`, TTL sweep for jobs and
-      `results/` files; document the single-instance constraint.
-- [ ] **S** `spellcheck.py:236-245`: email failure must not mark a completed
-      job as failed.
-- [ ] **M** Move import-time side effects (`spellcheck.py:32-36`,
-      `corpus.py:12`) into FastAPI lifespan / dependencies.
-- [ ] **M** Migration `002_lexicon_schema.sql:88-99`: untargeted
-      `ON CONFLICT DO NOTHING`, rename instead of `DROP`, keep `source_count`.
-      Decide on unused `jobs` / `spell_errors` tables in `schema.sql`.
-- [ ] **S** Docker/deploy: non-root user, `HEALTHCHECK`, exec-form `CMD`,
-      `healthCheckPath: /api/v1/health` in `render.yaml`, drop obsolete compose
-      `version:`, bind Postgres to `127.0.0.1`.
+- [x] **S** Lock around lazy `_load` and `update_ocr_model` in the shared
+      `BDRCOCREngine` (`app/pdf/ocr.py`). In-process only.
+- [x] **M** `app/jobs.py`: lock around `_jobs`. Finished jobs and their result
+      files expire after 24 hours. Pending and processing jobs are kept.
+      The module documents the single-instance constraint.
+- [x] **S** Email failure after a finished PDF logs the error and leaves the
+      job completed.
+- [x] **M** The shared spellchecker and dictionary are built in the FastAPI
+      lifespan, not at import. Storage directories are created there too,
+      and again before a PDF is written.
+- [x] **M** Migration `002` copies `source_count`, skips rows that already
+      collide on `word` or `word_normalized`, and renames
+      `spelling_reference` to `spelling_reference_v1`. `jobs` and
+      `spell_errors` stay. They are how a completed OCR job is inspected
+      after the in-memory queue is gone.
+- [x] **S** Docker/deploy: the API image runs as uid 1000, with a
+      `HEALTHCHECK` and an exec-form entrypoint. `render.yaml` sets
+      `healthCheckPath: /api/v1/health`. Compose drops `version:`, and
+      Postgres is bound to `127.0.0.1`.
 
 ---
 
