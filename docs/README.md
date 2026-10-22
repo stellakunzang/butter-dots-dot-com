@@ -1,51 +1,46 @@
 # Documentation
 
-This directory contains all project documentation organized by purpose.
+Guides and decisions for people working in the repo. Planning notes are
+working documents. They are not a description of the public site.
 
-## Directory Structure
+## Guides
 
-### `/adr` - Architecture Decision Records
-Records of significant architectural decisions and their rationale.
+- [LOCAL_DEVELOPMENT.md](guides/LOCAL_DEVELOPMENT.md) — Docker, a manual
+  setup, tests, troubleshooting
+- [DEPLOYMENT.md](guides/DEPLOYMENT.md) — Netlify, Render, and the deploy hook
+- [OCR_CLI.md](guides/OCR_CLI.md) — local OCR assist CLI. Not on the public site
+- [PROJECT_STRUCTURE.md](guides/PROJECT_STRUCTURE.md) — monorepo layout
 
-- `SPELLCHECKER_DECISIONS.md` - All ADRs for the Tibetan spellchecker project
+Frontend notes live next to the app:
 
-### `/guides` - Developer Guides
-Technical guides for developers working on this project.
+- [frontend/docs/ARCHITECTURE.md](../frontend/docs/ARCHITECTURE.md)
+- [frontend/docs/COMPONENTS.md](../frontend/docs/COMPONENTS.md)
+- [frontend/docs/TAILWIND_GUIDE.md](../frontend/docs/TAILWIND_GUIDE.md)
 
-- `ARCHITECTURE.md` - Overall system architecture
-- `PROJECT_STRUCTURE.md` - Monorepo structure and Docker setup
-- `COMPONENTS.md` - Frontend component library reference
-- `TAILWIND_GUIDE.md` - Tailwind CSS usage and conventions
+## Decisions
 
-### `/planning` - Project Planning
-Planning documents and feature specifications. The live backlog is tracked in
-[GitHub Projects — Butter Roadmap](https://github.com/users/stellakunzang/projects/3).
+- [adr/SPELLCHECKER_DECISIONS.md](adr/SPELLCHECKER_DECISIONS.md)
 
-- `BACKLOG.md` - Archived feature backlog (superseded by GitHub Projects)
-- `WORD_CORPUS_PLAN.md` - Strategy for building the Tibetan word corpus
-- `INTERACTIVE_OCR_PLAN.md` - Interactive OCR architecture, tickets, **quality/HITL living decisions** (weights, hard floors, Phase-2 corpus)
-- `INTERACTIVE_OCR_LOCAL_SMOKE.md` - Local smoke / vision A/B checklist
-- `INTERACTIVE_OCR_WORKFLOW.md` - How to work tickets without drifting the plan
+## Research
 
-### `/archive` - Historical/Completed
-Completed migration summaries and historical documentation.
+- [research/SCRIPT_ANALYSIS.md](research/SCRIPT_ANALYSIS.md) — the GPL-derived
+  VBA spellchecker this project ported
+- [research/UNICODE_ENCODING_RULES.md](research/UNICODE_ENCODING_RULES.md)
+- [research/PRESSURE_TEST_WORDS.md](research/PRESSURE_TEST_WORDS.md)
 
-- `MIGRATION_COMPLETE.md` - Tailwind CSS migration summary
-- `REFACTORING_SUMMARY.md` - Initial componentization refactoring
+## Working notes
 
-### `/research` - External Resources
-Research materials, reference implementations, and third-party resources.
+These stay in the repo for the people doing the work. The public changelog
+does not list them.
 
-- `SCRIPT_ANALYSIS.md` - Historical analysis of VBA reference implementation
-- `EDUCATIONAL_CONTENT_PLAN.md` - Plan for frontend educational content
-- `UNICODE_ENCODING_RULES.md` - Tibetan Unicode encoding rules reference
-- `PRESSURE_TEST_WORDS.md` - Pressure test words for validation
-
-## Quick Links
-
-**Just getting started?** → `/guides/ARCHITECTURE.md`  
-**Working on spellchecker?** → `/adr/SPELLCHECKER_DECISIONS.md`  
-**Working on interactive OCR / quality tuning?** → `/planning/INTERACTIVE_OCR_PLAN.md` (§ Living decisions)  
-**Working on frontend?** → `/guides/COMPONENTS.md` + `/guides/TAILWIND_GUIDE.md`  
-**Understanding Tibetan rules?** → `/research/SCRIPT_ANALYSIS.md`  
-**OCR attribution?** → See `Acknowledgments` in the root `README.md`
+- [planning/CODE_REVIEW_FIXES.md](planning/CODE_REVIEW_FIXES.md) — current
+  cleanup, including the OCR assist cut
+- [planning/OCR_PARITY_BASELINE.md](planning/OCR_PARITY_BASELINE.md)
+- [planning/LIVE_PECHA_CAPTURE.md](planning/LIVE_PECHA_CAPTURE.md)
+- [planning/PREPARE_FEATURE.md](planning/PREPARE_FEATURE.md)
+- [planning/edge_cases.md](planning/edge_cases.md)
+- [planning/WORD_CORPUS_PLAN.md](planning/WORD_CORPUS_PLAN.md)
+- [planning/INTERACTIVE_OCR_PLAN.md](planning/INTERACTIVE_OCR_PLAN.md) —
+  history of the interactive OCR design
+- [research/EDUCATIONAL_CONTENT_PLAN.md](research/EDUCATIONAL_CONTENT_PLAN.md) —
+  the plan the Learn section came from

@@ -1,6 +1,6 @@
 # Interactive OCR — Local AI Smoke & Vision A/B
 
-**Companion to:** [INTERACTIVE_OCR_PLAN.md](INTERACTIVE_OCR_PLAN.md), [INTERACTIVE_OCR_WORKFLOW.md](INTERACTIVE_OCR_WORKFLOW.md)  
+**Companion to:** [INTERACTIVE_OCR_PLAN.md](INTERACTIVE_OCR_PLAN.md). The assistant workflow prompt was removed.  
 **Purpose:** Step-by-step guide for validating the **AI loop** locally (Phases B–E). Phase A (BDRC-only scorer calibration) is complete — thresholds and regression fixtures live in the plan (§ Quality scorer calibration) and `backend/tests/test_ocr_calibration.py`.
 
 **When to use this:** After the integration branch includes T-05–T-07, settings plumbing, provider abstraction, and scorer calibration.
