@@ -5,9 +5,11 @@ The dict and the result files live in this process. The lock below is
 in-process only, so run a single API instance. A second process would not
 see these jobs and could delete another instance's result files.
 
-Completed and failed jobs are removed after ``JOB_TTL``, and their result
-files are deleted with them. Pending and processing jobs are left alone so
-a long PDF is not swept out from under the background task.
+Completed and failed jobs are removed ``JOB_TTL`` after ``completed_at``,
+and their result files are deleted with them. The window starts when the
+job finishes, so time spent in OCR does not shorten the download period.
+Pending and processing jobs are left alone so a long PDF is not swept out
+from under the background task.
 
 ``database/schema.sql`` keeps the ``jobs`` and ``spell_errors`` tables for
 inspecting a completed job after this process is gone. This module does
@@ -118,7 +120,8 @@ def _sweep_locked(now: datetime | None = None) -> None:
         job_id
         for job_id, job in _jobs.items()
         if job.status in (JobStatus.COMPLETED, JobStatus.FAILED)
-        and _as_utc(job.created_at) < cutoff
+        and job.completed_at is not None
+        and _as_utc(job.completed_at) < cutoff
     ]
     for job_id in expired:
         job = _jobs.pop(job_id)

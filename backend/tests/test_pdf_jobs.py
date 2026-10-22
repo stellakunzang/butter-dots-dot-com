@@ -20,7 +20,7 @@ def test_finished_job_and_its_files_expire(jobs, tmp_path):
     pdf.write_bytes(b"pdf")
     docx.write_bytes(b"docx")
     jobs.mark_completed(job.id, pdf, docx, [])
-    job.created_at = datetime.now(timezone.utc) - jobs.JOB_TTL - timedelta(minutes=1)
+    job.completed_at = datetime.now(timezone.utc) - jobs.JOB_TTL - timedelta(minutes=1)
 
     assert jobs.get_job(job.id) is None
     assert not pdf.exists()

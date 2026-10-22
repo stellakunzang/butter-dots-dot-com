@@ -9,8 +9,7 @@ from app.config import settings
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     spellcheck.ensure_storage()
-    spellcheck.get_checker()
-    corpus.get_dictionary()
+    spellcheck.get_checker(corpus.get_dictionary())
     yield
 
 

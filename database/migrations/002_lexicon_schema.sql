@@ -11,7 +11,8 @@
 -- Safe to run once. If spelling_reference is already gone, the DO block is a
 -- no-op; CREATE TABLE IF NOT EXISTS is idempotent. The old table is renamed
 -- to spelling_reference_v1, not dropped, and source_count is copied onto
--- word. jobs and spell_errors are not touched.
+-- word. Rows already present on word or word_normalized are skipped and
+-- counted in a notice. jobs and spell_errors are not touched.
 
 BEGIN;
 
@@ -78,6 +79,8 @@ ALTER TABLE word ADD COLUMN IF NOT EXISTS source_count INTEGER NOT NULL DEFAULT 
 -- Migrate from migration 001 spelling_reference into lexicon tables.
 DO
 $$
+DECLARE
+    skipped bigint := 0;
 BEGIN
   IF to_regclass('public.spelling_reference') IS NULL THEN
     RAISE NOTICE 'spelling_reference absent — skipping data migration (already applied or new DB)';
@@ -90,6 +93,15 @@ BEGIN
     FROM spelling_reference sr
     CROSS JOIN LATERAL jsonb_array_elements_text (sr.sources) AS src (t)
     ON CONFLICT (source_key) DO NOTHING;
+
+    -- Against word as it already exists. After the insert, copied rows would
+    -- match too and the notice would count them as skipped.
+    SELECT count(*) INTO skipped
+    FROM spelling_reference sr
+    WHERE EXISTS (
+        SELECT 1 FROM word w
+        WHERE w.word = sr.word OR w.word_normalized = sr.word_normalized
+    );
 
     INSERT INTO word
         (word, word_normalized, source_count, first_seen_in, times_seen, dialect, is_sanskrit, created_at)
@@ -107,6 +119,8 @@ BEGIN
         SELECT 1 FROM word w
         WHERE w.word = sr.word OR w.word_normalized = sr.word_normalized
     );
+
+    RAISE NOTICE '% spelling_reference rows skipped (word or word_normalized already present)', skipped;
 
     INSERT INTO word_source (word_id, source_id)
     SELECT w.id, s.id

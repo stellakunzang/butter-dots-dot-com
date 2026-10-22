@@ -20,6 +20,7 @@ from app.schemas.spellcheck import (
     SpellCheckRequest,
     SpellCheckResponse,
 )
+from app.spellcheck.dictionary import DictionaryService
 from app.spellcheck.engine import TibetanSpellChecker
 from app.upload_limits import SPELLCHECK_MAX_PAGES, SPELLCHECK_MAX_UPLOAD_BYTES
 
@@ -50,10 +51,19 @@ def ensure_storage() -> None:
     UPLOADS_DIR.mkdir(exist_ok=True)
 
 
-def get_checker() -> TibetanSpellChecker:
+def get_checker(dictionary: DictionaryService | None = None) -> TibetanSpellChecker:
+    """Return the process-wide checker, creating it on first use.
+
+    The first call uses ``dictionary`` or the shared corpus service, so
+    startup loads the word table once. Later calls return that checker.
+    """
     global _checker
     if _checker is None:
-        _checker = TibetanSpellChecker()
+        if dictionary is None:
+            from app.api.corpus import get_dictionary
+
+            dictionary = get_dictionary()
+        _checker = TibetanSpellChecker(dictionary=dictionary)
     return _checker
 
 
