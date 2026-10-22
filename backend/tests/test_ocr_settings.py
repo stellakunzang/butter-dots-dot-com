@@ -1,10 +1,10 @@
 """
 Tests for per-page OCR settings parsing and model alias resolution.
 """
+
 from unittest.mock import MagicMock, patch
 
 import numpy as np
-import pytest
 
 from app.pdf.ocr_settings import (
     DEFAULT_BBOX_TOLERANCE,
@@ -24,10 +24,7 @@ class TestResolveModelVariant:
 
     def test_exact_directory_names_pass_through(self):
         assert resolve_model_variant("Ume_Petsuk", fallback="Woodblock") == "Ume_Petsuk"
-        assert (
-            resolve_model_variant("Woodblock-Stacks", fallback="Woodblock")
-            == "Woodblock-Stacks"
-        )
+        assert resolve_model_variant("Woodblock-Stacks", fallback="Woodblock") == "Woodblock-Stacks"
 
     def test_none_uses_fallback(self):
         assert resolve_model_variant(None, fallback="Woodblock") == "Woodblock"

@@ -10,8 +10,16 @@ Main spell checking engine that orchestrates the pipeline:
    c. Check structural completeness (raw string vs parsed)
    d. Validate components against stacking rules
 """
+
 from typing import List, Dict, Optional
-from .normalizer import normalize_tibetan, normalize_tibetan_with_position_map, is_tibetan_char, validate_tibetan_text, is_numeral_syllable, is_punctuation_syllable
+from .normalizer import (
+    normalize_tibetan,
+    normalize_tibetan_with_position_map,
+    is_tibetan_char,
+    validate_tibetan_text,
+    is_numeral_syllable,
+    is_punctuation_syllable,
+)
 from .splitter import split_syllables_with_position
 from .char_typing import type_characters
 from .parsing import parse_syllable
@@ -166,7 +174,7 @@ class TibetanSpellChecker:
 
         # Check each syllable
         errors = []
-        prev_parsed = None   # parsed structure of the most recent valid Tibetan syllable
+        prev_parsed = None  # parsed structure of the most recent valid Tibetan syllable
         prev_had_error = False
 
         for item in syllables:
@@ -217,12 +225,14 @@ class TibetanSpellChecker:
 
         # Informational note for non-Tibetan characters
         if non_tibetan_summary['has_non_tibetan']:
-            errors.append({
-                'word': '',
-                'position': 0,
-                'error_type': 'non_tibetan_skipped',
-                'severity': 'info',
-                'message': f"{non_tibetan_summary['count']} non-Tibetan character(s) were skipped during spell checking"
-            })
+            errors.append(
+                {
+                    'word': '',
+                    'position': 0,
+                    'error_type': 'non_tibetan_skipped',
+                    'severity': 'info',
+                    'message': f"{non_tibetan_summary['count']} non-Tibetan character(s) were skipped during spell checking",
+                }
+            )
 
         return errors

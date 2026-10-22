@@ -1,7 +1,8 @@
 """Guardrails so Interactive OCR Assist cannot ship enabled in production."""
+
 import pytest
 
-from app.config import Settings, assert_ocr_assist_safe_to_enable, running_on_render
+from app.config import Settings, running_on_render
 
 
 def test_ocr_assist_local_default_is_false():

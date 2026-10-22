@@ -1,4 +1,5 @@
 """Bounds and input checks on the public PDF upload endpoint."""
+
 import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient

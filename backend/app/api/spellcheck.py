@@ -1,6 +1,7 @@
 """
 Spell check API endpoints — text and PDF upload.
 """
+
 import asyncio
 import json
 import logging
@@ -49,6 +50,7 @@ _checker = TibetanSpellChecker()
 # Text spell check (existing endpoint — unchanged)
 # ---------------------------------------------------------------------------
 
+
 @router.post("/spellcheck/text", response_model=SpellCheckResponse)
 async def check_text(request: SpellCheckRequest):
     """
@@ -90,7 +92,7 @@ async def check_text(request: SpellCheckRequest):
             errors=errors,
         )
 
-    except Exception as e:
+    except Exception:
         logger.exception("Error processing spell check")
         raise HTTPException(status_code=500, detail="Error processing spell check")
 
@@ -98,6 +100,7 @@ async def check_text(request: SpellCheckRequest):
 # ---------------------------------------------------------------------------
 # PDF upload
 # ---------------------------------------------------------------------------
+
 
 @router.post("/spellcheck/upload")
 async def upload_pdf(
@@ -270,6 +273,7 @@ def _background_process(job_id: str, upload_path: Path, filename: str, email: st
 
         if email:
             from app.config import settings
+
             download_url = f"{settings.public_base_url}/api/v1/spellcheck/result/{job_id}/pdf"
             asyncio.run(send_results_email(to=email, job_id=job_id, download_url=download_url))
 
@@ -309,15 +313,17 @@ def _log_spellcheck_result(source: str, text_length: int, errors: list[dict]) ->
 
     logger.info(
         "spellcheck_result %s",
-        json.dumps({
-            "source": source,
-            "text_length": text_length,
-            "error_count": len(errors),
-            "phase1_errors": len(phase1),
-            "unknown_words": len(unknown),
-            "corpus_hits": len(corpus_hits),
-            "dict_active": dict_active,
-        }),
+        json.dumps(
+            {
+                "source": source,
+                "text_length": text_length,
+                "error_count": len(errors),
+                "phase1_errors": len(phase1),
+                "unknown_words": len(unknown),
+                "corpus_hits": len(corpus_hits),
+                "dict_active": dict_active,
+            }
+        ),
     )
 
 
@@ -363,6 +369,7 @@ def _run_spellcheck(pages) -> tuple[dict[int, list[str]], list[dict]]:
 # Job status polling
 # ---------------------------------------------------------------------------
 
+
 @router.get("/spellcheck/job/{job_id}", response_model=JobStatusResponse)
 async def get_job_status(job_id: str):
     """Poll the status of an async PDF processing job."""
@@ -391,6 +398,7 @@ async def get_job_status(job_id: str):
 # ---------------------------------------------------------------------------
 # Result downloads
 # ---------------------------------------------------------------------------
+
 
 @router.get("/spellcheck/result/{job_id}/pdf")
 async def download_pdf(job_id: str):

@@ -1,4 +1,5 @@
 """Unit tests for run_job CLI helpers and argument wiring."""
+
 from pathlib import Path
 
 import pytest
@@ -7,7 +8,7 @@ from PIL import Image
 from app.ocr_assist import job_store
 from app.ocr_assist.job_store import FINAL_TEXT_FILE, create_job, finalize_page, load_job, load_page
 from app.ocr_assist.run_job import _parse_page_list, main
-from app.ocr_assist.runner import OcrResult, run_all_pages
+from app.ocr_assist.runner import OcrResult
 
 
 @pytest.fixture

@@ -1,4 +1,5 @@
 """Tests for on-demand dual vision compare."""
+
 from pathlib import Path
 
 import pytest

@@ -13,6 +13,7 @@ a real API call and don't need ANTHROPIC_API_KEY. Two seams are exercised:
 Together with the retry-loop coverage in ``test_runner.py`` these pin down
 the diagnostician's behavior end-to-end without burning Claude tokens.
 """
+
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -54,6 +55,7 @@ def _quality(composite: float = 0.6) -> PageQuality:
 @dataclass
 class _FakeToolUse:
     """Minimal stand-in for ``anthropic.types.ToolUseBlock``."""
+
     name: str
     input: dict
     type: str = "tool_use"
@@ -165,9 +167,7 @@ class TestParseVerdict:
         assert verdict.reason == "torn page"
 
     def test_no_tool_use_block_raises(self, image_file):
-        client = _FakeClient(
-            _FakeResponse(content=[_FakeTextBlock(text="I'm not using tools")])
-        )
+        client = _FakeClient(_FakeResponse(content=[_FakeTextBlock(text="I'm not using tools")]))
         with pytest.raises(DiagnosticianError):
             Diagnostician(client=client)(
                 image_path=image_file,
@@ -178,9 +178,7 @@ class TestParseVerdict:
 
     def test_unknown_tool_name_raises(self, image_file):
         client = _FakeClient(
-            _FakeResponse(
-                content=[_FakeToolUse(name="vision_transcribe", input={"text": "..."})]
-            )
+            _FakeResponse(content=[_FakeToolUse(name="vision_transcribe", input={"text": "..."})])
         )
         with pytest.raises(DiagnosticianError):
             Diagnostician(client=client)(
@@ -194,13 +192,7 @@ class TestParseVerdict:
 class TestRequestShape:
     def test_request_includes_image_system_and_tools(self, image_file):
         client = _FakeClient(
-            _FakeResponse(
-                content=[
-                    _FakeToolUse(
-                        name="needs_human", input={"reason": "test"}
-                    )
-                ]
-            )
+            _FakeResponse(content=[_FakeToolUse(name="needs_human", input={"reason": "test"})])
         )
         Diagnostician(client=client, model="claude-opus-4-7")(
             image_path=image_file,

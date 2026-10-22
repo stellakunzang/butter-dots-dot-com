@@ -11,6 +11,7 @@ Re-exports:
     check_syllable_patterns: Check raw string for pattern issues
     check_syllable_structure_completeness: Check parsed vs raw completeness
 """
+
 from .validator import validate_syllable
 from .pattern_checks import check_syllable_patterns
 from .completeness_checks import check_syllable_structure_completeness

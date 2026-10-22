@@ -8,6 +8,7 @@ spellcheck highlighting (that stays in ``app.pdf.docx_exporter``).
 The file is rebuilt from disk on every finalize/reset so a crash mid-job
 never duplicates pages and never leaves stale sections for reset pages.
 """
+
 from __future__ import annotations
 
 import io
@@ -88,9 +89,7 @@ def _apply_tibetan_font(run, *, size_pt: int) -> None:
 
 def _atomic_write_bytes(path: Path, content: bytes) -> None:
     """Write ``content`` to ``path`` atomically (temp + replace + fsync)."""
-    fd, tmp_name = tempfile.mkstemp(
-        dir=str(path.parent), prefix=path.name + ".", suffix=".tmp"
-    )
+    fd, tmp_name = tempfile.mkstemp(dir=str(path.parent), prefix=path.name + ".", suffix=".tmp")
     tmp = Path(tmp_name)
     try:
         with os.fdopen(fd, "wb") as f:

@@ -1,4 +1,5 @@
 """Scanned extraction renders a single page image at a time."""
+
 from PIL import Image
 
 from app.pdf.extractor import extract_scanned

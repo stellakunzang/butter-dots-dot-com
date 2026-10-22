@@ -6,6 +6,7 @@ Uses human-labeled pages from the calibration fixtures documented in
 (job ``4bed0eb14c9f``, ``pages_for_ocr_test.pdf``). Word bilingual PDFs are
 out of scope — these fixtures are scanned pecha only.
 """
+
 from pathlib import Path
 
 import pytest
@@ -13,7 +14,6 @@ import pytest
 from app.ocr_assist.quality import (
     OcrDiagnostics,
     ScoringContext,
-    Thresholds,
     decide,
     score_page,
 )
@@ -57,9 +57,7 @@ def _score_fixture(
         errors,
         diagnostics,
     )
-    verdict = decide(
-        quality, THRESHOLDS, context=PECHA_CONTEXT, ocr_diagnostics=diagnostics
-    )
+    verdict = decide(quality, THRESHOLDS, context=PECHA_CONTEXT, ocr_diagnostics=diagnostics)
     return quality, verdict
 
 
@@ -68,9 +66,7 @@ class TestSmokeFalseAcceptFixtures:
 
     def test_page_19_dropped_line_escalates_with_baseline(self, checker):
         # Sequential job baseline after early pages ≈26 lines; page 19 → 8 lines.
-        quality, verdict = _score_fixture(
-            checker, 19, line_count=8, expected_line_count=26
-        )
+        quality, verdict = _score_fixture(checker, 19, line_count=8, expected_line_count=26)
         assert quality.line_count_sanity < 0.35
         assert verdict != "accept"
 
@@ -94,9 +90,7 @@ class TestSmokeFalseAcceptFixtures:
         assert verdict != "accept"
 
     def test_page_20_short_page_escalates_with_baseline(self, checker):
-        quality, verdict = _score_fixture(
-            checker, 20, line_count=1, expected_line_count=14
-        )
+        quality, verdict = _score_fixture(checker, 20, line_count=1, expected_line_count=14)
         assert quality.line_count_sanity < 0.2
         assert verdict != "accept"
 

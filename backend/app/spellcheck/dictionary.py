@@ -25,13 +25,14 @@ Usage:
         # No database — Phase 1 only, no dictionary check
         pass
 """
+
 import logging
 import unicodedata
 from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-TSHEG = "\u0F0B"  # ་
+TSHEG = "\u0f0b"  # ་
 
 
 def _normalize(text: str) -> str:
@@ -75,18 +76,14 @@ class DictionaryService:
             return
 
         if not db_available():
-            logger.info(
-                "No database connection; dictionary lookup disabled (Phase 1 only)"
-            )
+            logger.info("No database connection; dictionary lookup disabled (Phase 1 only)")
             return
 
         try:
             from sqlalchemy import text
 
             with get_session() as session:
-                rows = session.execute(
-                    text("SELECT word_normalized FROM word")
-                ).fetchall()
+                rows = session.execute(text("SELECT word_normalized FROM word")).fetchall()
 
             syllable_set: set[str] = set()
             for (word,) in rows:
@@ -105,9 +102,7 @@ class DictionaryService:
             )
 
         except Exception:
-            logger.exception(
-                "Failed to load word corpus; dictionary lookup disabled"
-            )
+            logger.exception("Failed to load word corpus; dictionary lookup disabled")
 
     def is_valid_syllable(self, syllable: str) -> Optional[bool]:
         """

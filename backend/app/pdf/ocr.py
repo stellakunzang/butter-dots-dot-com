@@ -12,6 +12,7 @@ are loaded on demand and swapped via ``update_ocr_model``.
 
 Source: https://github.com/buda-base/tibetan-ocr-app
 """
+
 from __future__ import annotations
 
 import logging
@@ -23,7 +24,6 @@ import cv2
 import numpy as np
 from app.config import settings
 from app.pdf.ocr_settings import (
-    OcrRunSettings,
     apply_manual_rotation,
     parse_ocr_settings,
 )
@@ -48,6 +48,7 @@ def _normalize_to_bgr(image: np.ndarray) -> np.ndarray:
         return cv2.cvtColor(image, cv2.COLOR_BGRA2BGR)
     if image.shape[2] != 3:
         from PIL import Image as PILImage
+
         pil_img = PILImage.fromarray(image).convert("RGB")
         return cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
     return image
@@ -56,6 +57,7 @@ def _normalize_to_bgr(image: np.ndarray) -> np.ndarray:
 @dataclass
 class OCRLine:
     """A single recognized line of text with its bounding box in image coordinates."""
+
     text: str
     x: int
     y: int
@@ -80,8 +82,8 @@ class BDRCOCREngine:
         """Load the ONNX models. Called lazily on first use."""
         try:
             from BDRC.Inference import OCRPipeline
-            from BDRC.Data import Encoding, LineDetectionConfig, Platform
-            from BDRC.Utils import import_local_model, get_platform, read_ocr_model_config
+            from BDRC.Data import LineDetectionConfig
+            from BDRC.Utils import import_local_model, get_platform
 
             platform = get_platform()
 
@@ -159,9 +161,7 @@ class BDRCOCREngine:
         if not self.ready:
             raise RuntimeError(self._error or "OCR engine not ready")
 
-        run_settings = parse_ocr_settings(
-            page_settings, fallback_model=settings.ocr_model_name
-        )
+        run_settings = parse_ocr_settings(page_settings, fallback_model=settings.ocr_model_name)
         self._ensure_ocr_model(run_settings.model_name)
 
         image = _normalize_to_bgr(image)

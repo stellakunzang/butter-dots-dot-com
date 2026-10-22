@@ -4,6 +4,7 @@ Local-only interactive OCR assist API.
 Gated by ``OCR_ASSIST_LOCAL=true``. Bulk jobs are BDRC + quality scorer only;
 AI vision compare is an explicit per-page action.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -234,9 +235,7 @@ async def page_action(job_id: str, page_index: int, body: PageActionRequest):
         raise HTTPException(status_code=404, detail="Page out of range")
 
     if body.action == "accept":
-        return await asyncio.to_thread(
-            _action_accept, job, page_index, body.text, kind="accept"
-        )
+        return await asyncio.to_thread(_action_accept, job, page_index, body.text, kind="accept")
     if body.action == "edit_accept":
         if body.text is None:
             raise HTTPException(status_code=400, detail="text is required for edit_accept")
@@ -254,9 +253,7 @@ async def page_action(job_id: str, page_index: int, body: PageActionRequest):
     if body.action == "compare_vision":
         providers = body.providers or ["anthropic", "gemini"]
         if not providers:
-            raise HTTPException(
-                status_code=400, detail="providers must list at least one model"
-            )
+            raise HTTPException(status_code=400, detail="providers must list at least one model")
         compare = await asyncio.to_thread(
             compare_vision_providers,
             job,

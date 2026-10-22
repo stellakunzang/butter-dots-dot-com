@@ -11,6 +11,7 @@ For scanned PDFs: OCR line bboxes are the only positional data available
 (syllable-level coordinates require per-glyph OCR, which BDRC's pipeline doesn't
 expose). We highlight any OCR line that contains at least one error syllable.
 """
+
 import logging
 from typing import Any
 
@@ -22,7 +23,7 @@ HIGHLIGHT_COLOR = (1.0, 0.95, 0.0)  # RGB, fitz uses 0.0–1.0
 
 def annotate_pdf(
     pdf_bytes: bytes,
-    pages: list[Any],   # list[PageContent]
+    pages: list[Any],  # list[PageContent]
     errors_by_page: dict[int, list[str]],  # page_number → list of error syllables
 ) -> bytes:
     """
@@ -76,7 +77,6 @@ def _annotate_digital_page(fitz_page: Any, error_set: set[str]) -> None:
     individual syllable strings never matched the word-box text. fitz.search_for
     does a substring search on the rendered text and returns exact quads.
     """
-    import fitz
 
     highlighted: set[str] = set()
     for syllable in error_set:
@@ -85,7 +85,9 @@ def _annotate_digital_page(fitz_page: Any, error_set: set[str]) -> None:
         # search_for returns a list of Rect matching the text positions
         rects = fitz_page.search_for(syllable)
         if not rects:
-            logger.debug("Syllable %r not found in PDF text layer (page %d)", syllable, fitz_page.number + 1)
+            logger.debug(
+                "Syllable %r not found in PDF text layer (page %d)", syllable, fitz_page.number + 1
+            )
             continue
         for rect in rects:
             annot = fitz_page.add_highlight_annot(rect)
@@ -94,7 +96,9 @@ def _annotate_digital_page(fitz_page: Any, error_set: set[str]) -> None:
         highlighted.add(syllable)
 
     if highlighted:
-        logger.debug("Highlighted %d error syllable(s) on page %d", len(highlighted), fitz_page.number + 1)
+        logger.debug(
+            "Highlighted %d error syllable(s) on page %d", len(highlighted), fitz_page.number + 1
+        )
 
 
 def _annotate_scanned_page(fitz_page: Any, page_content: Any, error_set: set[str]) -> None:
@@ -115,7 +119,7 @@ def _annotate_scanned_page(fitz_page: Any, page_content: Any, error_set: set[str
 
     for word_pos in page_content.words:
         # word_pos.text is the full OCR line; check if any error syllable appears in it
-        line_syllables = {syl for syl in word_pos.text.split("\u0F0B") if syl}
+        line_syllables = {syl for syl in word_pos.text.split("\u0f0b") if syl}
         if not (line_syllables & error_set):
             continue
 

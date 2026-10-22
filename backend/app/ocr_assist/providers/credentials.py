@@ -1,4 +1,5 @@
 """Resolve LLM API keys from explicit args, process env, or backend/.env via Settings."""
+
 from __future__ import annotations
 
 import os

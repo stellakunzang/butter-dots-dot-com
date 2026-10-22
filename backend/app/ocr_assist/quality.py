@@ -62,6 +62,7 @@ T-11 layer 1 also exposes ``tibetan_only_composite_score`` and auto-accepts
 bilingual pages when ``expect_mixed_script`` is set and the Tibetan portion
 clears ``accept`` despite a high ``non_tibetan_char_ratio``.
 """
+
 import re
 from dataclasses import dataclass, replace
 from typing import Literal, Sequence
@@ -133,6 +134,7 @@ class OcrDiagnostics:
     yet). Set by the runner's rolling median once ``MIN_LINE_COUNT_BASELINE``
     accepted pages exist (T-13).
     """
+
     line_count: int = 0
     expected_line_count: int | None = None
 
@@ -144,6 +146,7 @@ MIN_LINE_COUNT_BASELINE: int = 3
 @dataclass(frozen=True)
 class ScoringContext:
     """Job-level flags that affect hard floors and T-11 mixed-script rules."""
+
     expect_mixed_script: bool = False
 
 
@@ -155,6 +158,7 @@ class Thresholds:
     is too damaged to retry profitably and is queued for human review.
     Pages in between go through the AI retry loop.
     """
+
     accept: float
     reject: float
 
@@ -234,9 +238,9 @@ def _score_core(
     total = len(tibetan_syllables)
 
     structural_errors = [
-        e for e in spellcheck_result
-        if e.get("error_type") not in _PHASE2_ERROR_TYPES
-        and e.get("severity") != "info"
+        e
+        for e in spellcheck_result
+        if e.get("error_type") not in _PHASE2_ERROR_TYPES and e.get("severity") != "info"
     ]
     unknown_errors = [e for e in spellcheck_result if e.get("error_type") == "unknown_word"]
 
@@ -245,20 +249,17 @@ def _score_core(
     if structural_errors:
         sanskrit_positions, sanskrit_words = _sanskrit_syllables(tibetan_syllables)
         sanskrit_adjusted_errors = [
-            e for e in structural_errors
+            e
+            for e in structural_errors
             if not _is_sanskrit_error(e, sanskrit_positions, sanskrit_words)
         ]
     else:
         sanskrit_adjusted_errors = []
-    sanskrit_adjusted_ratio = _ratio(
-        _weighted_error_score(sanskrit_adjusted_errors), total
-    )
+    sanskrit_adjusted_ratio = _ratio(_weighted_error_score(sanskrit_adjusted_errors), total)
 
     non_tibetan_ratio = _non_tibetan_char_ratio(ocr_text)
     line_sanity = _line_count_sanity(ocr_diagnostics)
-    encoding_errors = sum(
-        1 for e in spellcheck_result if e.get("error_type") == "encoding_error"
-    )
+    encoding_errors = sum(1 for e in spellcheck_result if e.get("error_type") == "encoding_error")
     unknown_ratio = _ratio(len(unknown_errors), total)
 
     repetition_run, repetition_char = _repetition_signals(ocr_text)
@@ -434,9 +435,7 @@ def _line_fragmentation(ocr_text: str) -> tuple[float, float]:
 def _repetition_exceeds_threshold(run_length: int, char: str) -> bool:
     if run_length <= 0 or not char:
         return False
-    threshold = (
-        ACHA_RUN_THRESHOLD if char == ACHA_CHAR else GENERAL_CHAR_RUN_THRESHOLD
-    )
+    threshold = ACHA_RUN_THRESHOLD if char == ACHA_CHAR else GENERAL_CHAR_RUN_THRESHOLD
     return run_length >= threshold
 
 
@@ -458,9 +457,9 @@ def _tibetan_only_composite_score(
 
     tibetan_words = {syl for syl, _ in _split_tibetan_syllables(tibetan_text)}
     filtered_errors = [
-        e for e in spellcheck_result
-        if e.get("error_type") == "encoding_error"
-        or e.get("word") in tibetan_words
+        e
+        for e in spellcheck_result
+        if e.get("error_type") == "encoding_error" or e.get("word") in tibetan_words
     ]
     core = _score_core(
         tibetan_text,
@@ -480,9 +479,7 @@ def _ratio(numerator: float, denominator: int) -> float:
 
 
 def _weighted_error_score(errors: Sequence[dict]) -> float:
-    return sum(
-        _SEVERITY_WEIGHT.get(e.get("severity", "error"), 1.0) for e in errors
-    )
+    return sum(_SEVERITY_WEIGHT.get(e.get("severity", "error"), 1.0) for e in errors)
 
 
 def _latin_letter_count(text: str) -> int:
@@ -492,13 +489,12 @@ def _latin_letter_count(text: str) -> int:
 def _plus_sign_count(text: str) -> int:
     return sum(1 for ch in text if ch in FORBIDDEN_OCR_CHARS)
 
+
 def _non_tibetan_char_ratio(text: str) -> float:
     total = sum(1 for ch in text if not ch.isspace())
     if total == 0:
         return 0.0
-    non_tibetan = sum(
-        1 for ch in text if not ch.isspace() and not is_tibetan_char(ch)
-    )
+    non_tibetan = sum(1 for ch in text if not ch.isspace() and not is_tibetan_char(ch))
     return non_tibetan / total
 
 

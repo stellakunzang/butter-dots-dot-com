@@ -7,6 +7,7 @@ open in Word or LibreOffice, edit inline, add translation notes.
 
 Future: two-column layout (Tibetan | translation space), definition sidebars.
 """
+
 import io
 import logging
 import re
@@ -22,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 def build_docx(
-    pages: list[Any],              # list[PageContent]
+    pages: list[Any],  # list[PageContent]
     errors_by_page: dict[int, list[str]],  # page_number → list of error words
     filename: str = "document",
 ) -> bytes:

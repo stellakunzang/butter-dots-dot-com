@@ -5,6 +5,7 @@ Pydantic Settings automatically reads from:
   1. Environment variables (highest priority)
   2. A .env file in the backend/ directory
 """
+
 from pydantic_settings import BaseSettings
 
 
@@ -17,7 +18,7 @@ class Settings(BaseSettings):
     port: int = 8000
 
     # Public base URL — used in email notifications so users get a working download link.
-    # In production set this to your Render/Railway backend URL, e.g. https://api.butterdots.com
+    # In production set this to the Render backend URL, e.g. https://api.butterdots.com
     public_base_url: str = "http://localhost:8000"
 
     # OCR model selection. Available: Woodblock, Woodblock-Stacks, Modern, Ume_Druma, Ume_Petsuk.

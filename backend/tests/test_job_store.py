@@ -9,6 +9,7 @@ Covers the A/C from T-04:
 - list_jobs round-trips
 - Atomic writes leave no orphaned .tmp file on success
 """
+
 from datetime import datetime
 from pathlib import Path
 
@@ -43,6 +44,7 @@ def fake_pdf(monkeypatch):
     pdf2image needs poppler on the system. Mocking the render keeps this
     test suite self-contained and fast.
     """
+
     def _fake_render(pdf_bytes: bytes, *, dpi: int):
         return [Image.new("RGB", (40, 40), "white") for _ in range(3)]
 
@@ -81,7 +83,9 @@ class TestCreateJob:
         assert isinstance(job.created_at, datetime)
         assert job.baseline_settings == baseline_settings
 
-    def test_persists_page_dirs_with_image_and_settings(self, tmp_path, fake_pdf, baseline_settings):
+    def test_persists_page_dirs_with_image_and_settings(
+        self, tmp_path, fake_pdf, baseline_settings
+    ):
         job = create_job(
             fake_pdf,
             source_file="sample.pdf",
@@ -168,9 +172,7 @@ class TestSavePageAttempt:
 
         page = load_page(job, 1)
         assert page.attempts[0].spellcheck_errors == errors
-        assert (
-            job.root / "page-001" / "attempts" / "01" / "spellcheck.json"
-        ).is_file()
+        assert (job.root / "page-001" / "attempts" / "01" / "spellcheck.json").is_file()
 
     def test_missing_page_dir_raises(self, created_job):
         jobs_root, job_id = created_job

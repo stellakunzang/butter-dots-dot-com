@@ -2,6 +2,7 @@
 backend/venv/
 backend/__pycache__/
 backend/.pytest_cache/
+backend/.ruff_cache/
 backend/**/*.pyc
 backend/**/__pycache__/
 backend/.env
@@ -19,6 +20,8 @@ frontend/node_modules/
 
 # Testing
 /coverage
+frontend/test-results/
+frontend/playwright-report/
 .coverage
 htmlcov/
 

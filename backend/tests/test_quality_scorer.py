@@ -10,6 +10,7 @@ Covers each signal and each branch of ``decide``:
 - Phase-2 unknown_word_ratio captured but currently weighted 0
 - decide → accept / escalate / reject branches
 """
+
 import unicodedata
 
 import pytest
@@ -31,7 +32,9 @@ from app.ocr_assist.quality import (
 CLEAN_TEXT = "བཀྲ་ཤིས་བདེ་ལེགས།\nདགེ་བའི་བཤེས་གཉེན།"
 
 
-def err(word: str, error_type: str = "invalid_subscript_combination", severity: str = "error") -> dict:
+def err(
+    word: str, error_type: str = "invalid_subscript_combination", severity: str = "error"
+) -> dict:
     return {"word": word, "error_type": error_type, "severity": severity}
 
 
@@ -47,7 +50,9 @@ class TestSignals:
         garbled = CLEAN_TEXT + " hello world XXXXXX"
         quality = score_page(garbled, [], OcrDiagnostics())
         assert quality.non_tibetan_char_ratio > 0.3
-        assert quality.composite_score < score_page(CLEAN_TEXT, [], OcrDiagnostics()).composite_score
+        assert (
+            quality.composite_score < score_page(CLEAN_TEXT, [], OcrDiagnostics()).composite_score
+        )
 
     def test_plus_sign_counted_and_escalates(self):
         # A single ``+`` must not auto-accept even when composite would pass.
@@ -82,8 +87,8 @@ class TestSanskritAdjustment:
         # ཀྲྀ uses a vocalic-r vowel; included as a non-Sanskrit error for contrast.
         text = "ཨོཾ་མ་ཎི།\nབཀྲ་ཤིས།"
         errors = [
-            err("ཨོཾ"),       # should be excluded from sanskrit-adjusted
-            err("བཀྲ"),      # pure Tibetan; stays in adjusted
+            err("ཨོཾ"),  # should be excluded from sanskrit-adjusted
+            err("བཀྲ"),  # pure Tibetan; stays in adjusted
         ]
         quality = score_page(text, errors, OcrDiagnostics())
         # Raw structural ratio reflects both errors; adjusted reflects only one.
@@ -364,10 +369,7 @@ class TestDecide:
     def test_long_page_hard_floor_blocks_accept(self):
         quality = self._q(0.95)
         diagnostics = OcrDiagnostics(line_count=30, expected_line_count=10)
-        assert (
-            decide(quality, self.THRESHOLDS, ocr_diagnostics=diagnostics)
-            == "escalate"
-        )
+        assert decide(quality, self.THRESHOLDS, ocr_diagnostics=diagnostics) == "escalate"
 
     def test_acha_repetition_blocks_accept(self):
         assert (
@@ -385,10 +387,7 @@ class TestDecide:
     def test_short_page_hard_floor_blocks_accept(self):
         quality = self._q(0.95)
         diagnostics = OcrDiagnostics(line_count=6, expected_line_count=14)
-        assert (
-            decide(quality, self.THRESHOLDS, ocr_diagnostics=diagnostics)
-            == "escalate"
-        )
+        assert decide(quality, self.THRESHOLDS, ocr_diagnostics=diagnostics) == "escalate"
 
     def test_mixed_script_accepts_on_tibetan_only_score(self):
         quality = PageQuality(
@@ -444,8 +443,12 @@ class TestNormalizationRoundtrip:
         spellcheck_result = checker.check_text(raw_text)
 
         synthetic_errors = [
-            {'word': sanskrit_syl, 'error_type': 'invalid_subscript_combination', 'severity': 'error'},
-            {'word': plain_syl,    'error_type': 'invalid_subscript_combination', 'severity': 'error'},
+            {
+                'word': sanskrit_syl,
+                'error_type': 'invalid_subscript_combination',
+                'severity': 'error',
+            },
+            {'word': plain_syl, 'error_type': 'invalid_subscript_combination', 'severity': 'error'},
         ]
         combined = list(spellcheck_result) + synthetic_errors
         quality = score_page(raw_text, combined, OcrDiagnostics())

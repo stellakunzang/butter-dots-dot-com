@@ -4,8 +4,9 @@ Tibetan Unicode Normalization and Character Validation
 Handles Unicode normalization (NFC), zero-width character removal,
 and Tibetan character validation.
 """
+
 import unicodedata
-from typing import Optional, List, Dict
+from typing import Dict
 
 
 ZERO_WIDTH_CHARS = {'\u200b', '\u200c', '\u200d'}
@@ -17,7 +18,7 @@ def normalize_tibetan(text: str) -> str:
     text = text.replace('\u200b', '')  # Zero-width space
     text = text.replace('\u200c', '')  # Zero-width non-joiner
     text = text.replace('\u200d', '')  # Zero-width joiner
-    
+
     return text
 
 
@@ -55,7 +56,7 @@ def normalize_tibetan_with_position_map(text: str) -> tuple[str, list[int]]:
         nfc_to_orig = []
         prev_nfc_len = 0
         for orig_i in range(len(text)):
-            cur_nfc_len = len(unicodedata.normalize('NFC', text[:orig_i + 1]))
+            cur_nfc_len = len(unicodedata.normalize('NFC', text[: orig_i + 1]))
             for _ in range(cur_nfc_len - prev_nfc_len):
                 nfc_to_orig.append(orig_i)
             prev_nfc_len = cur_nfc_len
@@ -105,7 +106,7 @@ def is_numeral_syllable(syllable: str) -> bool:
 # used as phrase punctuation in liturgical and terma texts — often in place
 # of shad, with no surrounding tsheg. Treat it as a syllable delimiter so it
 # does not glue the preceding and following words into one false syllable.
-RNAM_BCAD = '\u0F7F'  # ཿ
+RNAM_BCAD = '\u0f7f'  # ཿ
 
 # Unicode categories that attach to a letter rather than separating syllables.
 # Mn/Mc = combining marks (e.g. ༹ tsa-phru); Lo = letter-like Sanskrit signs.
@@ -128,11 +129,7 @@ def _is_spellable_tibetan_char(char: str) -> bool:
     classified as a delimiter via :func:`is_tibetan_punctuation_char`.
     """
     code = ord(char)
-    return (
-        0x0F40 <= code <= 0x0F6C or
-        0x0F71 <= code <= 0x0F84 or
-        0x0F90 <= code <= 0x0FBC
-    )
+    return 0x0F40 <= code <= 0x0F6C or 0x0F71 <= code <= 0x0F84 or 0x0F90 <= code <= 0x0FBC
 
 
 def is_tibetan_punctuation_char(char: str) -> bool:
@@ -150,11 +147,7 @@ def is_tibetan_punctuation_char(char: str) -> bool:
         return False
     if char == RNAM_BCAD:
         return True
-    if (
-        not is_tibetan_char(char)
-        or _is_spellable_tibetan_char(char)
-        or is_tibetan_numeral(char)
-    ):
+    if not is_tibetan_char(char) or _is_spellable_tibetan_char(char) or is_tibetan_numeral(char):
         return False
     return unicodedata.category(char) not in _ATTACHING_CATEGORIES
 
@@ -173,10 +166,7 @@ def is_punctuation_syllable(syllable: str) -> bool:
     if any(is_tibetan_numeral(c) for c in syllable):
         return False
     # Rnam bcad is in the vowel-sign range but is phrase punctuation.
-    return not any(
-        _is_spellable_tibetan_char(c) and c != RNAM_BCAD
-        for c in syllable
-    )
+    return not any(_is_spellable_tibetan_char(c) and c != RNAM_BCAD for c in syllable)
 
 
 def is_tibetan_char(char: str) -> bool:
@@ -195,13 +185,13 @@ def extract_tibetan(text: str) -> str:
 def validate_tibetan_text(text: str) -> Dict:
     """
     Validate text and count non-Tibetan characters (excluding whitespace).
-    
+
     Returns a summary of non-Tibetan characters found, useful for informing
     users that some content was skipped during spell checking.
-    
+
     Args:
         text: Text to validate
-        
+
     Returns:
         Dictionary with summary of non-Tibetan characters:
         {
@@ -210,14 +200,11 @@ def validate_tibetan_text(text: str) -> Dict:
         }
     """
     non_tibetan_count = 0
-    
+
     for char in text:
         if char.isspace():
             continue
         if not is_tibetan_char(char):
             non_tibetan_count += 1
-    
-    return {
-        'count': non_tibetan_count,
-        'has_non_tibetan': non_tibetan_count > 0
-    }
+
+    return {'count': non_tibetan_count, 'has_non_tibetan': non_tibetan_count > 0}

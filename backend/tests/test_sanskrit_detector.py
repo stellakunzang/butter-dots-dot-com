@@ -4,6 +4,7 @@ Tests for the Sanskrit-transliteration detector.
 Covers per-syllable scoring across native Tibetan, classic mantra
 fragments, ambiguous middle-band cases, and the clustering bonus.
 """
+
 import pytest
 
 from app.spellcheck.data_types import TibetanSyllable
@@ -25,13 +26,16 @@ def parse(syllable: str) -> TibetanSyllable:
 class TestPureTibetanScoresLow:
     """Native Tibetan syllables should be well below the threshold."""
 
-    @pytest.mark.parametrize("syllable", [
-        "བཀྲ",   # prefix ba + root ka + subscript ra
-        "ཀྱེ",    # ka + ya-btags + e vowel (vocative)
-        "རྡོ",    # ra-mgo + da + o vowel ("stone")
-        "བསམ",  # prefix ba + root sa + suffix ma ("thought")
-        "དགེ",   # da-prefix + ga + e ("virtue")
-    ])
+    @pytest.mark.parametrize(
+        "syllable",
+        [
+            "བཀྲ",  # prefix ba + root ka + subscript ra
+            "ཀྱེ",  # ka + ya-btags + e vowel (vocative)
+            "རྡོ",  # ra-mgo + da + o vowel ("stone")
+            "བསམ",  # prefix ba + root sa + suffix ma ("thought")
+            "དགེ",  # da-prefix + ga + e ("virtue")
+        ],
+    )
     def test_below_low_band(self, syllable):
         score = score_sanskrit_likelihood(parse(syllable))
         assert score < 0.1, f"{syllable!r} scored {score}, expected < 0.1"
@@ -40,11 +44,14 @@ class TestPureTibetanScoresLow:
 class TestMantraSyllablesScoreHigh:
     """Classic mantra syllables should be well above the threshold."""
 
-    @pytest.mark.parametrize("syllable", [
-        "ཨོཾ",    # om — anusvara (U+0F7E)
-        "ནཿ",    # naḥ — visarga (U+0F7F)
-        "ཧཱུྃ",   # huṃ — sign rjes su nga ro (U+0F83)
-    ])
+    @pytest.mark.parametrize(
+        "syllable",
+        [
+            "ཨོཾ",  # om — anusvara (U+0F7E)
+            "ནཿ",  # naḥ — visarga (U+0F7F)
+            "ཧཱུྃ",  # huṃ — sign rjes su nga ro (U+0F83)
+        ],
+    )
     def test_marker_lifts_above_high_band(self, syllable):
         score = score_sanskrit_likelihood(parse(syllable))
         assert score > 0.7, f"{syllable!r} scored {score}, expected > 0.7"

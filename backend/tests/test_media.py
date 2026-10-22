@@ -1,4 +1,5 @@
 """Tests for OCR assist image upload helpers."""
+
 from __future__ import annotations
 
 import base64
@@ -24,9 +25,7 @@ class TestLoadImageBytes:
         _write_png(image_path, (100, 200))
         original = image_path.read_bytes()
 
-        data, media_type = load_image_bytes(
-            image_path, max_dimension=ANTHROPIC_MAX_IMAGE_DIMENSION
-        )
+        data, media_type = load_image_bytes(image_path, max_dimension=ANTHROPIC_MAX_IMAGE_DIMENSION)
 
         assert data == original
         assert media_type == "image/png"
@@ -35,9 +34,7 @@ class TestLoadImageBytes:
         image_path = tmp_path / "wide.png"
         _write_png(image_path, (18267, 4134))
 
-        data, media_type = load_image_bytes(
-            image_path, max_dimension=ANTHROPIC_MAX_IMAGE_DIMENSION
-        )
+        data, media_type = load_image_bytes(image_path, max_dimension=ANTHROPIC_MAX_IMAGE_DIMENSION)
 
         assert media_type == "image/png"
         with Image.open(io.BytesIO(data)) as resized:
@@ -48,9 +45,7 @@ class TestLoadImageBytes:
 
 
 class TestEncodeImageBase64:
-    def test_anthropic_image_block_respects_dimension_limit(
-        self, tmp_path: Path
-    ) -> None:
+    def test_anthropic_image_block_respects_dimension_limit(self, tmp_path: Path) -> None:
         image_path = tmp_path / "wide.png"
         _write_png(image_path, (18267, 4134))
 
@@ -62,7 +57,5 @@ class TestEncodeImageBase64:
         assert block["source"]["media_type"] == "image/png"
         assert max(width, height) <= ANTHROPIC_MAX_IMAGE_DIMENSION
 
-        _, media_type = encode_image_base64(
-            image_path, max_dimension=ANTHROPIC_MAX_IMAGE_DIMENSION
-        )
+        _, media_type = encode_image_base64(image_path, max_dimension=ANTHROPIC_MAX_IMAGE_DIMENSION)
         assert media_type == "image/png"

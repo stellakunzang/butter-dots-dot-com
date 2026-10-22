@@ -4,16 +4,17 @@ Tibetan Syllable Splitting Utilities
 Functions to split Tibetan text into individual syllables.
 Promoted from syllable_parser_helpers/syllable_splitter.py.
 """
+
 from typing import List, Dict
 
 from .normalizer import is_tibetan_punctuation_char
 
 # Tibetan punctuation marks used as explicit constants (also covered by
 # is_tibetan_punctuation_char, listed here for readability at call sites).
-TSHEG = '\u0F0B'  # ་ syllable separator
-SHAD = '\u0F0D'   # ། sentence ending
-DOUBLE_SHAD = '\u0F0E'  # ༎ topic ending
-SPACE = '\u0F0C'  # ༌ non-breaking space
+TSHEG = '\u0f0b'  # ་ syllable separator
+SHAD = '\u0f0d'  # ། sentence ending
+DOUBLE_SHAD = '\u0f0e'  # ༎ topic ending
+SPACE = '\u0f0c'  # ༌ non-breaking space
 
 _ASCII_WHITESPACE = frozenset({' ', '\t', '\n', '\r'})
 
@@ -92,10 +93,7 @@ def split_syllables_with_position(text: str) -> List[Dict[str, any]]:
     for i, char in enumerate(text):
         if is_syllable_delimiter(char):
             if current_syllable:
-                result.append({
-                    'syllable': current_syllable,
-                    'position': current_pos
-                })
+                result.append({'syllable': current_syllable, 'position': current_pos})
                 current_syllable = ""
                 current_pos = i + 1
             else:
@@ -107,9 +105,6 @@ def split_syllables_with_position(text: str) -> List[Dict[str, any]]:
             current_syllable += char
 
     if current_syllable:
-        result.append({
-            'syllable': current_syllable,
-            'position': current_pos
-        })
+        result.append({'syllable': current_syllable, 'position': current_pos})
 
     return result

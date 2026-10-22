@@ -4,6 +4,7 @@ Records Retry-with-flags and accept/edit outcomes so high-confidence-but-wrong
 pages become labeled data for a future cheap second-stage gate. See
 ``docs/planning/INTERACTIVE_OCR_PLAN.md`` Living decisions.
 """
+
 from __future__ import annotations
 
 import json

@@ -9,6 +9,7 @@ This module scores, per syllable, the likelihood that the syllable is
 Sanskrit transliteration rather than native Tibetan. Output is a float
 in [0, 1].
 """
+
 from typing import Sequence
 
 from .data_types import TibetanSyllable
@@ -22,12 +23,14 @@ from .rules.stacking import (
 
 
 # Codepoints that overwhelmingly appear in Sanskrit transliteration.
-_SANSKRIT_MARKERS = frozenset({
-    "ཾ",  # ཾ anusvara
-    "ཿ",  # ཿ visarga
-    "ྂ",  # ྂ candrabindu
-    "ྃ",  # ྃ sign rjes su nga ro
-})
+_SANSKRIT_MARKERS = frozenset(
+    {
+        "ཾ",  # ཾ anusvara
+        "ཿ",  # ཿ visarga
+        "ྂ",  # ྂ candrabindu
+        "ྃ",  # ྃ sign rjes su nga ro
+    }
+)
 
 # Downstream consumers (T-02b spellcheck API/UI) use this threshold to
 # decide whether to annotate an error as "likely Sanskrit".

@@ -1,4 +1,5 @@
 """Google Gemini implementation of the vision transcription contract."""
+
 from __future__ import annotations
 
 import json

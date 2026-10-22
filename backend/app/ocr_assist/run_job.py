@@ -18,6 +18,7 @@ Provider selection (when ``--enable-ai`` is set — CLI experiment only):
   ``DIAGNOSTICIAN_PROVIDER`` / ``--diagnostician-provider`` — default ``anthropic``
   ``VISION_OCR_PROVIDER`` / ``--vision-provider`` — ``anthropic`` or ``gemini``
 """
+
 from __future__ import annotations
 
 import argparse
@@ -136,9 +137,7 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="After the run, reveal the job directory in Finder (macOS).",
     )
-    parser.add_argument(
-        "--verbose", "-v", action="store_true", help="Verbose logging."
-    )
+    parser.add_argument("--verbose", "-v", action="store_true", help="Verbose logging.")
     args = parser.parse_args(argv)
 
     logging.basicConfig(
@@ -301,10 +300,7 @@ def _print_summary(results: list[RunResult], *, job: Job | None = None) -> None:
     accepted = sum(1 for r in results if r.decision == "accept")
     needs_review = sum(1 for r in results if r.decision == "needs_review")
     errored = sum(1 for r in results if r.decision == "error")
-    print(
-        f"\nrun complete: {accepted} accepted, {needs_review} needs review, "
-        f"{errored} error"
-    )
+    print(f"\nrun complete: {accepted} accepted, {needs_review} needs review, " f"{errored} error")
     for r in results:
         if r.quality is None:
             print(f"  page {r.page.index:>3}: {r.decision:<13} error={r.error}")
@@ -322,10 +318,7 @@ def _print_summary(results: list[RunResult], *, job: Job | None = None) -> None:
     if docx_path.is_file():
         print(f"  docx:       {docx_path}")
     else:
-        print(
-            f"  docx:       (not written yet — no finalized pages; "
-            f"expected at {docx_path})"
-        )
+        print(f"  docx:       (not written yet — no finalized pages; " f"expected at {docx_path})")
 
 
 def _maybe_open_artifacts(
@@ -348,8 +341,7 @@ def _maybe_open_artifacts(
     run = runner if runner is not None else subprocess.run
     if plat != "darwin":
         print(
-            "warning: --open/--reveal are macOS-only; skipping "
-            f"(platform={plat!r})",
+            "warning: --open/--reveal are macOS-only; skipping " f"(platform={plat!r})",
             file=sys.stderr,
         )
         return
@@ -365,8 +357,7 @@ def _maybe_open_artifacts(
             run(["open", str(docx_path)], check=False)
         else:
             print(
-                f"note: --open requested but no docx at {docx_path} "
-                "(no finalized pages yet)",
+                f"note: --open requested but no docx at {docx_path} " "(no finalized pages yet)",
                 file=sys.stderr,
             )
 

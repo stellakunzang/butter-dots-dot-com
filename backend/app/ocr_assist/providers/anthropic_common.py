@@ -1,4 +1,5 @@
 """Anthropic-specific helpers for OCR assist providers."""
+
 from __future__ import annotations
 
 import logging

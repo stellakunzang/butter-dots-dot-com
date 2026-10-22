@@ -15,10 +15,9 @@ that pdfplumber cannot decode correctly.
 Returns a list of PageContent objects that the rest of the pipeline operates on,
 regardless of which path was taken.
 """
+
 import logging
 from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +28,7 @@ DIGITAL_TEXT_THRESHOLD = 10
 @dataclass
 class WordPosition:
     """A word and its bounding box on a page (in PDF points for digital, pixels for scanned)."""
+
     text: str
     x0: float
     y0: float
@@ -39,8 +39,9 @@ class WordPosition:
 @dataclass
 class PageContent:
     """Extracted content for a single page."""
+
     page_number: int  # 1-based
-    text: str         # Full page text, newline-separated lines
+    text: str  # Full page text, newline-separated lines
     words: list[WordPosition] = field(default_factory=list)
     is_scanned: bool = False
     # Original page dimensions (PDF points or pixels)
@@ -190,8 +191,8 @@ BROKEN_CMAP_HIMALAYA_VOWEL_THRESHOLD = 3
 # phantom patterns are kept as a backstop for cases where the font name is
 # embedded differently or stripped by the PDF producer.
 _HIMALAYA_VOWEL_O_PHANTOMS = [
-    "\u0F90\u0FB1\u0F7C",  # subjoined KA + subjoined YA + vowel O
-    "\u0FA9\u0F7C",         # subjoined TSA + vowel O
+    "\u0f90\u0fb1\u0f7c",  # subjoined KA + subjoined YA + vowel O
+    "\u0fa9\u0f7c",  # subjoined TSA + vowel O
 ]
 
 # Convenience export used by tests.

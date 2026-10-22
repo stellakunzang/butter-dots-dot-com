@@ -13,7 +13,8 @@ Representation:
 
 References: edge_cases.md particle rules section.
 """
-from typing import Optional, FrozenSet, Union
+
+from typing import Optional
 
 # Sentinel used in valid-suffix sets to mean "preceding word has no suffix"
 NO_SUFFIX = None
@@ -26,29 +27,29 @@ NO_SUFFIX = None
 # Relational (bdag gi sgra)
 RELATIONAL: dict = {
     'ཀྱི': frozenset({'ད', 'བ', 'ས'}),
-    'གི':  frozenset({'ག', 'ང'}),
+    'གི': frozenset({'ག', 'ང'}),
     'གྱི': frozenset({'ན', 'མ', 'ར', 'ལ'}),
-    'འི':  frozenset({'འ', NO_SUFFIX}),
-    'ཡི':  None,   # lenient variant of འི -- always accepted
+    'འི': frozenset({'འ', NO_SUFFIX}),
+    'ཡི': None,  # lenient variant of འི -- always accepted
 }
 
 # Agentive (byed pa'i sgra)
 AGENTIVE: dict = {
     'ཀྱིས': frozenset({'ད', 'བ', 'ས'}),
-    'གིས':  frozenset({'ག', 'ང'}),
+    'གིས': frozenset({'ག', 'ང'}),
     'གྱིས': frozenset({'ན', 'མ', 'ར', 'ལ'}),
-    'ས':    None,  # lenient: ས is too ambiguous (also a standalone word meaning "from/with")
-    'ཡིས':  None,  # lenient variant of ས -- always accepted
+    'ས': None,  # lenient: ས is too ambiguous (also a standalone word meaning "from/with")
+    'ཡིས': None,  # lenient variant of ས -- always accepted
 }
 
 # Locative (gnas gzhi'i sgra)
 # ན and ལ are unrestricted (True); the rest have specific suffix requirements.
 LOCATIVE: dict = {
-    'ན':  True,
-    'ལ':  True,
+    'ན': True,
+    'ལ': True,
     'སུ': frozenset({'ས'}),
-    'ཏུ': None,   # lenient: ཏུ appears in compound words (e.g. ཀུན་ཏུ); revisit when dictionary is available
-    'ར':  None,   # lenient: ར appears as a word-final syllable in many compounds
+    'ཏུ': None,  # lenient: ཏུ appears in compound words (e.g. ཀུན་ཏུ); revisit when dictionary is available
+    'ར': None,  # lenient: ར appears as a word-final syllable in many compounds
     'རུ': frozenset({'འ', NO_SUFFIX}),
     'དུ': frozenset({'ང', 'ད', 'ན', 'མ', 'ར', 'ལ'}),
 }
@@ -59,17 +60,17 @@ LOCATIVE: dict = {
 _INDEF_ZHIG_VALID = frozenset({'ང', 'ན', 'མ', 'འ', 'ར', 'ལ', NO_SUFFIX})
 
 INDEFINITE: dict = {
-    'ཅིག': None,   # lenient: ཅིག appears inside compound words (e.g. ཅིག་ཤོས)
+    'ཅིག': None,  # lenient: ཅིག appears inside compound words (e.g. ཅིག་ཤོས)
     'ཤིག': frozenset({'ས'}),
-    'ཞིག': None,   # lenient: ཞིག appears in non-particle contexts (e.g. ཞིག་པ་)
+    'ཞིག': None,  # lenient: ཞིག appears in non-particle contexts (e.g. ཞིག་པ་)
 }
 
 # Combined lookup: particle string → (category label, valid suffixes or sentinel)
 PARTICLE_RULES: dict = {}
 for _category, _rules in [
     ('relational', RELATIONAL),
-    ('agentive',   AGENTIVE),
-    ('locative',   LOCATIVE),
+    ('agentive', AGENTIVE),
+    ('locative', LOCATIVE),
     ('indefinite', INDEFINITE),
 ]:
     for _particle, _valid in _rules.items():
@@ -113,15 +114,15 @@ def is_valid_particle_context(
     """
     rule = PARTICLE_RULES.get(particle)
     if rule is None:
-        return True   # Not a particle we track -- no opinion
+        return True  # Not a particle we track -- no opinion
 
     valid = rule['valid_suffixes']
 
     if valid is None:
-        return True   # Lenient variant -- always valid
+        return True  # Lenient variant -- always valid
 
     if valid is True:
-        return True   # Unrestricted particle -- always valid
+        return True  # Unrestricted particle -- always valid
 
     # When a post-suffix is present, the particle may follow its rules
     # (e.g., ཚོགས has suffix ག + post-suffix ས; particles follow ས rules)

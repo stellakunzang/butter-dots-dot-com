@@ -11,6 +11,7 @@ Abbreviations used in comments:
   G3 = suffix group {ན མ ར ལ} → གྱི / གྱིས
   G4 = suffix འ or no suffix  → འི  / ས   / ར  / རུ
 """
+
 import pytest
 from app.spellcheck.engine import TibetanSpellChecker
 
@@ -22,10 +23,7 @@ def engine():
 
 def particle_errors(engine, text):
     """Return only wrong_particle_form errors from check_text."""
-    return [
-        e for e in engine.check_text(text)
-        if e.get('error_type') == 'wrong_particle_form'
-    ]
+    return [e for e in engine.check_text(text) if e.get('error_type') == 'wrong_particle_form']
 
 
 def no_particle_errors(engine, text):
@@ -36,8 +34,8 @@ def no_particle_errors(engine, text):
 # Relational particle (bdag gi sgra)
 # ============================================================================
 
-class TestRelationalParticle:
 
+class TestRelationalParticle:
     def test_kyi_after_da_suffix_valid(self, engine):
         """བོད་ཀྱི་ — ད suffix → ཀྱི correct"""
         assert no_particle_errors(engine, "བོད་ཀྱི་")
@@ -98,8 +96,8 @@ class TestRelationalParticle:
 # Agentive particle (byed pa'i sgra)
 # ============================================================================
 
-class TestAgentiveParticle:
 
+class TestAgentiveParticle:
     def test_kyis_after_da_suffix_valid(self, engine):
         """བོད་ཀྱིས་ — ད suffix → ཀྱིས correct"""
         assert no_particle_errors(engine, "བོད་ཀྱིས་")
@@ -137,8 +135,8 @@ class TestAgentiveParticle:
 # Locative particle (gnas gzhi'i sgra)
 # ============================================================================
 
-class TestLocativeParticle:
 
+class TestLocativeParticle:
     def test_na_unrestricted(self, engine):
         """ན is valid after any suffix"""
         for text in ["བོད་ན་", "ཤིང་ན་", "ཡུལ་ན་", "ཁྱི་ན་"]:
@@ -180,8 +178,8 @@ class TestLocativeParticle:
 # Indefinite article (sgra med kyi sgra)
 # ============================================================================
 
-class TestIndefiniteArticle:
 
+class TestIndefiniteArticle:
     def test_cig_after_da_suffix_valid(self, engine):
         """བོད་ཅིག་ — ད suffix → ཅིག correct"""
         assert no_particle_errors(engine, "བོད་ཅིག་")
@@ -223,8 +221,8 @@ class TestIndefiniteArticle:
 # Edge cases
 # ============================================================================
 
-class TestParticleEdgeCases:
 
+class TestParticleEdgeCases:
     def test_particle_after_structurally_invalid_syllable_not_double_flagged(self, engine):
         """
         If the preceding syllable is already invalid, don't also flag the particle.
@@ -233,9 +231,9 @@ class TestParticleEdgeCases:
         # གཀར is invalid (ga cannot prefix ka); following ཀྱི should not be flagged
         errors = engine.check_text("གཀར་ཀྱི་")
         particle_errs = [e for e in errors if e.get('error_type') == 'wrong_particle_form']
-        assert len(particle_errs) == 0, (
-            "Particle after an already-invalid syllable should not be flagged"
-        )
+        assert (
+            len(particle_errs) == 0
+        ), "Particle after an already-invalid syllable should not be flagged"
 
     def test_particle_at_start_of_text_not_flagged(self, engine):
         """
@@ -277,6 +275,7 @@ class TestParticleEdgeCases:
 # Lenient particle regression tests (false-positive fixes)
 # These syllables appear in non-particle roles and must not generate errors.
 # ============================================================================
+
 
 class TestLenientParticleNoFalsePositives:
     """

@@ -41,6 +41,7 @@ or partially-flushed file on disk. The store assumes a *single writer per
 job*: it serializes nothing, so concurrent writers to the same job (e.g. a
 future parallelizing runner) must coordinate externally.
 """
+
 from __future__ import annotations
 
 import json
@@ -82,6 +83,7 @@ JOB_STATUS_COMPLETE = "complete"
 @dataclass(frozen=True)
 class AttemptRecord:
     """One OCR attempt on a page. Persisted under ``attempts/NN/``."""
+
     number: int
     ocr_text: str
     quality: dict[str, Any] | None = None
@@ -99,6 +101,7 @@ class PageState:
     ``gemini``), each value
     ``{"transcript": dict, "quality": dict|None, "spellcheck_errors": list|None}``.
     """
+
     index: int
     image_path: Path
     settings: dict[str, Any]
@@ -114,6 +117,7 @@ class PageState:
 @dataclass
 class Job:
     """Top-level job metadata. Page state is loaded separately via ``load_page``."""
+
     id: str
     root: Path
     source_file: str
@@ -210,9 +214,7 @@ def load_page(job: Job, page_index: int) -> PageState:
     attempts = _load_attempts(attempts_dir) if attempts_dir.is_dir() else []
 
     final_text_path = page_dir / FINAL_TEXT_FILE
-    final_text = (
-        final_text_path.read_text(encoding="utf-8") if final_text_path.is_file() else None
-    )
+    final_text = final_text_path.read_text(encoding="utf-8") if final_text_path.is_file() else None
 
     final_quality_path = page_dir / FINAL_QUALITY_FILE
     final_quality = (
@@ -305,13 +307,13 @@ def save_attempt_verdict(
     one.
     """
     attempts_dir = job.root / _page_dir_name(page_index) / ATTEMPTS_DIR
-    candidates = [
-        p for p in attempts_dir.iterdir() if p.is_dir() and p.name.isdigit()
-    ] if attempts_dir.is_dir() else []
+    candidates = (
+        [p for p in attempts_dir.iterdir() if p.is_dir() and p.name.isdigit()]
+        if attempts_dir.is_dir()
+        else []
+    )
     if not candidates:
-        raise FileNotFoundError(
-            f"No attempts to attach a verdict to under {attempts_dir}"
-        )
+        raise FileNotFoundError(f"No attempts to attach a verdict to under {attempts_dir}")
     latest = max(candidates, key=lambda p: int(p.name))
     _atomic_write_json(latest / ATTEMPT_VERDICT_FILE, verdict)
 
@@ -347,9 +349,7 @@ def save_vision_transcript(
         if quality is not None:
             _atomic_write_json(page_dir / _vision_provider_quality_file(name), quality)
         if spellcheck_errors is not None:
-            _atomic_write_json(
-                page_dir / _vision_provider_spellcheck_file(name), spellcheck_errors
-            )
+            _atomic_write_json(page_dir / _vision_provider_spellcheck_file(name), spellcheck_errors)
         return
 
     _atomic_write_json(page_dir / VISION_TRANSCRIPT_FILE, transcript)
@@ -578,9 +578,7 @@ def _atomic_write_text(path: Path, content: str) -> None:
     ``fsync``'d so the rename itself survives a crash. If anything fails
     before the replace, the temp file is removed rather than orphaned.
     """
-    fd, tmp_name = tempfile.mkstemp(
-        dir=str(path.parent), prefix=path.name + ".", suffix=".tmp"
-    )
+    fd, tmp_name = tempfile.mkstemp(dir=str(path.parent), prefix=path.name + ".", suffix=".tmp")
     tmp = Path(tmp_name)
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as f:
@@ -608,9 +606,7 @@ def _atomic_write_text(path: Path, content: str) -> None:
 
 
 def _atomic_write_json(path: Path, obj: Any) -> None:
-    _atomic_write_text(
-        path, json.dumps(obj, indent=2, sort_keys=True, ensure_ascii=False)
-    )
+    _atomic_write_text(path, json.dumps(obj, indent=2, sort_keys=True, ensure_ascii=False))
 
 
 def _render_pdf(pdf_bytes: bytes, *, dpi: int) -> Sequence:
@@ -621,4 +617,5 @@ def _render_pdf(pdf_bytes: bytes, *, dpi: int) -> Sequence:
     ``Image`` protocol — so a fake can return any object with that method.
     """
     from pdf2image import convert_from_bytes
+
     return convert_from_bytes(pdf_bytes, dpi=dpi)

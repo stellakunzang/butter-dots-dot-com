@@ -8,6 +8,7 @@ Usage:
     typed = type_characters("སྐད")
     # [TypedChar('ས', BASE, 0, 'ས'), TypedChar('ྐ', SUBJOINED, 1, 'ཀ'), TypedChar('ད', BASE, 2, 'ད')]
 """
+
 from typing import List
 from ..data_types import TypedChar, CharType
 
@@ -42,43 +43,53 @@ def type_characters(text: str) -> List[TypedChar]:
         code = ord(char)
 
         if _BASE_START <= code <= _BASE_END:
-            result.append(TypedChar(
-                char=char,
-                type=CharType.BASE,
-                position=i,
-                base_form=char,
-            ))
+            result.append(
+                TypedChar(
+                    char=char,
+                    type=CharType.BASE,
+                    position=i,
+                    base_form=char,
+                )
+            )
 
         elif _SUBJOINED_START <= code <= _SUBJOINED_END:
-            result.append(TypedChar(
-                char=char,
-                type=CharType.SUBJOINED,
-                position=i,
-                base_form=chr(code - _SUBJOINED_OFFSET),
-            ))
+            result.append(
+                TypedChar(
+                    char=char,
+                    type=CharType.SUBJOINED,
+                    position=i,
+                    base_form=chr(code - _SUBJOINED_OFFSET),
+                )
+            )
 
         elif _VOWEL_START <= code <= _VOWEL_END:
-            result.append(TypedChar(
-                char=char,
-                type=CharType.VOWEL,
-                position=i,
-                base_form=char,
-            ))
+            result.append(
+                TypedChar(
+                    char=char,
+                    type=CharType.VOWEL,
+                    position=i,
+                    base_form=char,
+                )
+            )
 
         elif _TIBETAN_START <= code <= _TIBETAN_END:
-            result.append(TypedChar(
-                char=char,
-                type=CharType.MARK,
-                position=i,
-                base_form=char,
-            ))
+            result.append(
+                TypedChar(
+                    char=char,
+                    type=CharType.MARK,
+                    position=i,
+                    base_form=char,
+                )
+            )
 
         else:
-            result.append(TypedChar(
-                char=char,
-                type=CharType.OTHER,
-                position=i,
-                base_form=char,
-            ))
+            result.append(
+                TypedChar(
+                    char=char,
+                    type=CharType.OTHER,
+                    position=i,
+                    base_form=char,
+                )
+            )
 
     return result

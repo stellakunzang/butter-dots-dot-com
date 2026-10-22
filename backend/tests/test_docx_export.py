@@ -1,4 +1,5 @@
 """Tests for clean DOCX export (interactive OCR)."""
+
 import io
 from pathlib import Path
 

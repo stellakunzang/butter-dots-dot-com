@@ -1,4 +1,5 @@
 """Vendor-agnostic helpers for reading page images on disk."""
+
 from __future__ import annotations
 
 import base64
@@ -23,9 +24,7 @@ def guess_media_type(image_path: Path) -> str:
     }.get(suffix, "image/png")
 
 
-def load_image_bytes(
-    image_path: Path, *, max_dimension: int | None = None
-) -> tuple[bytes, str]:
+def load_image_bytes(image_path: Path, *, max_dimension: int | None = None) -> tuple[bytes, str]:
     """Return ``(image_bytes, media_type)``, downscaling when ``max_dimension`` is set."""
     media_type = guess_media_type(image_path)
     if max_dimension is None:
@@ -64,11 +63,7 @@ def load_image_bytes(
         return image_path.read_bytes(), media_type
 
 
-def encode_image_base64(
-    image_path: Path, *, max_dimension: int | None = None
-) -> tuple[str, str]:
+def encode_image_base64(image_path: Path, *, max_dimension: int | None = None) -> tuple[str, str]:
     """Return ``(base64_data, media_type)`` for an on-disk page image."""
-    image_bytes, media_type = load_image_bytes(
-        image_path, max_dimension=max_dimension
-    )
+    image_bytes, media_type = load_image_bytes(image_path, max_dimension=max_dimension)
     return base64.standard_b64encode(image_bytes).decode("ascii"), media_type

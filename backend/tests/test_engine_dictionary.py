@@ -8,7 +8,6 @@ so no database is required.  Tests verify:
   - Phase 2 is silently skipped when the dictionary is unavailable
   - known-good syllables still pass cleanly end-to-end
 """
-import pytest
 
 from app.spellcheck.dictionary import DictionaryService
 from app.spellcheck.engine import TibetanSpellChecker
@@ -17,6 +16,7 @@ from app.spellcheck.engine import TibetanSpellChecker
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def make_dictionary(*words: str) -> DictionaryService:
     """Return a DictionaryService pre-loaded with the given words."""
@@ -47,6 +47,7 @@ def unavailable_dictionary() -> DictionaryService:
 # ---------------------------------------------------------------------------
 # Phase 2: unknown_word warnings
 # ---------------------------------------------------------------------------
+
 
 class TestUnknownWordWarning:
     def test_valid_syllable_in_corpus_passes(self):
@@ -91,6 +92,7 @@ class TestUnknownWordWarning:
 # corpus_hit on Phase 1 structural errors
 # ---------------------------------------------------------------------------
 
+
 class TestCorpusHitOnStructuralErrors:
     def test_structural_error_with_corpus_miss_has_false_corpus_hit(self):
         """A structurally invalid syllable not in the corpus: corpus_hit=False."""
@@ -123,6 +125,7 @@ class TestCorpusHitOnStructuralErrors:
 # Phase 2 skipped when dictionary unavailable
 # ---------------------------------------------------------------------------
 
+
 class TestDictionaryUnavailable:
     def test_no_unknown_word_errors_without_corpus(self):
         """Without a corpus, Phase 2 is silently skipped — no false positives."""
@@ -142,13 +145,11 @@ class TestDictionaryUnavailable:
         """Full text check without corpus produces same results as Phase 1."""
         checker_no_dict = TibetanSpellChecker(dictionary=unavailable_dictionary())
         # Import original checker for comparison
-        from app.spellcheck.engine import TibetanSpellChecker as Checker
 
         # Both should return the same structural errors on invalid text
         text = "གཀར་བོད་"
         errors_no_dict = [
-            e for e in checker_no_dict.check_text(text)
-            if e["error_type"] != "non_tibetan_skipped"
+            e for e in checker_no_dict.check_text(text) if e["error_type"] != "non_tibetan_skipped"
         ]
         # One structural error (གཀར), བོད skipped (no corpus)
         assert len(errors_no_dict) == 1

@@ -141,7 +141,7 @@ async function uploadFile(page: Page, filename = 'test.pdf') {
 // Drives the flow up to the job-status polling phase (email submitted).
 async function goToJobStatus(page: Page) {
   await mockUploadAsync(page)
-  await mockJobStatus(page, [JOB_PENDING, JOB_PROCESSING, JOB_COMPLETED])
+  await mockJobStatus(page, [JOB_PENDING])
   await goToPDFTab(page)
   await uploadFile(page)
   await page.getByRole('button', { name: 'Check spelling' }).click()
@@ -210,8 +210,12 @@ test.describe('File selection', () => {
 
 test.describe('Sync processing (≤15 pages)', () => {
   test('shows a spinner with "Processing…" while the request is in flight', async ({ page }) => {
+    let releaseRequest!: () => void
+    const requestHeld = new Promise<void>(resolve => {
+      releaseRequest = resolve
+    })
     await page.route('**/api/v1/spellcheck/upload', async route => {
-      await new Promise(resolve => setTimeout(resolve, 400))
+      await requestHeld
       await route.fulfill({ json: SYNC_RESPONSE })
     })
     await goToPDFTab(page)
@@ -219,6 +223,7 @@ test.describe('Sync processing (≤15 pages)', () => {
     await page.getByRole('button', { name: 'Check spelling' }).click()
 
     await expect(page.getByText('Processing…')).toBeVisible()
+    releaseRequest()
   })
 
   test('shows error count and download links on completion', async ({ page }) => {
@@ -297,17 +302,20 @@ test.describe('Email capture (>15 pages)', () => {
     await expect(page.getByRole('button', { name: 'Queue for processing' })).toBeVisible()
   })
 
-  test('shows validation error for an address without @', async ({ page }) => {
+  test('rejects an address without @ before queueing', async ({ page }) => {
     await mockUploadAsync(page)
     await goToPDFTab(page)
     await uploadFile(page)
     await page.getByRole('button', { name: 'Check spelling' }).click()
     await expect(page.getByText('Large document detected')).toBeVisible()
 
-    await page.getByLabel('Email address').fill('notanemail')
+    const email = page.getByLabel('Email address')
+    await email.fill('notanemail')
     await page.getByRole('button', { name: 'Queue for processing' }).click()
 
-    await expect(page.getByText('Please enter a valid email address.')).toBeVisible()
+    // type="email" blocks submit before the app's own check runs.
+    await expect(email).toHaveJSProperty('validity.typeMismatch', true)
+    await expect(page.getByText('Large document detected')).toBeVisible()
   })
 
   test('validation error clears when the user edits the email field', async ({ page }) => {
@@ -368,7 +376,7 @@ test.describe('Async job status polling', () => {
     await page.getByRole('button', { name: 'Queue for processing' }).click()
 
     await expect(page.getByText('Processing… 50%')).toBeVisible()
-    await expect(page.getByText('50%')).toBeVisible()
+    await expect(page.getByText('50%', { exact: true })).toBeVisible()
   })
 
   test('transitions to "Processing complete" with download links when job completes', async ({ page }) => {

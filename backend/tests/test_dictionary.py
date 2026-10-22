@@ -5,8 +5,9 @@ All tests use an injected in-memory word list so no database is required.
 The DB-loading path (_load) is covered by verifying graceful degradation
 when DATABASE_URL is absent (already exercised in the CI environment).
 """
+
 import unicodedata
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -16,6 +17,7 @@ from app.spellcheck.dictionary import DictionaryService, _normalize, _syllables_
 # ---------------------------------------------------------------------------
 # Helper: build a DictionaryService pre-loaded with a known word list
 # ---------------------------------------------------------------------------
+
 
 def make_service(words: list[str]) -> DictionaryService:
     """Return a DictionaryService with its syllable inventory pre-populated."""
@@ -35,6 +37,7 @@ def make_service(words: list[str]) -> DictionaryService:
 # _normalize
 # ---------------------------------------------------------------------------
 
+
 class TestNormalize:
     def test_nfc_normalization(self):
         # Both forms of the same Tibetan text should normalize to the same string
@@ -53,6 +56,7 @@ class TestNormalize:
 # ---------------------------------------------------------------------------
 # _syllables_from_word
 # ---------------------------------------------------------------------------
+
 
 class TestSyllablesFromWord:
     def test_single_syllable(self):
@@ -80,6 +84,7 @@ class TestSyllablesFromWord:
 # DictionaryService — graceful degradation (no database)
 # ---------------------------------------------------------------------------
 
+
 class TestDictionaryServiceNoDB:
     def test_available_is_false_without_db(self):
         # db_available is imported inside _load(), so patch it at the source module
@@ -105,15 +110,18 @@ class TestDictionaryServiceNoDB:
 # DictionaryService — lookup with a known corpus
 # ---------------------------------------------------------------------------
 
+
 class TestDictionaryServiceLookup:
     @pytest.fixture
     def svc(self):
-        return make_service([
-            "བོད",           # single syllable
-            "བོད་ཡིག",       # two syllables
-            "སྤྱན་རས་གཟིགས", # three syllables
-            "སངས་རྒྱས",      # Buddhist term
-        ])
+        return make_service(
+            [
+                "བོད",  # single syllable
+                "བོད་ཡིག",  # two syllables
+                "སྤྱན་རས་གཟིགས",  # three syllables
+                "སངས་རྒྱས",  # Buddhist term
+            ]
+        )
 
     def test_known_single_syllable_is_valid(self, svc):
         assert svc.is_valid_syllable("བོད") is True
