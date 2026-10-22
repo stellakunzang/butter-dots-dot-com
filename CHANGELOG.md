@@ -8,6 +8,19 @@ and this project uses
 
 ---
 
+## [0.7.1] - 2026-10-22
+
+### Fixed
+
+- A large PDF that finishes processing stays available for download when the
+  notification email cannot be sent.
+
+### Changed
+
+- Finished PDF spellcheck downloads are kept for 24 hours.
+
+---
+
 ## [0.7.0] - 2026-10-22
 
 ### Added
