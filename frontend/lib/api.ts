@@ -2,7 +2,10 @@
  * API client for Tibetan Spell Checker backend
  */
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+import {getApiUrl} from './config'
+import {APIError, request} from './http'
+
+export {APIError}
 
 export interface SpellCheckError {
   word: string
@@ -21,17 +24,6 @@ export interface SpellCheckResponse {
 }
 
 
-export class APIError extends Error {
-  constructor(
-    message: string,
-    public status?: number,
-    public details?: unknown
-  ) {
-    super(message)
-    this.name = 'APIError'
-  }
-}
-
 /**
  * Check Tibetan text for spelling errors
  * @param text Tibetan text to check
@@ -43,44 +35,13 @@ export async function checkText(text: string): Promise<SpellCheckResponse> {
     throw new APIError('Text cannot be empty', 400)
   }
 
-  try {
-    const response = await fetch(`${API_URL}/api/v1/spellcheck/text`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ text }),
-    })
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => null)
-      throw new APIError(
-        errorData?.detail || `Request failed with status ${response.status}`,
-        response.status,
-        errorData
-      )
-    }
-
-    const data: SpellCheckResponse = await response.json()
-    return data
-  } catch (error) {
-    if (error instanceof APIError) {
-      throw error
-    }
-
-    // Network or other errors
-    if (error instanceof TypeError) {
-      throw new APIError(
-        'Unable to connect to spell checker service. Please make sure the backend is running.',
-        0
-      )
-    }
-
-    throw new APIError(
-      error instanceof Error ? error.message : 'An unexpected error occurred',
-      0
-    )
-  }
+  return request<SpellCheckResponse>('/api/v1/spellcheck/text', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ text }),
+  })
 }
 
 // ---------------------------------------------------------------------------
@@ -148,56 +109,28 @@ export async function uploadPDF(
     formData.append('email', email)
   }
 
-  try {
-    const response = await fetch(`${API_URL}/api/v1/spellcheck/upload`, {
-      method: 'POST',
-      body: formData,
-    })
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => null)
-      throw new APIError(
-        errorData?.detail || `Upload failed with status ${response.status}`,
-        response.status,
-        errorData
-      )
-    }
-
-    return response.json()
-  } catch (error) {
-    if (error instanceof APIError) throw error
-    if (error instanceof TypeError) {
-      throw new APIError(
-        'Unable to connect to spell checker service. Please make sure the backend is running.',
-        0
-      )
-    }
-    throw new APIError(
-      error instanceof Error ? error.message : 'An unexpected error occurred',
-      0
-    )
-  }
+  return request<PDFUploadResponse>(
+    '/api/v1/spellcheck/upload',
+    {method: 'POST', body: formData},
+    'Upload failed with status'
+  )
 }
 
 /**
  * Poll the status of an async PDF processing job.
  */
 export async function getJobStatus(jobId: string): Promise<JobStatusResponse> {
-  const response = await fetch(`${API_URL}/api/v1/spellcheck/job/${jobId}`)
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => null)
-    throw new APIError(
-      errorData?.detail || `Status check failed with status ${response.status}`,
-      response.status,
-      errorData
-    )
-  }
-  return response.json()
+  return request<JobStatusResponse>(
+    `/api/v1/spellcheck/job/${jobId}`,
+    undefined,
+    'Status check failed with status'
+  )
 }
 
 export function getResultURLs(jobId: string) {
+  const apiUrl = getApiUrl()
   return {
-    pdf: `${API_URL}/api/v1/spellcheck/result/${jobId}/pdf`,
-    docx: `${API_URL}/api/v1/spellcheck/result/${jobId}/docx`,
+    pdf: `${apiUrl}/api/v1/spellcheck/result/${jobId}/pdf`,
+    docx: `${apiUrl}/api/v1/spellcheck/result/${jobId}/docx`,
   }
 }

@@ -1,41 +1,9 @@
 import type {NextPage} from 'next'
 import Link from 'next/link'
-import {
-  Layout,
-  Section,
-  Card,
-  PageTitle,
-  SectionHeading,
-  Button,
-} from '../../components'
-
-const TIB = {
-  bod: '\u0F56\u0F7C\u0F51',
-  tashiDelek:
-    '\u0F56\u0F40\u0FB2\u0F0B\u0F64\u0F72\u0F66\u0F0B\u0F56\u0F51\u0F7A\u0F0B\u0F63\u0F7A\u0F42\u0F66',
-  tsek: '\u0F0B',
-  tsekName: '\u0F5A\u0F7A\u0F42',
-  ka: '\u0F40',
-  bkra: '\u0F56\u0F40\u0FB2',
-  she: '\u0F0D',
-  sheName: '\u0F64\u0F51',
-  achung: '\u0F60',
-}
-
-const WylieExample = ({wylie, tibetan}: {wylie: string; tibetan: string}) => (
-  <div className="flex items-center gap-3 my-3 flex-wrap">
-    <code className="bg-gray-100 px-2 py-1 rounded font-mono text-sm text-pink-600 border border-gray-200">
-      {wylie}
-    </code>
-    <span className="text-gray-400 font-bold text-xl">{'\u2192'}</span>
-    <span
-      className="text-3xl text-gray-900 leading-relaxed"
-      style={{fontFamily: 'Jomolhari, serif'}}
-    >
-      {tibetan}
-    </span>
-  </div>
-)
+import {Layout, Section, Card, SectionHeading, Button} from '../../components'
+import {LearnHeader} from '../../components/learn/LearnHeader'
+import {WylieExample} from '../../components/learn/WylieExample'
+import {TIB} from '../../content/learn/typing'
 
 const TypingTibetan: NextPage = () => {
   return (
@@ -46,19 +14,10 @@ const TypingTibetan: NextPage = () => {
       backHref="/learn"
       backLabel="← Learn"
     >
-      <div className="mb-12 max-w-4xl mx-auto border-b-2 border-gray-200 pb-8">
-        <div className="mb-4">
-          <span className="text-sm uppercase tracking-wider text-gray-500 font-medium">
-            Learn
-          </span>
-        </div>
-        <PageTitle>How to Type Tibetan</PageTitle>
-        <p className="text-xl text-gray-600 font-light leading-relaxed">
-          You can type Tibetan with the keyboard you already have. This page
-          explains the system for doing that, how to turn it on, and how to
-          install the font this community uses for practice texts.
-        </p>
-      </div>
+      <LearnHeader
+        title="How to Type Tibetan"
+        lede="You can type Tibetan with the keyboard you already have. This page explains the system for doing that, how to turn it on, and how to install the font this community uses for practice texts."
+      />
 
       <Section title="What Is Wylie?">
         <p className="text-lg mb-4">

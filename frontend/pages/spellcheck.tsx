@@ -1,5 +1,7 @@
 import React, {useState} from 'react'
 import {Layout, PageTitle, TabButton} from '@/components'
+import {Alert} from '@/components/ui/Alert'
+import {ErrorIcon} from '@/components/ui/icons'
 import {TextInput, ErrorDisplay, PDFUpload, EmailCapture, JobStatus, PDFDownloadLink, ResetLink} from '@/components/spellcheck'
 import {
   checkText,
@@ -161,7 +163,9 @@ export default function SpellCheckPage() {
                 {!isStale && textResult ? (
                   <ErrorDisplay response={textResult} />
                 ) : (
-                  <EmptyResults label="Enter text and click &quot;Check Spelling&quot; to see results" />
+                  <EmptyResults>
+                    {'Enter text and click "Check Spelling" to see results'}
+                  </EmptyResults>
                 )}
               </div>
             </div>
@@ -238,26 +242,17 @@ export default function SpellCheckPage() {
 
 function InlineError({message}: {message: string}) {
   return (
-    <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-      <div className="flex items-start gap-3">
-        <svg
-          className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5"
-          fill="currentColor"
-          viewBox="0 0 20 20"
-        >
-          <path
-            fillRule="evenodd"
-            d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-            clipRule="evenodd"
-          />
-        </svg>
-        <p className="text-sm text-red-700">{message}</p>
-      </div>
-    </div>
+    <Alert
+      tone="error"
+      className="mb-6"
+      icon={<ErrorIcon className="w-5 h-5 text-red-500" />}
+    >
+      {message}
+    </Alert>
   )
 }
 
-function EmptyResults({label}: {label: string}) {
+function EmptyResults({children}: {children: React.ReactNode}) {
   return (
     <div className="flex items-center justify-center py-16 px-6 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
       <div className="text-center">
@@ -274,7 +269,7 @@ function EmptyResults({label}: {label: string}) {
             d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
           />
         </svg>
-        <p className="text-gray-500 text-sm" dangerouslySetInnerHTML={{__html: label}} />
+        <p className="text-gray-500 text-sm">{children}</p>
       </div>
     </div>
   )
@@ -292,25 +287,24 @@ function PDFSyncResults({
 
   return (
     <div className="space-y-5">
-      <div className={`rounded-lg border p-4 ${hasErrors ? 'border-red-200 bg-red-50' : 'border-green-200 bg-green-50'}`}>
-        <p className={`text-sm font-semibold ${hasErrors ? 'text-red-800' : 'text-green-800'}`}>
-          {hasErrors
-            ? `${result.error_count} spelling error${result.error_count === 1 ? '' : 's'} found across ${result.page_count} page${result.page_count === 1 ? '' : 's'}.`
-            : 'No spelling errors found.'}
-        </p>
+      <Alert tone={hasErrors ? 'error' : 'success'} title={
+        hasErrors
+          ? `${result.error_count} spelling error${result.error_count === 1 ? '' : 's'} found across ${result.page_count} page${result.page_count === 1 ? '' : 's'}.`
+          : 'No spelling errors found.'
+      }>
         {result.is_scanned && (
-          <p className={`text-xs mt-1 ${hasErrors ? 'text-red-700' : 'text-green-700'}`}>
+          <p className="text-xs">
             Scanned document — results may vary based on image quality.
           </p>
         )}
-      </div>
+      </Alert>
 
       {hasErrors && (
         <div>
           <p className="text-sm font-medium text-gray-700 mb-2">Download results</p>
           <div className="flex flex-wrap gap-2">
-            <PDFDownloadLink href={urls.pdf} label="Annotated PDF" colorClass="bg-green-100 text-green-700 hover:bg-green-200" />
-            <PDFDownloadLink href={urls.docx} label="Editable Word doc" colorClass="bg-blue-100 text-blue-700 hover:bg-blue-200" />
+            <PDFDownloadLink href={urls.pdf} label="Annotated PDF" variant="pdf" />
+            <PDFDownloadLink href={urls.docx} label="Editable Word doc" variant="docx" />
           </div>
         </div>
       )}
@@ -334,18 +328,18 @@ function PDFAsyncDone({
 
   return (
     <div className="space-y-4">
-      <div className={`rounded-lg border p-4 ${hasErrors ? 'border-red-200 bg-red-50' : 'border-green-200 bg-green-50'}`}>
-        <p className={`text-sm font-semibold ${hasErrors ? 'text-red-800' : 'text-green-800'}`}>Processing complete</p>
-        <p className={`text-sm ${hasErrors ? 'text-red-700' : 'text-green-700'}`}>
-          {hasErrors
-            ? `${errorCount} spelling error${errorCount === 1 ? '' : 's'} found.`
-            : 'No spelling errors found.'}
-        </p>
-      </div>
+      <Alert
+        tone={hasErrors ? 'error' : 'success'}
+        title="Processing complete"
+      >
+        {hasErrors
+          ? `${errorCount} spelling error${errorCount === 1 ? '' : 's'} found.`
+          : 'No spelling errors found.'}
+      </Alert>
       {hasErrors && (
         <div className="flex flex-wrap gap-2">
-          <PDFDownloadLink href={urls.pdf} label="Annotated PDF" colorClass="bg-green-100 text-green-700 hover:bg-green-200" />
-          <PDFDownloadLink href={urls.docx} label="Editable Word doc" colorClass="bg-blue-100 text-blue-700 hover:bg-blue-200" />
+          <PDFDownloadLink href={urls.pdf} label="Annotated PDF" variant="pdf" />
+          <PDFDownloadLink href={urls.docx} label="Editable Word doc" variant="docx" />
         </div>
       )}
       <ResetLink onClick={onReset}>Upload another PDF</ResetLink>

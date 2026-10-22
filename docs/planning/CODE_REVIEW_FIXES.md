@@ -92,8 +92,9 @@ Implemented on `fix/deps-and-upload-hardening`, not committed yet.
       present (genuine error count differs by 30; tolerance is 10). CI runs
       `pytest` with no models downloaded, and those fixtures skip via
       `_ocr_available()`. They are also `@pytest.mark.slow`, so
-      `pytest -m "not slow"` skips them too. Tolerance was not raised — the
-      gap is OCR fidelity. `-rs` is in pytest addopts.
+      `pytest -m "not slow"` skips them too. Tolerance was not raised.
+      Follow-up is a separate branch, planned in
+      [OCR_PARITY_BASELINE.md](OCR_PARITY_BASELINE.md). Do not fix it here.
 - [x] **M** Upload tests cover non-PDF bytes, oversize, empty, unreadable,
       path-traversal filename, 15 vs 16 pages, and unknown / unfinished
       downloads.
@@ -109,41 +110,55 @@ Implemented on `fix/deps-and-upload-hardening`, not committed yet.
 
 ### A4. CI and tooling — `ci/lint-typecheck-build`
 
-- [ ] **S** Add ruff (`pyproject.toml`, `ruff check` + `ruff format --check`),
-      run once over `backend/app` and `backend/tests` (exclude `BDRC/`).
-- [ ] **S** Add Prettier config; CI runs `yarn lint`, `tsc --noEmit`,
-      `yarn build`.
-- [ ] **S** `actions/setup-python@v4` → v5; `curl -fsS` for the deploy hook;
-      remove the Postgres service if no test needs it.
-- [ ] **M** Playwright job in CI. Rename `e2e/pdf-upload.spec.ts` to reflect
-      that it mocks the API, or add one unmocked smoke test. Replace the
-      `setTimeout(400)` at `:214` with a deferred promise.
+- [x] **S** Ruff in `backend/pyproject.toml` (`ruff check` + `ruff format --check`)
+      over `backend/app` and `backend/tests`. `BDRC/` excluded. Quote style
+      preserved. CI runs both.
+- [x] **S** Prettier config and `format` / `format:check` scripts. CI runs
+      `yarn lint`, `yarn tsc --noEmit`, and `yarn build`. Format is not a CI
+      gate yet — the tree has not been formatted.
+- [x] **S** `actions/setup-python@v5`. Deploy hook uses `curl -fsS`. Postgres
+      service removed: no test connects. `test_dictionary.py` covers the
+      no-database path with a mock.
+- [x] **M** Playwright job in CI. Spec renamed to
+      `e2e/pdf-upload.mocked.spec.ts`. The dev server is port 3100 so it does
+      not reuse whatever is already on 3000. The in-flight spinner test holds
+      the upload on a deferred promise instead of `setTimeout(400)`. Three
+      assertions were updated to match the current page (native email
+      constraint, a stable "Queued" mock, exact `50%`). No unmocked smoke test.
 
 ### A5. Docs — `docs/readme-and-cleanup`
 
 Do after A2 so links point at final paths. Coordinate the OCR sections of the
 README with Track B.
 
-- [ ] **S** Remove `docs/planning/INTERACTIVE_OCR_WORKFLOW.md` (AI-assistant
-      workflow prompt) and its entry in `docs/README.md`.
-- [ ] **M** Restructure `README.md` (~150 lines): pitch + screenshot, features,
-      architecture diagram, key engineering decisions (link ADRs), quickstart,
-      layout, docs index, acknowledgments. Move OCR CLI reference, deployment
-      and troubleshooting into `docs/`. State that `backend/BDRC/` is vendored.
-- [ ] **S** Fix broken links (`docs/guides/ARCHITECTURE.md` →
-      `frontend/docs/ARCHITECTURE.md`; nonexistent archive entries; links
-      wrapped in backticks) and step numbering (README ~64-79, 353).
-- [ ] **S** Delete `ARCHITECTURE_SIMPLE.md`, `docs/archive/`,
+- [x] **S** Removed `docs/planning/INTERACTIVE_OCR_WORKFLOW.md` and its
+      index entry. Links in the OCR plan and smoke doc point at the CLI guide
+      and Track B.
+- [x] **M** `README.md` is the pitch, features, architecture, quickstart,
+      layout, and acknowledgments. No screenshot was in the repo, so none was
+      added. OCR CLI, deployment, and troubleshooting moved to `docs/guides/`.
+      `backend/BDRC/` is called out as vendored.
+- [x] **S** Doc index points architecture and components at `frontend/docs/`.
+      Archive links are gone. The broken README step numbering went away with
+      the rewrite.
+- [x] **S** Deleted `ARCHITECTURE_SIMPLE.md`, `docs/archive/`, and
       `docs/planning/BACKLOG.md`.
-- [ ] **M** Trim `docs/adr/SPELLCHECKER_DECISIONS.md` to
-      Context / Decision / Consequences per entry; drop status emoji.
-- [ ] **S** Decide which remaining planning/research docs stay public
-      (`LIVE_PECHA_CAPTURE`, `PREPARE_FEATURE`, `WORD_CORPUS_PLAN`,
-      `EDUCATIONAL_CONTENT_PLAN`); trim or move.
-- [ ] **S** Comment nits: `app/utils/email.py:20` TODO → documented limitation;
-      `config.py:19-20` "Render/Railway"; restating comments at
-      `completeness_checks.py:149`, `parser.py:179`.
-- [ ] **S** Add "How tested" to `.github/PULL_REQUEST_TEMPLATE.md`.
+- [x] **M** `docs/adr/SPELLCHECKER_DECISIONS.md` is context, decision, and
+      consequences per entry. Status emoji and the option lists are gone.
+      The long form is in git history.
+- [x] **S** Planning and research notes stay in the repo and are listed in
+      `docs/README.md` as working notes, not as the public site. That includes
+      `LIVE_PECHA_CAPTURE`, `PREPARE_FEATURE`, `WORD_CORPUS_PLAN`, and
+      `EDUCATIONAL_CONTENT_PLAN`.
+- [x] **S** `email.py` documents that send is log-only. `config.py` says
+      Render, not Railway. Restating comments removed in
+      `completeness_checks.py` and `parser.py`.
+- [x] **S** Pull request template has a How tested section.
+- [x] **M** `[Unreleased]` lists only what is live on the site: Learn, the
+      redirects and nav, the spellcheck corpus sentence, and the
+      `/interactive-ocr` waitlist. Local OCR assist, the diagnostician, vision,
+      the corpus loader, and the lexicon migration are not in the public
+      changelog. A dated version waits for the PR. Last release is `0.6.1`.
 
 ### A6. Frontend shared code — `refactor/frontend-shared`
 
@@ -151,19 +166,27 @@ Shared frontend pieces for spellcheck and the rest of the app. The slimmed
 OCR proofing page can adopt them when Track B happens; it does not have to
 land first.
 
-- [ ] **S** `lib/config.ts`: single `API_URL` (currently duplicated in
-      `lib/api.ts:5` and `lib/ocrAssist.ts:8`) that fails loudly when unset in
-      production.
-- [ ] **M** `lib/http.ts`: shared `request<T>()` + `parseError`, replacing the
-      inline copies in `lib/api.ts:47-83,152-179,186-194`.
-- [ ] **S** Fix `components/JobStatus.tsx:17-45` polling: clear the timeout on
-      unmount, hold `onCompleted` in a ref, surface `failed` status.
-- [ ] **S** Replace `dangerouslySetInnerHTML` at `pages/spellcheck.tsx:277`.
-- [ ] **M** Shared UI primitives: `Alert`, `Spinner`, icons module; use
-      existing `Button`/`TabButton`; replace `colorClass` prop on
-      `PDFDownloadLink` with a variant.
-- [ ] **L** Learn pages: move tables/examples into typed content
-      (`content/learn/*.ts`), shared `components/learn/*`.
+- [x] **S** `lib/config.ts`: single `getApiUrl()` (was duplicated in
+      `lib/api.ts` and `lib/ocrAssist.ts`). Throws if
+      `NEXT_PUBLIC_API_URL` is unset in production, on the first request
+      rather than at import, so a production build without the variable
+      still compiles.
+- [x] **M** `lib/http.ts`: shared `request<T>()` + `parseError`. Spellcheck
+      and OCR assist both use it. `APIError` lives here and is re-exported
+      from `lib/api.ts`.
+- [x] **S** `JobStatus` clears the poll timeout on unmount and reads
+      `onCompleted` from a ref. A failed job already rendered its error;
+      that path is unchanged.
+- [x] **S** Empty spellcheck results render a text node. No
+      `dangerouslySetInnerHTML`.
+- [x] **M** `Alert`, `Spinner`, and `icons` are shared. Spellcheck text
+      input already used `Button`; tabs already used `TabButton`. The amber
+      PDF actions stay as they are, because `Button` only has the gray site
+      variants. `PDFDownloadLink` takes `variant="pdf" | "docx"`.
+- [x] **L** Learn tables and examples live in `content/learn/*.ts`.
+      Shared chrome is `components/learn/` (`LearnHeader`, `ParticleTable`,
+      `SyllableAnatomy`, `ErrorExample`, `WylieExample`). Page prose stays
+      in the pages.
 
 ### A7. Backend robustness — `fix/job-store-and-engine`
 
@@ -281,9 +304,8 @@ checklist. Do not build a capture UI first.
 
 ### Docs in this pass
 
-- [ ] **S** Add a short status note at the top of
-      `docs/planning/INTERACTIVE_OCR_PLAN.md` pointing here. Leave that plan
-      as history.
+- [x] **S** Status note at the top of `docs/planning/INTERACTIVE_OCR_PLAN.md`
+      points here. The rest of that plan stays as history.
 - [ ] **S** When A5 rewrites the README, describe this as local proofing:
       image, BDRC text, human accept, DOCX. Drop vision fallback from the pitch.
 

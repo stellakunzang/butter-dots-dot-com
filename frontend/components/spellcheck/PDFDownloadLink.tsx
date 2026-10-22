@@ -1,29 +1,30 @@
 import React from 'react'
+import {DownloadIcon} from '../ui/icons'
+
+type DownloadVariant = 'pdf' | 'docx'
+
+const VARIANT_CLASS: Record<DownloadVariant, string> = {
+  pdf: 'bg-green-100 text-green-700 hover:bg-green-200',
+  docx: 'bg-blue-100 text-blue-700 hover:bg-blue-200',
+}
 
 interface PDFDownloadLinkProps {
   href: string
   label: string
-  colorClass: string
+  variant: DownloadVariant
 }
 
-export function PDFDownloadLink({href, label, colorClass}: PDFDownloadLinkProps) {
+export function PDFDownloadLink({href, label, variant}: PDFDownloadLinkProps) {
   return (
     <a
       href={href}
       download
       className={[
         'inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
-        colorClass,
+        VARIANT_CLASS[variant],
       ].join(' ')}
     >
-      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-        />
-      </svg>
+      <DownloadIcon />
       {label}
     </a>
   )
