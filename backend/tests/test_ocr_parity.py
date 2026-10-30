@@ -18,9 +18,21 @@ Comparison criteria
 -------------------
 - Error types that appear in PDF pipeline output but are absent in the copy-paste result
   (excluding "non_tibetan_skipped", which is tolerated) cause a failure.
-- The count of genuine spelling errors is compared within a per-fixture
-  tolerance (default 0). Add an entry to _PER_FIXTURE_TOLERANCE for texts
-  routed through OCR where drift is expected (e.g. Himalaya-font PDFs, scans).
+- Digital PDFs (fitz extraction) are deterministic, so their genuine-error count
+  must match the copy-paste count exactly (tolerance 0).
+- OCR-routed fixtures are GOLDEN baselines (see _GOLDEN_OCR). They are clean,
+  in-distribution scans of real Tibetan text — the "right circumstances" under
+  which OCR should read near-perfectly. Each is pinned to a tight genuine-error
+  gap plus per-page Tibetan-character floors, measured once against a trusted
+  transcription. These are regression walls: any change that dents a golden read
+  fails review. Tighten them when a change improves the read; never loosen them
+  to make a regression pass. See docs/planning/OCR_PARITY_BASELINE.md.
+
+  A font whose only OCR relevance is that it *routes* to OCR (e.g. Microsoft
+  Himalaya / Tashi Gyedpa) is NOT a golden fixture — its rendered glyphs are
+  out-of-distribution and it will never read perfectly. Routing coverage for
+  those lives in test_cmap_detection.py; they are excluded here via
+  _ROUTING_ONLY_FIXTURES.
 
 Running
 -------
@@ -34,33 +46,93 @@ To run only the full-stack API tests:
 """
 
 import io
+from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
 
 PARITY_DIR = Path(__file__).parent / "fixtures" / "parity"
 
-# Default tolerated absolute difference in genuine error counts between the
-# copy-paste and PDF-pipeline paths. Digital PDFs (fitz extraction) are
-# deterministic, so 0 is appropriate. Scanned or OCR-routed PDFs should have
-# a higher tolerance defined in _PER_FIXTURE_TOLERANCE below.
+# Tolerated absolute difference in genuine error counts for DIGITAL PDFs. fitz
+# extraction is deterministic, so a digital PDF must spellcheck identically to
+# its copy-paste source. OCR-routed fixtures are governed by _GOLDEN_OCR below,
+# not by this constant.
 OCR_ERROR_COUNT_TOLERANCE = 0
 
-# Per-fixture overrides for OCR_ERROR_COUNT_TOLERANCE. Keys are fixture stem
-# names (i.e. the filename without extension). Add an entry here when a fixture
-# uses the OCR path and therefore has inherent extraction drift.
+
+@dataclass(frozen=True)
+class GoldenOCRBaseline:
+    """A tight, measured baseline for a clean OCR-routed fixture.
+
+    A golden fixture is a clean, in-distribution scan whose text OCR should read
+    near-perfectly. The numbers are measured once against a trusted transcription
+    and then act as a regression wall.
+
+    max_gap: the genuine-error gap (|ocr - copy|) must not exceed this. For a
+        truly clean page this should be small — ideally 0. A larger value is a
+        measured statement about the engine's real ceiling on this page, not a
+        tolerance to inflate.
+    min_page_tibetan_chars: per-page Tibetan-character floors, one per page, in
+        order. A page dropping below its floor (minus a small slack) fails —
+        this catches a page collapsing even when the overall gap barely moves.
+    allowed_extra_error_types: error types OCR introduces beyond the copy-paste
+        set on this page. Keep this as small as the clean read allows; empty is
+        the goal. A type outside this recorded set means a NEW category of
+        misread — the test fails so the regression is reviewed, not absorbed.
+    """
+
+    max_gap: int
+    min_page_tibetan_chars: tuple[int, ...]
+    allowed_extra_error_types: frozenset[str] = frozenset()
+
+
+# Golden OCR baselines. Keys are fixture stems. Each is a clean, in-distribution
+# scan measured once against a trusted transcription. Do not raise max_gap or
+# lower a page floor to make a change pass — that turns the wall into a ramp.
+# When a change improves the read, tighten these in the SAME commit.
 #
-# How to choose a value: run the parity tests once with a high tolerance to see
-# the actual diff, then set the tolerance to (actual diff + small buffer).
-# "Tashi Gyedpa" is routed through BDRC OCR because it uses the MicrosoftHimalaya
-# font; real OCR output from a multi-stanza prayer can differ by ~5 syllables.
-_PER_FIXTURE_TOLERANCE: dict[str, int] = {
-    "Tashi Gyedpa": 10,
+# Both fixtures are single pages of BDRC scan W28732 v15, OCR'd at native
+# resolution via extract_scanned's native-image path. Measured against the
+# hand-typed transcriptions in the same directory.
+_GOLDEN_OCR: dict[str, GoldenOCRBaseline] = {
+    # Page 8: dense, in-distribution body text — the "right circumstances" page.
+    # OCR reads it with zero extra genuine errors. The one artefact is the hung
+    # seed syllable ཧཱུྂ: when OCR drops its candrabindu the glyph becomes ཧཱུ,
+    # which is no longer a Sanskrit marker, so it surfaces as a double_vowel
+    # rather than an info-level Sanskrit note.
+    "tibetan-baseline-W28732": GoldenOCRBaseline(
+        max_gap=0,
+        min_page_tibetan_chars=(820,),
+        allowed_extra_error_types=frozenset({"double_vowel"}),
+    ),
+    # Page 1 of the Menla (Medicine Buddha) sadhana: Sanskrit-heavy (mantras +
+    # seed syllables). A harder read than the body page — OCR introduces a few
+    # genuine misreads: an injected Latin glyph and a stray '+' prefix (both
+    # unparsed_characters) and a consonant-after-vowel. With the common Sanskrit
+    # forms now allowlisted (padma etc.), these OCR-only garbage reads are what
+    # remains of the gap.
+    "menla-sadhana-sanskrit-W28732": GoldenOCRBaseline(
+        max_gap=2,
+        min_page_tibetan_chars=(753,),
+        allowed_extra_error_types=frozenset(
+            {"consonant_after_vowel", "unparsed_characters"}
+        ),
+    ),
 }
+
+# A page's Tibetan-character count may sit at most this many characters below
+# its recorded floor before a golden fixture fails. Kept small on purpose.
+_PAGE_CHAR_DROP_SLACK = 10
+
+# Fixtures that route to OCR only because of a broken font encoding (ADR-015),
+# not because they are representative OCR targets. Their rendered glyphs are
+# out-of-distribution, so they are never golden. Routing coverage lives in
+# test_cmap_detection.py; they are skipped by the parity oracle here.
+_ROUTING_ONLY_FIXTURES = {"Tashi Gyedpa"}
 
 # Fixtures that require the BDRC OCR engine + downloaded ONNX models.
 # Skipped in CI when Models/ is absent (tps is optional since #59).
-_OCR_REQUIRED_FIXTURES = {"Tashi Gyedpa"}
+_OCR_REQUIRED_FIXTURES = set(_GOLDEN_OCR)
 
 _LINE_MODEL = Path(__file__).resolve().parents[1] / "Models" / "Lines" / "PhotiLines.onnx"
 
@@ -78,9 +150,17 @@ OCR_AVAILABLE = _ocr_available()
 # Module-level cache so PDF extraction runs exactly once per PDF per test session.
 _pdf_cache: dict[Path, list] = {}
 
-# Error types that are acceptable in PDF pipeline output even if absent in copy-paste
-# (OCR may misread individual glyphs as non-Tibetan characters).
-TOLERATED_OCR_ONLY_TYPES = {"non_tibetan_skipped"}
+# Informational notes the engine emits that are NOT genuine spelling errors:
+# OCR noise skipped as non-Tibetan, and Sanskrit transliteration flagged by the
+# engine (mantras/dharanis written in Tibetan script). They carry severity
+# "info" and appear on both the copy-paste and OCR sides, so they are excluded
+# from the error-type comparison. Genuine-error COUNTING uses severity directly
+# (see _genuine_error_count) so any new info type is handled automatically.
+INFO_ONLY_TYPES = {
+    "non_tibetan_skipped",
+    "foreign_transliteration",
+    "sanskrit_marker",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -93,8 +173,31 @@ def _error_types(errors: list[dict]) -> set[str]:
 
 
 def _genuine_error_count(errors: list[dict]) -> int:
-    """Count of errors that are not informational OCR-noise messages."""
-    return sum(1 for e in errors if e.get("error_type") not in TOLERATED_OCR_ONLY_TYPES)
+    """Count of genuine spelling errors — excludes info-level notes.
+
+    Info notes (non-Tibetan skipped, Sanskrit transliteration) are not spelling
+    errors, so they must not inflate the copy-paste vs OCR gap. Using severity
+    rather than an explicit type list means a new info category is excluded
+    automatically.
+    """
+    return sum(1 for e in errors if e.get("severity") != "info")
+
+
+def _tibetan_char_count(text: str) -> int:
+    """Count of characters in the Tibetan Unicode block (U+0F00–U+0FFF)."""
+    return sum(1 for c in text if 0x0F00 <= ord(c) <= 0x0FFF)
+
+
+def _gap_ceiling(stem: str) -> int:
+    """Max genuine-error gap: the golden baseline's for OCR fixtures, else 0."""
+    golden = _GOLDEN_OCR.get(stem)
+    return golden.max_gap if golden else OCR_ERROR_COUNT_TOLERANCE
+
+
+def _allowed_extra_types(stem: str) -> frozenset[str]:
+    """Error types an OCR fixture may introduce beyond copy-paste; empty for digital."""
+    golden = _GOLDEN_OCR.get(stem)
+    return golden.allowed_extra_error_types if golden else frozenset()
 
 
 def _pdf_pages(pdf_path: Path) -> list:
@@ -122,10 +225,16 @@ def _pdf_pages(pdf_path: Path) -> list:
 
 
 def _load_fixture_cases() -> list[pytest.param]:
-    """Discover all (txt, pdf) fixture pairs under the parity/ directory."""
+    """Discover (txt, pdf) fixture pairs under parity/, minus routing-only ones.
+
+    Routing-only fixtures (e.g. Tashi Gyedpa) keep their .pdf in the directory
+    for test_cmap_detection.py, but are not fidelity cases here.
+    """
     cases = []
     if PARITY_DIR.exists():
         for txt_path in sorted(PARITY_DIR.glob("*.txt")):
+            if txt_path.stem in _ROUTING_ONLY_FIXTURES:
+                continue
             pdf_path = txt_path.with_suffix(".pdf")
             if pdf_path.exists():
                 cases.append(pytest.param(txt_path, pdf_path, id=txt_path.stem))
@@ -196,56 +305,89 @@ class TestPDFPipelineFixtures:
         pdf_errors = spellchecker.check_text(pdf_text)
         pdf_types = _error_types(pdf_errors)
 
-        pdf_only_types = pdf_types - copy_types - TOLERATED_OCR_ONLY_TYPES
+        allowed_extra = _allowed_extra_types(txt_path.stem)
+        pdf_only_types = pdf_types - copy_types - INFO_ONLY_TYPES - allowed_extra
         assert not pdf_only_types, (
             f"[{txt_path.stem}] PDF pipeline introduced unexpected error types:\n"
-            f"  PDF-only:    {sorted(pdf_only_types)}\n"
-            f"  Copy-paste:  {sorted(copy_types)}\n"
-            f"  PDF total:   {sorted(pdf_types)}\n"
-            "This may indicate a text extraction regression or a new error type "
-            "that should be added to TOLERATED_OCR_ONLY_TYPES if expected."
+            f"  PDF-only (new): {sorted(pdf_only_types)}\n"
+            f"  Copy-paste:     {sorted(copy_types)}\n"
+            f"  PDF total:      {sorted(pdf_types)}\n"
+            "For a digital PDF this signals an extraction regression. For a golden "
+            "OCR fixture it means a NEW misread category appeared beyond the recorded "
+            "baseline — review it, then add to the golden allowed_extra_error_types "
+            "only if it is a genuine, acceptable OCR artefact."
         )
 
     @pytest.mark.parametrize("txt_path,pdf_path", _FIXTURE_CASES)
-    def test_genuine_error_count_within_tolerance(self, txt_path, pdf_path, spellchecker):
+    def test_genuine_error_gap_within_golden_ceiling(self, txt_path, pdf_path, spellchecker):
         """
-        The number of genuine (non-noise) spellcheck errors should be within
-        the fixture's tolerance of the copy-paste count.
+        The genuine-error gap between copy-paste and PDF-pipeline output must not
+        exceed the fixture's ceiling: 0 for digital PDFs, or the golden baseline's
+        max_gap for OCR-routed fixtures. A growing gap means the read got worse.
         """
-        tolerance = _PER_FIXTURE_TOLERANCE.get(txt_path.stem, OCR_ERROR_COUNT_TOLERANCE)
+        stem = txt_path.stem
+        ceiling = _gap_ceiling(stem)
 
         ground_truth = txt_path.read_text(encoding="utf-8").strip()
-        copy_errors = spellchecker.check_text(ground_truth)
-        copy_count = _genuine_error_count(copy_errors)
+        copy_count = _genuine_error_count(spellchecker.check_text(ground_truth))
 
         pages = _pdf_pages(pdf_path)
         pdf_text = "\n".join(p.text for p in pages)
-        pdf_errors = spellchecker.check_text(pdf_text)
-        pdf_count = _genuine_error_count(pdf_errors)
+        pdf_count = _genuine_error_count(spellchecker.check_text(pdf_text))
 
-        diff = abs(pdf_count - copy_count)
-        assert diff <= tolerance, (
-            f"[{txt_path.stem}] Genuine error count differs by {diff} "
-            f"(copy-paste: {copy_count}, PDF: {pdf_count}, tolerance: {tolerance}).\n"
-            "For a digital PDF this should be zero — check for a fitz extraction "
-            "regression. For an OCR-routed fixture, update _PER_FIXTURE_TOLERANCE."
-        )
+        gap = abs(pdf_count - copy_count)
+        if stem in _GOLDEN_OCR:
+            assert gap <= ceiling, (
+                f"[{stem}] golden OCR gap grew to {gap} "
+                f"(copy-paste: {copy_count}, OCR: {pdf_count}); golden ceiling is "
+                f"{ceiling}. A larger gap means OCR read this clean page worse. Do NOT "
+                "raise the ceiling to make this pass — see "
+                "docs/planning/OCR_PARITY_BASELINE.md."
+            )
+        else:
+            assert gap <= ceiling, (
+                f"[{stem}] Genuine error count differs by {gap} "
+                f"(copy-paste: {copy_count}, PDF: {pdf_count}, tolerance: {ceiling}). "
+                "For a digital PDF this should be zero — check for a fitz extraction "
+                "regression."
+            )
 
     @pytest.mark.parametrize("txt_path,pdf_path", _FIXTURE_CASES)
     def test_pdf_produces_tibetan_content(self, txt_path, pdf_path):
         """
         Sanity check: the PDF pipeline should extract a non-trivial amount of
-        Tibetan text. Guards against silent extraction failures.
+        Tibetan text. For golden OCR fixtures, also enforce the per-page
+        character floor — a collapsing page is a regression even if the gap
+        barely moves.
         """
+        stem = txt_path.stem
         pages = _pdf_pages(pdf_path)
         all_text = "\n".join(p.text for p in pages)
 
-        tibetan_chars = [c for c in all_text if 0x0F00 <= ord(c) <= 0x0FFF]
-        assert len(tibetan_chars) >= 50, (
-            f"[{txt_path.stem}] PDF pipeline returned too few Tibetan characters "
-            f"({len(tibetan_chars)} < 50). "
+        total_tibetan = _tibetan_char_count(all_text)
+        assert total_tibetan >= 50, (
+            f"[{stem}] PDF pipeline returned too few Tibetan characters "
+            f"({total_tibetan} < 50). "
             "Check that fitz or the OCR engine is working correctly for this PDF."
         )
+
+        golden = _GOLDEN_OCR.get(stem)
+        if golden is None:
+            return
+
+        floors = golden.min_page_tibetan_chars
+        assert len(pages) == len(floors), (
+            f"[{stem}] OCR returned {len(pages)} pages but the golden baseline records "
+            f"{len(floors)}. Re-measure and update min_page_tibetan_chars."
+        )
+        for page, floor in zip(pages, floors):
+            chars = _tibetan_char_count(page.text)
+            assert chars >= floor - _PAGE_CHAR_DROP_SLACK, (
+                f"[{stem}] page {page.page_number} Tibetan-character count dropped to "
+                f"{chars}; golden floor is {floor} (slack {_PAGE_CHAR_DROP_SLACK}). A "
+                "page collapsing like this is a read regression. See "
+                "docs/planning/OCR_PARITY_BASELINE.md — do NOT lower the floor to pass."
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -305,20 +447,23 @@ class TestParityAPIEndpoints:
         )
         ocr_types = _error_types(upload_resp.json()["errors"])
 
-        ocr_only_types = ocr_types - copy_types - TOLERATED_OCR_ONLY_TYPES
+        allowed_extra = _allowed_extra_types(txt_path.stem)
+        ocr_only_types = ocr_types - copy_types - INFO_ONLY_TYPES - allowed_extra
         assert not ocr_only_types, (
             f"[{txt_path.stem}] API: OCR introduced unexpected error types:\n"
-            f"  OCR-only:   {sorted(ocr_only_types)}\n"
-            f"  Copy-paste: {sorted(copy_types)}\n"
-            f"  OCR total:  {sorted(ocr_types)}"
+            f"  OCR-only (new): {sorted(ocr_only_types)}\n"
+            f"  Copy-paste:     {sorted(copy_types)}\n"
+            f"  OCR total:      {sorted(ocr_types)}\n"
+            "A type here is a NEW misread category beyond the golden baseline — "
+            "review before adding to allowed_extra_error_types."
         )
 
     @pytest.mark.parametrize("txt_path,pdf_path", _FIXTURE_CASES)
     def test_api_error_count_parity(self, txt_path, pdf_path, client):
-        """Error counts via the API should be within the fixture's tolerance."""
+        """Error counts via the API should be within the fixture's gap ceiling."""
         if txt_path.stem in _OCR_REQUIRED_FIXTURES and not OCR_AVAILABLE:
             pytest.skip("OCR models/deps unavailable — skipping OCR-required fixture")
-        tolerance = _PER_FIXTURE_TOLERANCE.get(txt_path.stem, OCR_ERROR_COUNT_TOLERANCE)
+        tolerance = _gap_ceiling(txt_path.stem)
 
         ground_truth = txt_path.read_text(encoding="utf-8").strip()
 
@@ -341,7 +486,8 @@ class TestParityAPIEndpoints:
         diff = abs(ocr_count - copy_count)
         assert diff <= tolerance, (
             f"[{txt_path.stem}] API: error count differs by {diff} "
-            f"(copy-paste: {copy_count}, PDF: {ocr_count}, tolerance: {tolerance}).\n"
+            f"(copy-paste: {copy_count}, PDF: {ocr_count}, ceiling: {tolerance}).\n"
             "For a digital PDF this should be zero — check for a fitz extraction "
-            "regression. For an OCR-routed fixture, update _PER_FIXTURE_TOLERANCE."
+            "regression. For an OCR-routed fixture a larger gap means the read "
+            "regressed; see docs/planning/OCR_PARITY_BASELINE.md."
         )
