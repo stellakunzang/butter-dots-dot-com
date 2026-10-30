@@ -929,6 +929,37 @@ class TestExceptedWords:
         assert result is not None, "ལའར should be invalid (ར is not a valid post-suffix)"
 
 
+class TestCommonSanskritAllowlist:
+    """Ubiquitous Sanskrit forms (oṃ, hūṃ, vajra, padma, …) are silently valid.
+
+    They break Tibetan stacking rules but are allowlisted in exceptions.py, so
+    check_syllable returns no error at all (not even an info note). This is the
+    precise, deterministic complement to the heuristic Sanskrit detector.
+    """
+
+    def test_each_common_sanskrit_syllable_is_valid(self):
+        from app.spellcheck.engine import TibetanSpellChecker
+        from app.spellcheck.rules.exceptions import COMMON_SANSKRIT
+
+        engine = TibetanSpellChecker()
+        for syllable in COMMON_SANSKRIT:
+            assert engine.check_syllable(syllable) is None, (
+                f"{syllable} is allowlisted and should be valid, "
+                f"got: {engine.check_syllable(syllable)}"
+            )
+
+    def test_common_sanskrit_silent_in_running_text(self):
+        """No error of any severity (incl. info) on an allowlisted form."""
+        from app.spellcheck.engine import TibetanSpellChecker
+
+        engine = TibetanSpellChecker()
+        # oṃ vajra padma hūṃ between ordinary Tibetan.
+        errors = engine.check_text("ཨོཾ་བཛྲ་པདྨ་ཧཱུྂ་བོད་")
+        flagged = {e.get("word") for e in errors}
+        for syllable in ("ཨོཾ", "བཛྲ", "པདྨ", "ཧཱུྂ"):
+            assert syllable not in flagged, f"{syllable} should be silent; errors: {errors}"
+
+
 class TestBugFix_HaCannotBePrefix:
     """
     Regression test: ཧ (ha) cannot be a prefix consonant.
