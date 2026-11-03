@@ -114,9 +114,7 @@ _GOLDEN_OCR: dict[str, GoldenOCRBaseline] = {
     "menla-sadhana-sanskrit-W28732": GoldenOCRBaseline(
         max_gap=2,
         min_page_tibetan_chars=(753,),
-        allowed_extra_error_types=frozenset(
-            {"consonant_after_vowel", "unparsed_characters"}
-        ),
+        allowed_extra_error_types=frozenset({"consonant_after_vowel", "unparsed_characters"}),
     ),
 }
 

@@ -35,13 +35,13 @@ EXCEPTED_SYLLABLES: frozenset = frozenset(
 # Tibetan word.
 COMMON_SANSKRIT: frozenset = frozenset(
     {
-        'ཨོཾ',    # oṃ
-        'ཨཱཿ',    # āḥ
-        'ཧཱུྂ',   # hūṃ
-        'བཛྲ',    # vajra
-        'པདྨ',    # padma (lotus)
+        'ཨོཾ',  # oṃ
+        'ཨཱཿ',  # āḥ
+        'ཧཱུྂ',  # hūṃ
+        'བཛྲ',  # vajra
+        'པདྨ',  # padma (lotus)
         'སྭཱཧཱ',  # svāhā
-        'ཕཊ',     # phaṭ
+        'ཕཊ',  # phaṭ
     }
 )
 

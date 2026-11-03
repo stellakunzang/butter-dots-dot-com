@@ -47,6 +47,4 @@ def test_horizontal_and_empty_masks_do_not_rotate():
 
 def test_both_entry_points_agree():
     mask = _line_mask(-1.5)
-    assert get_rotation_angle_from_lines(mask) == calculate_rotation_angle_from_lines(
-        mask
-    )
+    assert get_rotation_angle_from_lines(mask) == calculate_rotation_angle_from_lines(mask)
