@@ -69,7 +69,8 @@ jobs:
         run: yarn build
 
   playwright:
-    runs-on: ubuntu-latest
+    # ubuntu-latest is Ubuntu 26.04; Playwright 1.59 cannot install Chromium there.
+    runs-on: ubuntu-24.04
 
     steps:
       - uses: actions/checkout@v4

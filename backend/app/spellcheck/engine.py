@@ -31,6 +31,7 @@ from .validation import (
 )
 from .rules.exceptions import is_excepted
 from .dictionary import DictionaryService
+from .sanskrit import error_on_sanskrit_syllable, find_sanskrit_in_text
 
 
 class TibetanSpellChecker:
@@ -223,6 +224,12 @@ class TibetanSpellChecker:
 
             prev_had_error = error is not None
 
+        # Sanskrit (mantras, dharanis, proper names) is written in Tibetan
+        # script and deliberately breaks Tibetan stacking rules, so a genuine
+        # Sanskrit run would otherwise read as a wall of spelling errors.
+        # Reclassify those to an info-level note instead of dropping them.
+        self._reclassify_sanskrit_errors(text, errors)
+
         # Informational note for non-Tibetan characters
         if non_tibetan_summary['has_non_tibetan']:
             errors.append(
@@ -236,3 +243,39 @@ class TibetanSpellChecker:
             )
 
         return errors
+
+    # Corruption signals that stay hard errors even on a Sanskrit-looking
+    # syllable: these mean the bytes are broken, not that the author chose
+    # Sanskrit, so Sanskrit context must never hide them.
+    _SANSKRIT_PROTECTED_TYPES = frozenset({'encoding_error', 'wrong_unicode'})
+
+    def _reclassify_sanskrit_errors(self, text: str, errors: List[Dict]) -> None:
+        """Downgrade errors sitting on likely-Sanskrit syllables to info notes.
+
+        Keeps the finding visible (the user still sees a "looks like Sanskrit"
+        note) and preserves the original structural reason in
+        ``original_error_type`` so nothing is silently lost.
+        """
+        if not errors:
+            return
+
+        sanskrit_positions, sanskrit_words = find_sanskrit_in_text(text)
+        if not sanskrit_positions and not sanskrit_words:
+            return
+
+        for error in errors:
+            if error.get('error_type') in self._SANSKRIT_PROTECTED_TYPES:
+                continue
+            if error.get('severity') == 'info':
+                continue
+            if not error_on_sanskrit_syllable(error, sanskrit_positions, sanskrit_words):
+                continue
+
+            error['original_error_type'] = error.get('error_type')
+            error['error_type'] = 'foreign_transliteration'
+            error['severity'] = 'info'
+            word = error.get('word', '')
+            error['message'] = (
+                f"'{word}' looks like Sanskrit transliteration written in "
+                f"Tibetan script, not a Tibetan spelling error."
+            )

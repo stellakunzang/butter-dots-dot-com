@@ -24,6 +24,11 @@ logger = logging.getLogger(__name__)
 # Minimum number of characters to consider a page "digital" (has embedded text)
 DIGITAL_TEXT_THRESHOLD = 10
 
+# A single embedded scan must be at least this many pixels on its shorter side
+# before we OCR it natively (below this we fall back to page rendering). Real
+# scans are thousands of pixels; this only rejects degenerate tiny images.
+_MIN_NATIVE_IMAGE_PX = 500
+
 
 @dataclass
 class WordPosition:
@@ -112,10 +117,82 @@ def extract_digital(pdf_bytes: bytes) -> list[PageContent]:
     return pages
 
 
+def _native_scan_image(doc, page):
+    """Return a page's embedded scan as a native-resolution BGR array, or None.
+
+    A scanned page is typically a single full-page raster with no extractable
+    text. Rendering such a page at a fixed DPI shrinks an image that sits small
+    on the page (e.g. a wide pecha strip dropped into a US-Letter page) down to
+    a thin band, starving OCR of detail. Reading the embedded image at its
+    native pixels avoids that and is more faithful than any re-render.
+
+    Returns None for pages that are not a single sufficiently large image
+    (vector, mixed, or text-bearing pages), so the caller renders them instead.
+    """
+    import cv2
+    import numpy as np
+
+    # Text-bearing pages (incl. broken-CMap digital PDFs) need the rendered
+    # glyphs, not an embedded raster — leave them to the render path.
+    if page.get_text().strip():
+        return None
+
+    images = page.get_images(full=True)
+    if len(images) != 1:
+        return None
+
+    xref = images[0][0]
+    try:
+        extracted = doc.extract_image(xref)
+        arr = cv2.imdecode(np.frombuffer(extracted["image"], np.uint8), cv2.IMREAD_COLOR)
+    except Exception:
+        return None
+    if arr is None or min(arr.shape[:2]) < _MIN_NATIVE_IMAGE_PX:
+        return None
+
+    # Honour the page's /Rotate so text comes out upright as the page intends.
+    rotation = page.rotation % 360
+    if rotation == 90:
+        arr = cv2.rotate(arr, cv2.ROTATE_90_CLOCKWISE)
+    elif rotation == 180:
+        arr = cv2.rotate(arr, cv2.ROTATE_180)
+    elif rotation == 270:
+        arr = cv2.rotate(arr, cv2.ROTATE_90_COUNTERCLOCKWISE)
+    return arr
+
+
+def _native_scan_images(pdf_bytes: bytes) -> dict:
+    """Map page_number → native BGR scan image for single-image scan pages.
+
+    Empty when fitz cannot parse the bytes, in which case the caller renders
+    every page (preserving the original behaviour).
+    """
+    import fitz
+
+    result: dict[int, "object"] = {}
+    try:
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    except Exception:
+        return result
+    try:
+        for pno in range(doc.page_count):
+            img = _native_scan_image(doc, doc[pno])
+            if img is not None:
+                result[pno + 1] = img
+    finally:
+        doc.close()
+    return result
+
+
 def extract_scanned(pdf_bytes: bytes) -> list[PageContent]:
     """
-    Convert each PDF page to an image, run BDRC OCR, return PageContent with
-    line-level text and bounding boxes.
+    Run BDRC OCR on each page, returning PageContent with line-level text and
+    bounding boxes.
+
+    For each page we prefer the embedded full-page scan at its native
+    resolution (see _native_scan_image). Pages that are not a single full-page
+    image fall back to rendering at 300 DPI, one page at a time so the whole
+    file is never held in memory at once.
     """
     import cv2
     import numpy as np
@@ -126,24 +203,29 @@ def extract_scanned(pdf_bytes: bytes) -> list[PageContent]:
     if not engine.ready:
         raise RuntimeError(f"OCR engine unavailable: {engine.error}")
 
-    # Render one page at a time. convert_from_bytes on the whole file holds
-    # every 300 DPI image in memory at once.
+    native_images = _native_scan_images(pdf_bytes)
+
     total_pages = int(pdfinfo_from_bytes(pdf_bytes)["Pages"])
     pages: list[PageContent] = []
 
     for page_number in range(1, total_pages + 1):
         logger.info("OCR: processing page %d of %d", page_number, total_pages)
-        rendered = convert_from_bytes(
-            pdf_bytes,
-            dpi=300,
-            first_page=page_number,
-            last_page=page_number,
-        )
-        pil_img = rendered[0]
-        try:
-            # Convert PIL → BGR numpy array for BDRC pipeline
+
+        img_bgr = native_images.get(page_number)
+        pil_img = None
+        if img_bgr is None:
+            rendered = convert_from_bytes(
+                pdf_bytes,
+                dpi=300,
+                first_page=page_number,
+                last_page=page_number,
+            )
+            pil_img = rendered[0]
             img_rgb = np.array(pil_img)
             img_bgr = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR)
+
+        try:
+            height, width = float(img_bgr.shape[0]), float(img_bgr.shape[1])
 
             ocr_lines = engine.run_on_image(img_bgr)
 
@@ -170,12 +252,13 @@ def extract_scanned(pdf_bytes: bytes) -> list[PageContent]:
                     text=text,
                     words=words,
                     is_scanned=True,
-                    width=float(pil_img.width),
-                    height=float(pil_img.height),
+                    width=width,
+                    height=height,
                 )
             )
         finally:
-            pil_img.close()
+            if pil_img is not None:
+                pil_img.close()
 
     return pages
 

@@ -14,6 +14,7 @@ This directory is vendored from [`buda-base/tibetan-ocr-app`](https://github.com
 
 ### `line_detection.py`
 - Rotation-angle sign fix in `get_rotation_angle_from_lines` and `calculate_rotation_angle_from_lines`: `abs()` applied to both low- and high-angle filters, and the high-angle formula corrected from `-(90 - mean)` to `90 + mean`. Modern OpenCV returns angles in `[-90°, 0°)`, so near-90° tilts come back negative — the old form lost the sign.
+- Local mod (OpenCV 4.9.0.80): that `90 + mean` form turns a near-90° rectangle into ~180° and flips upright pages. Both functions now share `_mean_line_skew`, which folds the rectangle angle into a tilt inside `(-max_angle, max_angle)` and returns 0 otherwise. Keep this on the next sync.
 - `max_angle` lowered from 5.0° to 2.0° to reject implausibly large rotations.
 - `filter_line_contours`: width threshold relaxed from 0.01 to 0.005, height floor from 10 to 3, and now logs why everything was rejected when zero contours pass.
 - New `split_tall_contours()` + `split_tall_lines()` to break apart contours that span multiple text rows (a recurring failure mode where pixel bridges merge adjacent lines).

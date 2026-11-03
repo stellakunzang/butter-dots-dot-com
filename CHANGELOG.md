@@ -8,6 +8,24 @@ and this project uses
 
 ---
 
+## [0.8.0] - 2026-10-30
+
+### Fixed
+
+- Scanned PDFs where the scan sits inside a larger page (for example a wide
+  pecha strip placed on a letter-size page) now read correctly instead of
+  coming back empty.
+- Rotated or slightly skewed scanned pages are no longer occasionally flipped
+  upside down during text-line detection.
+
+### Changed
+
+- Sanskrit mantras and dharanis written in Tibetan script are now shown as
+  informational notes rather than spelling errors, and the common forms
+  (oṃ, āḥ, hūṃ, vajra, padma, svāhā, phaṭ) are accepted silently.
+
+---
+
 ## [0.7.1] - 2026-10-22
 
 ### Fixed

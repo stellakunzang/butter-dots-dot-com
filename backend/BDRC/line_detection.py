@@ -104,6 +104,57 @@ def mask_n_crop(image: np.array, mask: np.array) -> np.array:
     return image_masked
 
 
+def _horizontal_deviation(angle: float) -> float:
+    """Fold a minAreaRect angle into the long edge's tilt from horizontal.
+
+    OpenCV 4.9 reports angles in [0, 90]. A nearly horizontal text line comes
+    back either as a small positive angle or as a value just under 90. Those
+    are the same tilt with opposite signs: 89.2° is a line leaned about -0.8°,
+    not a request to rotate the page by 179°. Folding keeps the result inside
+    (-45, 45]. Angles below -45 are handled so an older OpenCV build, which
+    reported [-90, 0), folds the same way.
+    """
+    if angle > 45.0:
+        angle -= 90.0
+    elif angle < -45.0:
+        angle += 90.0
+    return float(angle)
+
+
+def _mean_line_skew(
+    line_mask: npt.NDArray,
+    max_angle: float,
+    debug_angles: bool,
+) -> float:
+    """Mean tilt of detected lines, or 0 when nothing falls inside max_angle.
+
+    max_angle is a limit on the correction, not only on which raw rectangle
+    angles are inspected. A result outside that limit is dropped. That is what
+    stops a clockwise line from flipping the page.
+    """
+    contours, _ = cv2.findContours(line_mask, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+    mask_threshold = (line_mask.shape[0] * line_mask.shape[1]) * 0.001
+    contours = [x for x in contours if cv2.contourArea(x) > mask_threshold]
+    if not contours:
+        return 0.0
+
+    raw_angles = [cv2.minAreaRect(x)[2] for x in contours]
+    deviations = [_horizontal_deviation(angle) for angle in raw_angles]
+    kept = [angle for angle in deviations if 0.0 < abs(angle) < max_angle]
+
+    if debug_angles:
+        print(f"All Angles: {raw_angles}")
+        print(f"Horizontal deviations: {deviations}")
+
+    if not kept:
+        return 0.0
+
+    mean_angle = float(np.mean(kept))
+    if abs(mean_angle) >= max_angle:
+        return 0.0
+    return mean_angle
+
+
 def get_rotation_angle_from_lines(
     line_mask: npt.NDArray,
     max_angle: float = 2.0,
@@ -111,37 +162,16 @@ def get_rotation_angle_from_lines(
 ) -> float:
     """
     Calculate rotation angle from detected lines in a mask.
-    
+
     Args:
         line_mask: Binary mask containing line detections
-        max_angle: Maximum angle threshold for filtering
+        max_angle: Largest correction, in degrees, that may be returned
         debug_angles: Whether to print angle information
-        
+
     Returns:
-        Mean rotation angle in degrees
+        Mean rotation angle in degrees, always inside (-max_angle, max_angle)
     """
-    contours, _ = cv2.findContours(line_mask, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
-    mask_threshold = (line_mask.shape[0] * line_mask.shape[1]) * 0.001
-    contours = [x for x in contours if cv2.contourArea(x) > mask_threshold]
-    angles = [cv2.minAreaRect(x)[2] for x in contours]
-
-    low_angles = [x for x in angles if abs(x) != 0.0 and abs(x) < max_angle]
-    # Modern OpenCV returns angles in [-90°, 0°), so near-90° tilts come back as
-    # e.g. -88.6° rather than +88.6°.  Use abs() so both signs are caught.
-    high_angles = [x for x in angles if abs(x) != 90.0 and abs(x) > (90 - max_angle)]
-
-    if debug_angles:
-        print(f"All Angles: {angles}")
-
-    if len(low_angles) > len(high_angles) and len(low_angles) > 0:
-        mean_angle = np.mean(low_angles)
-    # check for clockwise rotation (near-90° angles encode small tilt as 90+angle)
-    elif len(high_angles) > 0:
-        mean_angle = 90 + np.mean(high_angles)
-    else:
-        mean_angle = 0
-
-    return mean_angle
+    return _mean_line_skew(line_mask, max_angle, debug_angles)
 
 
 def calculate_rotation_angle_from_lines(
@@ -151,42 +181,11 @@ def calculate_rotation_angle_from_lines(
 ) -> float:
     """
     Calculate rotation angle from detected lines with improved handling.
-    
-    Args:
-        line_mask: Binary mask containing line detections
-        max_angle: Maximum angle threshold for filtering
-        debug_angles: Whether to print angle information
-        
-    Returns:
-        Mean rotation angle in degrees
+
+    Same estimate as get_rotation_angle_from_lines. Kept as a separate entry
+    point because Utils.post_process_prediction calls this name.
     """
-    contours, _ = cv2.findContours(line_mask, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
-    mask_threshold = (line_mask.shape[0] * line_mask.shape[1]) * 0.001
-    contours = [x for x in contours if cv2.contourArea(x) > mask_threshold]
-    
-    # Check if contours is empty before proceeding
-    if not contours:
-        return 0.0
-        
-    angles = [cv2.minAreaRect(x)[2] for x in contours]
-
-    low_angles = [x for x in angles if abs(x) != 0.0 and abs(x) < max_angle]
-    # Modern OpenCV returns angles in [-90°, 0°), so near-90° tilts come back as
-    # e.g. -88.6° rather than +88.6°.  Use abs() so both signs are caught.
-    high_angles = [x for x in angles if abs(x) != 90.0 and abs(x) > (90 - max_angle)]
-
-    if debug_angles:
-        print(f"All Angles: {angles}")
-
-    if len(low_angles) > len(high_angles) and len(low_angles) > 0:
-        mean_angle = np.mean(low_angles)
-    # check for clockwise rotation (near-90° angles encode small tilt as 90+angle)
-    elif len(high_angles) > 0:
-        mean_angle = 90 + np.mean(high_angles)
-    else:
-        mean_angle = 0.0
-
-    return mean_angle
+    return _mean_line_skew(line_mask, max_angle, debug_angles)
 
 
 def build_line_data(contour: np.array, optimize: bool = True) -> Line:

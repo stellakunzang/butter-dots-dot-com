@@ -143,3 +143,97 @@ def score_sanskrit_likelihoods(
         else:
             scores.append(base)
     return scores
+
+
+# ---------------------------------------------------------------------------
+# Text-level detection helpers.
+#
+# Shared by the spellcheck engine (to reclassify Sanskrit runs) and the OCR
+# quality scorer (to exclude Sanskrit from the error signal), so both agree on
+# what counts as Sanskrit instead of drifting apart.
+# ---------------------------------------------------------------------------
+
+_parser = None
+
+
+def _get_parser():
+    """Lazily build and cache the syllable parser.
+
+    Lazy so importing this module stays cheap and dependency-light — the parser
+    is only constructed when text-level detection actually runs.
+    """
+    global _parser
+    if _parser is None:
+        from .syllable_parser import TibetanSyllableParser
+
+        _parser = TibetanSyllableParser()
+    return _parser
+
+
+def split_tibetan_syllables_with_position(text: str) -> list[tuple[str, int]]:
+    """Split ``text`` into ``(syllable, original_position)`` pairs, Tibetan only.
+
+    Normalizes first (same as the spellchecker) and maps each syllable's offset
+    back to a position in the ORIGINAL text, so positions line up with the
+    ``position`` field on spellcheck errors.
+    """
+    from .normalizer import is_tibetan_char, normalize_tibetan_with_position_map
+    from .splitter import split_syllables_with_position
+
+    normalized, pos_map = normalize_tibetan_with_position_map(text)
+    syllables: list[tuple[str, int]] = []
+    for item in split_syllables_with_position(normalized):
+        syl = item["syllable"]
+        if not any(is_tibetan_char(c) for c in syl):
+            continue
+        norm_pos = item["position"]
+        mapped = pos_map[norm_pos] if norm_pos < len(pos_map) else norm_pos
+        syllables.append((syl, mapped))
+    return syllables
+
+
+def sanskrit_syllable_positions(
+    tibetan_syllables: Sequence[tuple[str, int]],
+) -> tuple[set[int], set[str]]:
+    """Positions and strings of the Sanskrit-likely syllables in a sequence.
+
+    The scorer is context-sensitive (a syllable gets a clustering bonus from its
+    neighbours), so the run is scored as one ordered sequence. Returns both the
+    original-text positions (precise exclusion) and the syllable strings (a
+    fallback for errors that carry no position).
+    """
+    if not tibetan_syllables:
+        return set(), set()
+    parser = _get_parser()
+    parsed = [parser.parse_to_model(s) for s, _ in tibetan_syllables]
+    likelihoods = score_sanskrit_likelihoods(parsed)
+    positions: set[int] = set()
+    words: set[str] = set()
+    for (syl, pos), score in zip(tibetan_syllables, likelihoods):
+        if score >= LIKELY_SANSKRIT_THRESHOLD:
+            positions.add(pos)
+            words.add(syl)
+    return positions, words
+
+
+def find_sanskrit_in_text(text: str) -> tuple[set[int], set[str]]:
+    """Convenience: split ``text`` and return its Sanskrit-likely positions/words."""
+    return sanskrit_syllable_positions(split_tibetan_syllables_with_position(text))
+
+
+def error_on_sanskrit_syllable(
+    error: dict,
+    sanskrit_positions: set[int],
+    sanskrit_words: set[str],
+) -> bool:
+    """Whether an error sits on a Sanskrit-likely syllable.
+
+    Prefers a position match (so a syllable flagged Sanskrit inside a mantra
+    does not suppress a genuine error on the same string elsewhere). Falls back
+    to the syllable string for errors that carry no ``position`` (e.g.
+    hand-crafted inputs in unit tests).
+    """
+    position = error.get("position")
+    if position is not None:
+        return position in sanskrit_positions
+    return error.get("word") in sanskrit_words
