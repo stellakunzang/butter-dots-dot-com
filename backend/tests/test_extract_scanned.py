@@ -98,7 +98,11 @@ def test_extract_scanned_prefers_native_image_over_render(monkeypatch):
         convert_calls.append(_kwargs)
         raise AssertionError("native path should not render this page")
 
+    def fake_info(_pdf_bytes):
+        return {"Pages": 1}
+
     monkeypatch.setattr("app.pdf.ocr.get_engine", lambda: engine)
+    monkeypatch.setattr("pdf2image.pdfinfo_from_bytes", fake_info)
     monkeypatch.setattr("pdf2image.convert_from_bytes", fail_convert)
 
     pages = extract_scanned(pdf_bytes)
