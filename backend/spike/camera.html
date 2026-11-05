@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Continuity Camera spike</title>
+  <style>
+    body { font: 15px/1.4 system-ui, sans-serif; max-width: 960px; margin: 24px auto; padding: 0 16px; }
+    video, img { width: 100%; background: #111; }
+    label, button, select { font: inherit; }
+    select { min-width: 16rem; }
+    .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin: 12px 0; }
+    pre { background: #f4f4f0; padding: 12px; overflow: auto; }
+    .hint { color: #555; }
+  </style>
+</head>
+<body>
+  <h1>Continuity Camera spike</h1>
+  <p class="hint">
+    Chrome on Mac. Pick the iPhone, not FaceTime HD.
+    Phone: landscape, screen off, still, unobstructed.
+    Close Photo Booth / FaceTime first — only one Continuity session at a time.
+  </p>
+
+  <div class="row">
+    <button id="enable">Enable camera</button>
+    <label>Device
+      <select id="devices" disabled></select>
+    </label>
+    <button id="start" disabled>Start preview</button>
+    <button id="capture" disabled>Capture still</button>
+  </div>
+
+  <video id="preview" autoplay playsinline muted></video>
+  <p id="status" class="hint">Not started.</p>
+  <pre id="log"></pre>
+  <img id="still" alt="captured still" hidden />
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const logEl = $("log");
+    const preview = $("preview");
+    let stream = null;
+
+    function log(msg, extra) {
+      const line = extra ? `${msg} ${JSON.stringify(extra, null, 2)}` : msg;
+      logEl.textContent += line + "\n";
+      $("status").textContent = msg;
+    }
+
+    async function stopStream() {
+      if (!stream) return;
+      stream.getTracks().forEach((t) => t.stop());
+      stream = null;
+      preview.srcObject = null;
+    }
+
+    async function listDevices() {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videos = devices.filter((d) => d.kind === "videoinput");
+      const select = $("devices");
+      select.innerHTML = "";
+      videos.forEach((d, i) => {
+        const opt = document.createElement("option");
+        opt.value = d.deviceId;
+        opt.textContent = d.label || `camera ${i + 1}`;
+        select.appendChild(opt);
+      });
+      const iphone = videos.find((d) => /iphone/i.test(d.label));
+      if (iphone) select.value = iphone.deviceId;
+      select.disabled = videos.length === 0;
+      $("start").disabled = videos.length === 0;
+      log(`Found ${videos.length} video input(s).`, videos.map((d) => d.label || "(no label)"));
+    }
+
+    $("enable").onclick = async () => {
+      try {
+        const bootstrap = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        bootstrap.getTracks().forEach((t) => t.stop());
+        await listDevices();
+      } catch (err) {
+        log(`Permission failed: ${err.name} ${err.message}`);
+      }
+    };
+
+    $("start").onclick = async () => {
+      await stopStream();
+      const deviceId = $("devices").value;
+      const constraints = {
+        audio: false,
+        video: {
+          deviceId: { exact: deviceId },
+          width: { ideal: 3840 },
+          height: { ideal: 2160 },
+        },
+      };
+      try {
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
+        preview.srcObject = stream;
+        const track = stream.getVideoTracks()[0];
+        $("capture").disabled = false;
+        log("Preview started.", {
+          label: track.label,
+          settings: track.getSettings(),
+          capabilities: track.getCapabilities?.() || null,
+        });
+      } catch (err) {
+        log(`Stream failed: ${err.name} ${err.message}`);
+      }
+    };
+
+    async function stillFromImageCapture(track) {
+      if (typeof ImageCapture !== "function") return null;
+      try {
+        const blob = await new ImageCapture(track).takePhoto();
+        return { blob, method: "ImageCapture.takePhoto" };
+      } catch (err) {
+        log(`ImageCapture failed, falling back to canvas: ${err.message}`);
+        return null;
+      }
+    }
+
+    function stillFromCanvas() {
+      const canvas = document.createElement("canvas");
+      canvas.width = preview.videoWidth;
+      canvas.height = preview.videoHeight;
+      canvas.getContext("2d").drawImage(preview, 0, 0);
+      return new Promise((resolve) => {
+        canvas.toBlob((blob) => resolve({ blob, method: "canvas.drawImage" }), "image/jpeg", 0.95);
+      });
+    }
+
+    $("capture").onclick = async () => {
+      const track = stream?.getVideoTracks()[0];
+      if (!track) return;
+      const grabbed = (await stillFromImageCapture(track)) || (await stillFromCanvas());
+      if (!grabbed?.blob) {
+        log("Capture produced no blob.");
+        return;
+      }
+      const url = URL.createObjectURL(grabbed.blob);
+      const img = $("still");
+      img.src = url;
+      img.hidden = false;
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "leaf-2-chrome.jpg";
+      a.click();
+      log("Captured still. Drop it in backend/spike/stills/leaf-2-chrome.jpg", {
+        method: grabbed.method,
+        type: grabbed.blob.type,
+        bytes: grabbed.blob.size,
+        video: { width: preview.videoWidth, height: preview.videoHeight },
+      });
+    };
+  </script>
+</body>
+</html>
