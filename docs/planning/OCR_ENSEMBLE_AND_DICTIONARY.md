@@ -63,13 +63,7 @@ Prerequisite: a decision on hosting and a reachable database. Until then the vot
 
 **Today.** Golden OCR fixtures (`_GOLDEN_OCR` in `test_ocr_parity.py`) pin production reads: one model (`OCR_MODEL_NAME`, Woodblock), no vote, spellcheck with the dictionary **off**. CI has no database and no ONNX models, so the golden tests skip in CI. They are a local wall.
 
-**Known gap, already true today.** The parity tests depend on whether a database is reachable. With the local `tibetan_db` running, the dictionary turns on, `unknown_word` errors appear, and 6 existing golden tests fail even with no code change. Until that is fixed, run parity with the dictionary off:
-
-```
-cd backend && DATABASE_URL=postgresql://none@127.0.0.1:1/none pytest tests/test_ocr_parity.py
-```
-
-The fix is to pin the parity tests to dictionary-off (inject an unavailable `DictionaryService`), and later to measure golden baselines in both modes.
+**Dictionary pinned off.** The parity tests used to depend on whether a database was reachable: with the local `tibetan_db` running, `unknown_word` errors appeared and 6 golden tests failed with no code change. The `_dictionary_off` fixture in `test_ocr_parity.py` now makes the database look unreachable and resets the API's cached checker, so local runs and CI measure the same thing. Golden baselines in dictionary-on mode would be a second set of numbers (below).
 
 **If the vote ships** (local interactive OCR / live capture first):
 
