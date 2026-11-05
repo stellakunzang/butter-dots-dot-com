@@ -13,6 +13,9 @@ Covers the A/C from T-04:
 from datetime import datetime
 from pathlib import Path
 
+import cv2
+import fitz
+import numpy as np
 import pytest
 from PIL import Image
 
@@ -129,6 +132,55 @@ class TestCreateJob:
                 jobs_root=tmp_path,
                 job_id="fixed-id",
             )
+
+
+def _scan(seed: int) -> np.ndarray:
+    """A 600x800 noise image: big enough for the native path, lossless as PNG."""
+    return np.random.default_rng(seed).integers(0, 256, (600, 800, 3), dtype=np.uint8)
+
+
+def _pdf(pages: list) -> bytes:
+    """A PDF whose pages are single embedded PNG scans, or text where a page is a str."""
+    doc = fitz.open()
+    for page in pages:
+        if isinstance(page, str):
+            doc.new_page(width=612, height=792).insert_text((72, 72), page)
+        else:
+            h, w = page.shape[:2]
+            ok, png = cv2.imencode(".png", page)
+            doc.new_page(width=w, height=h).insert_image(
+                fitz.Rect(0, 0, w, h), stream=png.tobytes()
+            )
+    return doc.tobytes()
+
+
+class TestCreateJobPageImages:
+    """Pages must hold the pixels production OCR reads (extract_pdf's native path)."""
+
+    def test_scan_pages_keep_native_pixels_without_rendering(self, tmp_path, monkeypatch):
+        def _no_render(pdf_bytes, *, dpi):
+            raise AssertionError("an all-scan PDF must not be rendered")
+
+        monkeypatch.setattr(job_store, "_render_pdf", _no_render)
+        scans = [_scan(1), _scan(2)]
+        job = create_job(_pdf(scans), "scan.pdf", {}, tmp_path)
+
+        for i, scan in enumerate(scans, start=1):
+            stored = cv2.imread(str(job.root / f"page-{i:03d}" / PAGE_IMAGE_FILE))
+            assert np.array_equal(stored, scan)
+
+    def test_mixed_pdf_renders_only_where_there_is_no_scan(self, tmp_path, monkeypatch):
+        rendered = Image.new("RGB", (40, 40), "white")
+        monkeypatch.setattr(
+            job_store, "_render_pdf", lambda pdf_bytes, *, dpi: [rendered, rendered]
+        )
+        scan = _scan(3)
+        job = create_job(_pdf([scan, "a text page"]), "mixed.pdf", {}, tmp_path)
+
+        page1 = cv2.imread(str(job.root / "page-001" / PAGE_IMAGE_FILE))
+        page2 = cv2.imread(str(job.root / "page-002" / PAGE_IMAGE_FILE))
+        assert np.array_equal(page1, scan)
+        assert page2.shape[:2] == (40, 40)
 
 
 class TestSavePageAttempt:
