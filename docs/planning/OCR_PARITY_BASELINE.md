@@ -1,6 +1,6 @@
 # OCR parity baseline
 
-**Status:** Two golden fixtures locked (30 Oct 2026). Rotation flip fixed
+**Status:** Four golden fixtures: two W28732 scans (30 Oct 2026) and two pecha photos from the live-capture spike (5 Nov 2026, see step 5). Rotation flip fixed
 (29 Oct 2026). Tashi Gyedpa demoted to routing-only. Fidelity coverage is now
 **golden** fixtures — clean, in-distribution BDRC scans measured against
 hand-typed transcriptions. Also landed in this pass: a native-image OCR path in
@@ -84,8 +84,9 @@ Plain text is 2091 Tibetan characters and 5 genuine errors (today's engine).
 | Where | Its own branch, `test/ocr-parity-baseline`. Not mixed into upload hardening or the vision/diagnostician cut. |
 | What a golden baseline means | A tight gap + per-page floors measured once on a clean, in-distribution scan against a trusted transcription. The wall fails if the gap grows or a page collapses. Ideal gap is 0; a larger measured value states the engine's real ceiling on that page. |
 | Tashi Gyedpa | Routing-only (`_ROUTING_ONLY_FIXTURES`). Rendered glyphs are out-of-distribution modern uchen; it will never read perfectly, so it is not a fidelity fixture. Cmap routing tests keep its `.pdf`. |
-| Golden fixture source | A clean scan of real Tibetan text that is in-distribution for BDRC (pecha / woodblock / book), not a phone photo and not a modern Word-font render. Phone capture noise belongs to `LIVE_PECHA_CAPTURE.md`. |
-| Ground truth | Typed from, or verified against, a trusted digital edition — never transcribed from the OCR output, which would make the test circular. |
+| Golden fixture source | A clean scan of real Tibetan text that is in-distribution for BDRC (pecha / woodblock / book), not a modern Word-font render. **Revised 5 Nov 2026:** pecha photos are allowed as a separate tier (`pecha-photo-*`), pinned at their measured read, because they are the only guard for the photo-specific line fixes. See step 5. |
+| Ground truth | Typed from, or verified against, a trusted digital edition or the physical page — never OCR output accepted as-is, which would make the test circular. The photo transcriptions started as OCR drafts with suspect syllables flagged and were corrected line by line against the leaf. Risk: a plausible misread can survive review. Re-check against the leaf if a photo fixture's read moves. |
+| Dictionary | Baselines are measured with the spellcheck dictionary **off** (no reachable database), as in CI. With the local `tibetan_db` running, `unknown_word` errors appear and 6 existing golden tests fail with no code change. Run parity with `DATABASE_URL=postgresql://none@127.0.0.1:1/none` until the tests pin dictionary-off. See [OCR_ENSEMBLE_AND_DICTIONARY.md](OCR_ENSEMBLE_AND_DICTIONARY.md). |
 | Rotation formula | Fixed 29 Oct 2026 via `_mean_line_skew`'s fold into ±`max_angle` (see "Rotation fix"). |
 | Scan rendering | `extract_scanned` OCRs the embedded full-page image at native resolution for single-image pages (honouring `/Rotate`), falling back to a 300-DPI page render otherwise. Fixes scans wrapped in a larger page reading blank. |
 | Sanskrit in the engine | `check_text` reclassifies errors on likely-Sanskrit syllables to info-level `foreign_transliteration` (critical encoding errors excepted). Detection is centralized in `sanskrit.py` and shared with `quality.py`. |
@@ -162,6 +163,27 @@ Earlier capture attempts (29 Oct 2026), for the record:
 baseline, the per-page floors, the slow-marker/models caveat, and the local
 pytest command. The "raise the tolerance" guidance is removed.
 
+### 5. Photo goldens and the line-fit fixes — DONE (5 Nov 2026)
+
+The live-capture spike ([LIVE_PECHA_CAPTURE.md](LIVE_PECHA_CAPTURE.md)) changed three things in the vendored BDRC pipeline. All three run on every scanned PDF in production:
+
+- `whiten_rule_above` paints out a frame rule above line 1.
+- `first_line_top_bound` re-cuts line 1 one median line gap above its box, at the `k_factor` it already adapted to.
+- `add_vertical_margin` pads a line whose ink would fill more than 95% of the model window height.
+
+The W28732 goldens did not move (tibetan-baseline edit distance 31 → 30, menla unchanged). One exception: on menla, the cleaner line-1 crop changes the misread seed syllable ཧཱུྃ from `ཧ-H` to `ཧར-MH` (same edit distance), so `invalid_post_suffix` was added to menla's `allowed_extra`.
+
+Two Continuity Camera stills of one pecha (Photo Booth, 1470×980), wrapped as single-image PDFs with the JPEG bytes unchanged so they take the production native-image path:
+
+| Stem | Role | max_gap | Floor | allowed_extra | Guards |
+| --- | --- | --- | --- | --- | --- |
+| `pecha-photo-leaf1-prose` | Six lines of uchen prose under a thin frame rule | 1 | 823 | `invalid_post_suffix` | first-line bound, rule whitening |
+| `pecha-photo-leaf2-section-opening` | Yig mgo, an outline of སྒྲུབ / སྒྲོལ stacks, ༔ marks, then prose. A hard page, pinned at today's read | 3 | 436 | `invalid_subscript_combination`, `invalid_suffix`, `multiple_vowels` | vertical margin (fires only here), rule whitening, first-line bound |
+
+Disabling any one of the three fixes fails at least one photo fixture.
+
+**The error gap undercounts photo misreads.** Leaf 2's gap is 3, but Woodblock gets 5.1% of characters wrong. Most misreads are valid syllables (སྐྲབ for སྒྲུབ), which spellcheck cannot see. A CER ceiling against the transcription would be a stronger wall. See [OCR_ENSEMBLE_AND_DICTIONARY.md](OCR_ENSEMBLE_AND_DICTIONARY.md).
+
 ---
 
 ## Out of scope
@@ -169,5 +191,5 @@ pytest command. The "raise the tolerance" guidance is removed.
 - Raising `max_gap` or lowering a page floor to make a failing read pass.
 - Making Tashi Gyedpa (or any out-of-distribution font render) a fidelity fixture.
 - Downloading ONNX models in GitHub Actions.
-- Phone-photo fixtures until recognition is clean. See `LIVE_PECHA_CAPTURE.md`.
+- Treating a photo fixture's ceiling as a target. The `pecha-photo-*` ceilings record today's read. Tighten them when the read improves.
 - Vision or the diagnostician as a way to pass the test.
