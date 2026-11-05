@@ -630,6 +630,64 @@ def find_folio_marker_end(line_mask: npt.NDArray, line: "Line",
     return x + gap_end_relative  # absolute x in the full image
 
 
+def rule_bottom_above(image: npt.NDArray, x: int, y: int, w: int,
+                      min_coverage: float = 0.5) -> int:
+    """Row just below the lowest horizontal rule above a line, or 0 if none.
+
+    A rule is a row where dark runs at least a quarter of the line wide cover
+    ``min_coverage`` of the line's span. Text never makes runs that long; thin
+    gray photo rules and solid scan rules both do.
+    """
+    if y <= 0 or w <= 0:
+        return 0
+    region = image[:y, x:x + w]
+    gray = cv2.cvtColor(region, cv2.COLOR_BGR2GRAY) if region.ndim == 3 else region
+    ink = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C,
+                                cv2.THRESH_BINARY_INV, 31, 10)
+    run = cv2.getStructuringElement(cv2.MORPH_RECT, (max(w // 4, 25), 1))
+    coverage = cv2.morphologyEx(ink, cv2.MORPH_OPEN, run).mean(axis=1) / 255
+    rule_rows = np.flatnonzero(coverage >= min_coverage)
+    if rule_rows.size == 0:
+        return 0
+    return int(rule_rows[-1]) + 1
+
+
+FIRST_LINE_REACH = 1.0
+
+
+def first_line_top_bound(line_data: List[Line], y: int) -> int:
+    """Top clip for the first line: FIRST_LINE_REACH median line gaps above it, or 0.
+
+    Every other line is clipped at the midpoint to its upper neighbour. The
+    first has none, so its dilation runs up into blank margin; on pecha photos
+    that left ~40 rows of paper over a 25px line and shrank it in the model
+    window (issue #79). The gap is measured between detected boxes, which sit
+    inside the ink, so vowel marks above the box fit within it.
+    """
+    gaps = [b.bbox.y - (a.bbox.y + a.bbox.h) for a, b in zip(line_data, line_data[1:])]
+    gaps = [g for g in gaps if g > 0]
+    if not gaps:
+        return 0
+    return max(0, y - int(FIRST_LINE_REACH * float(np.median(gaps))))
+
+
+def whiten_rule_above(image: npt.NDArray, x: int, y: int, w: int) -> npt.NDArray:
+    """Copy of ``image`` with everything down to a frame rule above the line painted white.
+
+    The first line has no neighbor above, so ``k_factor`` dilation can reach a
+    pecha frame rule and garble line 1 (issue #79). Painting the rule out keeps
+    the crop's geometry as-is: moving its top bound instead changes the
+    ``k_factor`` that ``extract_line_images`` carries to every later line, and
+    a fixed pad off the contour cuts gi-gu that sit ~20px above it on scans.
+    """
+    bottom = rule_bottom_above(image, x, y, w)
+    if bottom == 0:
+        return image
+    painted = image.copy()
+    painted[:bottom] = 255
+    return painted
+
+
 def extract_line_images(image: npt.NDArray, line_data: List[Line], default_k: float = 1.7, bbox_tolerance: float = 3, line_mask: npt.NDArray = None):
     """
     Extract individual line images from detected line data.
@@ -652,8 +710,10 @@ def extract_line_images(image: npt.NDArray, line_data: List[Line], default_k: fl
 
         # Clip dilation to the midpoint between this line and its neighbours so
         # that the expanded mask never bleeds into adjacent line text.
+        source = image
         if i == 0:
             top_bound = 0
+            source = whiten_rule_above(image, x, y, w)
         else:
             prev_bottom = line_data[i - 1].bbox.y + line_data[i - 1].bbox.h
             top_bound = (prev_bottom + y) // 2
@@ -668,11 +728,18 @@ def extract_line_images(image: npt.NDArray, line_data: List[Line], default_k: fl
         cv2.drawContours(tmp_mask, [line.contour], -1, (255, 255, 255), -1)
 
         line_img, adapted_k = get_line_image(
-            image, tmp_mask, h,
+            source, tmp_mask, h,
             bbox_tolerance=bbox_tolerance,
             k_factor=current_k,
             y_bounds=(top_bound, bottom_bound),
         )
+        if i == 0:
+            first_top = first_line_top_bound(line_data, y)
+            if first_top > 0:
+                line_img = extract_line(
+                    source, tmp_mask, h, k_factor=adapted_k,
+                    y_bounds=(first_top, bottom_bound),
+                )
         line_images.append(line_img)
 
         if current_k != adapted_k:

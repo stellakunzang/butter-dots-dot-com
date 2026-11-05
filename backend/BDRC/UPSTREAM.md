@@ -22,6 +22,7 @@ This directory is vendored from [`buda-base/tibetan-ocr-app`](https://github.com
 - New `find_folio_marker_end()` for separating the folio-number annotation from body text in Tibetan folios.
 - New `filter_outlier_lines()` to drop isolated page-border detections that aren't real text.
 - `extract_line` / `get_line_image` / `extract_line_images`: optional `y_bounds` parameter clips the dilated mask to the midpoint of neighboring lines, preventing bleed.
+- Local mod: `extract_line_images` paints out a horizontal frame rule above the first line (`whiten_rule_above` / `rule_bottom_above`) before cropping it, so `k_factor` dilation does not pull a pecha frame into line 1 (issue #79). Line 1 is then re-cut at its already-adapted `k_factor` with its top at one median line gap above the box (`first_line_top_bound`), the same reach other lines get from their neighbour; re-cutting at the adapted `k` keeps the `k_factor` carried to later lines unchanged. Keep this on the next sync.
 - `sort_lines_by_threshold2` now runs `split_tall_lines` and `filter_outlier_lines` on the grouped output.
 
 ### `image_dewarping.py`
@@ -37,6 +38,7 @@ This directory is vendored from [`buda-base/tibetan-ocr-app`](https://github.com
 - Early return on degenerate line images (`shape < 2`).
 - Diagnostic prints (`[Diag]`, `[TPS]`, `[OCR]`) for blank-page and dewarp-failure debugging.
 - Type annotations migrated from PEP 604 `A | B` to `Union[A, B]` (no behavior change; broader Python compatibility).
+- Local mod: `OCRInference.run` adds a white vertical margin (`add_vertical_margin`) after `_pre_pad`, only when the line's ink would fill more than 95% of the model window height, padding it back to 83%. Tight crops were filling the window edge to edge and misreading stacks (issue #79). Keep this on the next sync.
 
 ### `Runner.py` (no `Runner.py` in this repo — equivalent logic added elsewhere)
 The upstream `Runner.py` is a Qt `QRunnable` wired to PySide6 signals; nothing to port directly. The reusable bit — explicit multi-channel image handling before calling the pipeline — was added as `_normalize_to_bgr()` in `backend/app/pdf/ocr.py` and called inside `BDRCOCREngine.run_on_image`. It handles grayscale, BGRA, and exotic (e.g. CMYK+Alpha) inputs.

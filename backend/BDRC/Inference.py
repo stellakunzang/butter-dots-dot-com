@@ -227,6 +227,51 @@ class LayoutDetection(Detection):
         return merged_image
 
 
+# Tight line crops can scale until the ink touches the top and bottom of the
+# model window, and stacks get misread (issue #79). Ink filling more than
+# EDGE_FILL of the window height gets padded back to TARGET_FILL: ~4px on the
+# ~40px pecha crops where སྒྲུབ started reading. Golden scans fill 80-95%;
+# padding those trades errors (it drops Sanskrit marks), so they stay under
+# the trigger. Crops narrower than MIN_LINE_ASPECT heights (after _pre_pad)
+# are stray marks, not lines; padding one makes the model read noise as text.
+EDGE_FILL = 0.95
+TARGET_FILL = 0.83
+MIN_LINE_ASPECT = 6
+
+
+def _ink_rows(image: npt.NDArray) -> int:
+    """Height of the band of rows holding ink. Masked-out (pure black) pixels are background."""
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) if image.ndim == 3 else image
+    masked = np.all(image == 0, axis=2) if image.ndim == 3 else image == 0
+    gray = np.where(masked, 255, gray).astype(np.uint8)
+    _, ink = cv2.threshold(gray, 0, 1, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+    rows = np.flatnonzero(ink.mean(axis=1) >= 0.01)
+    return int(rows[-1] - rows[0] + 1) if rows.size else 0
+
+
+def add_vertical_margin(
+    image: npt.NDArray, input_width: int, input_height: int
+) -> npt.NDArray:
+    """Add a white band above and below a line whose ink would fill the window height."""
+    height, width = image.shape[:2]
+    if width < MIN_LINE_ASPECT * height:
+        return image
+    scale = min(input_width / width, input_height / height)
+    ink = _ink_rows(image)
+    if ink * scale <= EDGE_FILL * input_height:
+        return image
+    pad = int(np.ceil((ink / TARGET_FILL - height) / 2))
+    if pad < 1:
+        return image
+    if image.ndim == 2:
+        value = 255
+    else:
+        value = (255,) * image.shape[2]
+    return cv2.copyMakeBorder(
+        image, pad, pad, 0, 0, cv2.BORDER_CONSTANT, value=value
+    )
+
+
 class OCRInference:
     def __init__(self, platform: Platform, ocr_config: OCRModelConfig):
         self.platform = platform
@@ -321,6 +366,9 @@ class OCRInference:
 
         if pre_pad:
             line_image = self._pre_pad(line_image)
+        line_image = add_vertical_margin(
+            line_image, self._input_width, self._input_height
+        )
         line_image = self._prepare_ocr_line(line_image)
 
         if self._swap_hw:
