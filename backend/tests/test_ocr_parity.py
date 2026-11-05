@@ -110,11 +110,38 @@ _GOLDEN_OCR: dict[str, GoldenOCRBaseline] = {
     # genuine misreads: an injected Latin glyph and a stray '+' prefix (both
     # unparsed_characters) and a consonant-after-vowel. With the common Sanskrit
     # forms now allowlisted (padma etc.), these OCR-only garbage reads are what
-    # remains of the gap.
+    # remains of the gap. The line-1 seed syllable ཧཱུྃ is misread either way:
+    # ཧ-H under the frame rule, ཧར-MH once whiten_rule_above paints the rule
+    # out (issue #79). Same edit distance, but the clean-crop read surfaces as
+    # invalid_post_suffix.
     "menla-sadhana-sanskrit-W28732": GoldenOCRBaseline(
         max_gap=2,
         min_page_tibetan_chars=(753,),
-        allowed_extra_error_types=frozenset({"consonant_after_vowel", "unparsed_characters"}),
+        allowed_extra_error_types=frozenset(
+            {"consonant_after_vowel", "unparsed_characters", "invalid_post_suffix"}
+        ),
+    ),
+    # Continuity Camera still of one pecha leaf (Photo Booth, 1470x980): six
+    # lines of uchen prose under a thin frame rule (issue #79). Guards the
+    # first-line bound (line 1 was garbage without it) on a photo, not a scan.
+    # Transcription hand-corrected against the leaf. Measured with the
+    # dictionary off, as in CI; one OCR misread surfaces as invalid_post_suffix.
+    "pecha-photo-leaf1-prose": GoldenOCRBaseline(
+        max_gap=1,
+        min_page_tibetan_chars=(823,),
+        allowed_extra_error_types=frozenset({"invalid_post_suffix"}),
+    ),
+    # Same pecha, next leaf: a section opening (yig mgo, an outline of
+    # སྒྲུབ / སྒྲོལ stacks, ༔ marks), then prose. A hard page, pinned at today's
+    # read rather than a clean one: the yig mgo and several stacks still
+    # misread. Guards the vertical line margin, which only fires here.
+    # Dictionary off, as in CI.
+    "pecha-photo-leaf2-section-opening": GoldenOCRBaseline(
+        max_gap=3,
+        min_page_tibetan_chars=(436,),
+        allowed_extra_error_types=frozenset(
+            {"invalid_subscript_combination", "invalid_suffix", "multiple_vowels"}
+        ),
     ),
 }
 
