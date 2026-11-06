@@ -188,6 +188,26 @@ INFO_ONLY_TYPES = {
 }
 
 
+@pytest.fixture(scope="module", autouse=True)
+def _dictionary_off():
+    """Spellcheck without the word corpus, as the golden baselines were measured.
+
+    With a reachable database (e.g. the local ``tibetan_db``), the dictionary
+    adds ``unknown_word`` errors and every golden gap moves. CI has no database,
+    so pinning it off here keeps local runs and CI on the same numbers. The
+    API's process-wide checker and corpus are reset so they rebuild without it.
+    """
+    import app.api.corpus as corpus
+    import app.api.spellcheck as spellcheck_api
+    import app.database as database
+
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(database, "db_available", lambda: False)
+        mp.setattr(corpus, "_dictionary", None)
+        mp.setattr(spellcheck_api, "_checker", None)
+        yield
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

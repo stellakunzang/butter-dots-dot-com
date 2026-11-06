@@ -136,7 +136,7 @@ def create_job(
     job_id: str | None = None,
     dpi: int = 300,
 ) -> Job:
-    """Render a PDF to per-page PNGs and persist the initial job state.
+    """Write a PDF's pages as per-page PNGs and persist the initial job state.
 
     Each page directory starts with a fresh copy of ``baseline_settings``
     in ``settings.json`` — retries mutate the page's copy only, never the
@@ -153,14 +153,14 @@ def create_job(
     # Refuse to clobber an existing job dir; caller picks a fresh id.
     job_dir.mkdir(parents=True, exist_ok=False)
 
-    pil_pages = _render_pdf(pdf_bytes, dpi=dpi)
-    page_count = len(pil_pages)
+    pages = _page_images(pdf_bytes, dpi=dpi)
+    page_count = len(pages)
     created_at = datetime.now(timezone.utc)
 
-    for i, pil_img in enumerate(pil_pages, start=1):
+    for i, page_img in enumerate(pages, start=1):
         page_dir = job_dir / _page_dir_name(i)
         page_dir.mkdir()
-        pil_img.save(page_dir / PAGE_IMAGE_FILE, "PNG")
+        _save_page_image(page_img, page_dir / PAGE_IMAGE_FILE)
         _atomic_write_json(page_dir / PAGE_SETTINGS_FILE, dict(baseline_settings))
         (page_dir / ATTEMPTS_DIR).mkdir()
 
@@ -607,6 +607,44 @@ def _atomic_write_text(path: Path, content: str) -> None:
 
 def _atomic_write_json(path: Path, obj: Any) -> None:
     _atomic_write_text(path, json.dumps(obj, indent=2, sort_keys=True, ensure_ascii=False))
+
+
+def _page_images(pdf_bytes: bytes, *, dpi: int) -> list:
+    """One image per page, matching what production OCR reads.
+
+    ``extract_pdf`` OCRs a single-image scan page from its embedded image at
+    native resolution and renders every other page. Doing the same here keeps
+    OCR Assist reading the pixels production reads, and skips the render
+    entirely when every page is a scan. Elements are BGR arrays (native) or
+    PIL images (rendered).
+    """
+    from app.pdf.extractor import _native_scan_images
+
+    native = _native_scan_images(pdf_bytes)
+    if native and len(native) == _pdf_page_count(pdf_bytes):
+        return [native[i] for i in sorted(native)]
+    rendered = _render_pdf(pdf_bytes, dpi=dpi)
+    return [native.get(i, img) for i, img in enumerate(rendered, start=1)]
+
+
+def _pdf_page_count(pdf_bytes: bytes) -> int:
+    import fitz
+
+    with fitz.open(stream=pdf_bytes, filetype="pdf") as doc:
+        return doc.page_count
+
+
+def _save_page_image(image, path: Path) -> None:
+    """Write a page as PNG, whether it is a BGR array or a PIL image."""
+    import numpy as np
+
+    if isinstance(image, np.ndarray):
+        import cv2
+
+        if not cv2.imwrite(str(path), image):
+            raise OSError(f"Failed to write page image to {path}")
+    else:
+        image.save(path, "PNG")
 
 
 def _render_pdf(pdf_bytes: bytes, *, dpi: int) -> Sequence:
