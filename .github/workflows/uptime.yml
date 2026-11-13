@@ -1,0 +1,30 @@
+# Backup uptime check for the production API (see docs/guides/MONITORING.md).
+#
+# The primary monitor is an external uptime service. This one is free and
+# lives in the repo, but GitHub can delay scheduled runs, so treat it as a
+# backstop. A failed run emails the person who last edited the schedule below
+# (per GitHub's notification settings).
+name: Uptime
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check API health
+        env:
+          # Override with a repository variable if the API moves.
+          HEALTH_URL: ${{ vars.API_HEALTH_URL || 'https://tibetan-spellchecker-api.onrender.com/api/v1/health' }}
+        run: |
+          # Up to three tries, 60 s each, so a free-tier cold start is not an alert.
+          curl --fail --silent --show-error --max-time 60 \
+            --retry 2 --retry-delay 20 --retry-all-errors \
+            --output /dev/null --write-out "HTTP %{http_code} in %{time_total}s\n" \
+            "$HEALTH_URL"
