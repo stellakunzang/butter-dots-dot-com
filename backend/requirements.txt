@@ -8,6 +8,9 @@ uvicorn[standard]==0.27.0
 pydantic==2.10.6
 pydantic-settings==2.1.0
 
+# Error reporting (off unless SENTRY_DSN is set)
+sentry-sdk[fastapi]==2.74.0
+
 # Database
 # psycopg2-binary stays: SQLAlchemy uses it when DATABASE_URL is Postgres
 # (Phase 2 dictionary). There is no Alembic migration path in this repo.

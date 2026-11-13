@@ -43,6 +43,10 @@ class Settings(BaseSettings):
     ocr_assist_local: bool = False
     ocr_assist_jobs_root: str = "jobs"
 
+    # Error reporting. Unset (the default, and in tests) sends nothing.
+    sentry_dsn: str | None = None
+    sentry_environment: str | None = None
+
     model_config = {
         "env_file": ".env",
         "env_file_encoding": "utf-8",

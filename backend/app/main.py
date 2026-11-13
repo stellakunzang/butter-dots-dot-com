@@ -4,6 +4,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api import corpus, health, spellcheck
 from app.config import settings
+from app.monitoring import init_monitoring
+
+# Before the app is built, so Sentry's FastAPI integration hooks in.
+init_monitoring()
 
 
 @asynccontextmanager
