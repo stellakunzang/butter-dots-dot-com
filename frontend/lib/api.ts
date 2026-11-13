@@ -3,7 +3,7 @@
  */
 
 import {getApiUrl} from './config'
-import {APIError, request} from './http'
+import {APIError, request, UPLOAD_TIMEOUT_MS} from './http'
 
 export {APIError}
 
@@ -112,7 +112,8 @@ export async function uploadPDF(
   return request<PDFUploadResponse>(
     '/api/v1/spellcheck/upload',
     {method: 'POST', body: formData},
-    'Upload failed with status'
+    'Upload failed with status',
+    UPLOAD_TIMEOUT_MS
   )
 }
 

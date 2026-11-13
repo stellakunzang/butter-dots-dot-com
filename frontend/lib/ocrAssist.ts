@@ -3,7 +3,7 @@
  */
 
 import {getApiUrl} from './config'
-import {request} from './http'
+import {LONG_TIMEOUT_MS, request, UPLOAD_TIMEOUT_MS} from './http'
 import type {SpellCheckError} from './api'
 
 export interface OcrAssistPageSummary {
@@ -68,10 +68,12 @@ export interface OcrAssistPageDetail {
 export async function createOcrAssistJob(file: File): Promise<OcrAssistJob> {
   const form = new FormData()
   form.append('file', file)
-  return request<OcrAssistJob>('/api/v1/ocr-assist/jobs', {
-    method: 'POST',
-    body: form,
-  })
+  return request<OcrAssistJob>(
+    '/api/v1/ocr-assist/jobs',
+    {method: 'POST', body: form},
+    undefined,
+    UPLOAD_TIMEOUT_MS
+  )
 }
 
 export async function getOcrAssistJob(jobId: string): Promise<OcrAssistJob> {
@@ -109,11 +111,16 @@ export async function postOcrAssistPageAction(
       page?: OcrAssistPageDetail
       compare?: {results: VisionProviderResult[]}
     }
-  >(`/api/v1/ocr-assist/jobs/${jobId}/pages/${pageIndex}/action`, {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify(body),
-  })
+  >(
+    `/api/v1/ocr-assist/jobs/${jobId}/pages/${pageIndex}/action`,
+    {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(body),
+    },
+    undefined,
+    LONG_TIMEOUT_MS
+  )
   // compare_vision returns { page, compare }; other actions return the page body.
   if (data.compare && data.page) {
     return {page: data.page, compare: data.compare}
