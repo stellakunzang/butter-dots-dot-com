@@ -238,6 +238,11 @@ def build_raw_line_data(image: npt.NDArray, line_mask: npt.NDArray):
     return rot_img, rot_mask, line_contours, angle
 
 
+# Real lines in split stripes peak at ≥ 0.09 of the contour's peak (photo
+# sittings); stranded vowel tails at ≤ 0.05 (Gyudsum Kongwa scan).
+SLIVER_PEAK_RATIO = 0.08
+
+
 def _find_valley_rows(smoothed: np.ndarray, h: int) -> List[int]:
     """
     Find row indices where a vertical projection has significant valleys.
@@ -289,6 +294,28 @@ def _find_valley_rows(smoothed: np.ndarray, h: int) -> List[int]:
     merged.append(min(group, key=lambda x: x[1]))
 
     return [v[0] for v in merged]
+
+
+def _drop_sliver_cuts(smoothed: np.ndarray, split_rows: List[int]) -> List[int]:
+    """
+    Drop cuts that would leave a stripe with almost no ink of its own.
+
+    Hanging vowels and subjoined letters under one line can leave a waist in
+    its mask; cutting there strands them in a near-empty stripe and leaves a
+    line without its bottom. A stripe holding a real line peaks at well over
+    SLIVER_PEAK_RATIO of the contour's peak; such a stripe stays with its
+    neighbour.
+    """
+    rows = list(split_rows)
+    peak = float(np.max(smoothed)) if len(smoothed) else 0.0
+    while rows and peak > 0:
+        bounds = [0] + rows + [len(smoothed)]
+        stripe_peaks = [float(np.max(smoothed[a:b])) for a, b in zip(bounds, bounds[1:])]
+        weakest = int(np.argmin(stripe_peaks))
+        if stripe_peaks[weakest] >= SLIVER_PEAK_RATIO * peak:
+            break
+        rows.pop(max(weakest - 1, 0))  # the cut above it; for the top stripe, the one below
+    return rows
 
 
 def split_tall_contours(
@@ -350,7 +377,7 @@ def split_tall_contours(
         padded   = np.pad(proj, 3, mode="edge")
         smoothed = np.convolve(padded, kernel, mode="valid")[:len(proj)]
 
-        split_rows = _find_valley_rows(smoothed, h)
+        split_rows = _drop_sliver_cuts(smoothed, _find_valley_rows(smoothed, h))
 
         if not split_rows:
             result.append(cnt)
