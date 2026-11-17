@@ -63,6 +63,44 @@ class TestNativeScanImage:
         assert arr.shape[:2] == (1000, 600)
 
 
+def _page_with_image_mask(img_w: int, img_h: int, *, rotation: int = 0) -> fitz.Page:
+    """A 1-bit /ImageMask scan, as CCITT pecha scans are stored: 0 bits get ink."""
+    rows = np.ones((img_h, img_w), np.uint8)
+    rows[img_h // 2 - 20 : img_h // 2 + 20, 50 : img_w - 50] = 0  # one black bar
+    bits = np.packbits(rows, axis=1).tobytes()
+
+    doc = fitz.open()
+    page = doc.new_page(width=img_w / 4, height=img_h / 4)
+    page.insert_image(page.rect, stream=cv2.imencode(".png", rows * 255)[1].tobytes())
+    xref = page.get_images()[0][0]
+    doc.update_object(
+        xref,
+        f"<</Type/XObject/Subtype/Image/ImageMask true/Width {img_w}/Height {img_h}"
+        "/BitsPerComponent 1/Decode[0 1]>>",
+    )
+    doc.update_stream(xref, bits)
+    if rotation:
+        page.set_rotation(rotation)
+    return page
+
+
+class TestImageMaskScan:
+    def test_ink_comes_out_dark_on_light(self):
+        """Extracting a mask's bits gives white-on-black; the page must read as printed."""
+        page = _page_with_image_mask(2000, 600)
+        arr = _native_scan_image(page.parent, page)
+        assert arr is not None
+        assert arr.shape[:2] == (600, 2000)
+        assert arr[10, 10].mean() > 200  # background
+        assert arr[300, 1000].mean() < 50  # the bar
+
+    def test_honours_page_rotation(self):
+        page = _page_with_image_mask(2000, 600, rotation=90)
+        arr = _native_scan_image(page.parent, page)
+        assert arr is not None
+        assert arr.shape[:2] == (2000, 600)
+
+
 class _RecordingEngine:
     ready = True
     error = None

@@ -142,6 +142,8 @@ def _native_scan_image(doc, page):
         return None
 
     xref = images[0][0]
+    if "/ImageMask true" in doc.xref_object(xref, compressed=True):
+        return _render_image_mask(page, xref, images[0][2])
     try:
         extracted = doc.extract_image(xref)
         arr = cv2.imdecode(np.frombuffer(extracted["image"], np.uint8), cv2.IMREAD_COLOR)
@@ -159,6 +161,29 @@ def _native_scan_image(doc, page):
     elif rotation == 270:
         arr = cv2.rotate(arr, cv2.ROTATE_90_COUNTERCLOCKWISE)
     return arr
+
+
+def _render_image_mask(page, xref: int, width_px: int):
+    """Render an image-mask scan's area at the mask's own pixel density.
+
+    A mask's bits only say where to paint the fill colour, so extracting them
+    gives the ink as white on black. Rendering paints it as the PDF shows it,
+    and the page's /Rotate is applied by the render.
+    """
+    import cv2
+    import fitz
+    import numpy as np
+
+    rects = page.get_image_rects(xref)
+    if not rects or rects[0].is_empty:
+        return None
+    zoom = width_px / rects[0].width
+    clip = rects[0] * page.rotation_matrix  # image rects are unrotated; the clip is not
+    pix = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom), clip=clip, colorspace=fitz.csGRAY)
+    gray = np.frombuffer(pix.samples, np.uint8).reshape(pix.height, pix.stride)[:, : pix.width]
+    if min(gray.shape) < _MIN_NATIVE_IMAGE_PX:
+        return None
+    return cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
 
 
 def _native_scan_images(pdf_bytes: bytes) -> dict:
