@@ -89,3 +89,18 @@ def test_blank_margin_above_the_first_line_is_cut_like_any_other_line():
     crops = extract_line_images(image, lines, default_k=2.5, bbox_tolerance=3.0)
     assert crops[0].shape[0] < crops[1].shape[0] + 30
     assert not np.any(np.all(crops[0] == 200, axis=(1, 2)))
+
+
+def test_a_fragment_under_a_line_does_not_cut_off_its_vowels():
+    """Gyudsum Kongwa p4: a detected speck of vowel tails bounded the next line's crop."""
+    image = np.full((240, 400, 3), 255, np.uint8)
+    for top in (40, 100, 160):
+        image[top : top + 24, 20:380] = (40, 40, 40)
+        image[top + 24 : top + 34, 30:370:20] = (40, 40, 40)  # hanging vowels
+    lines = [_rect_line(20, 40, 360, 24), _rect_line(20, 100, 360, 24), _rect_line(20, 160, 360, 24)]
+    fragment = _rect_line(200, 68, 30, 4)  # a tail of line 1, detected on its own
+
+    clean = extract_line_images(image, lines, default_k=2.5, bbox_tolerance=3.0)
+    with_fragment = extract_line_images(image, [lines[0], fragment, *lines[1:]], default_k=2.5, bbox_tolerance=3.0)
+
+    assert [c.shape for c in with_fragment[:1] + with_fragment[2:]] == [c.shape for c in clean]

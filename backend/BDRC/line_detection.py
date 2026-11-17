@@ -727,6 +727,9 @@ def extract_line_images(image: npt.NDArray, line_data: List[Line], default_k: fl
     current_k = default_k
     img_h = image.shape[0]
     line_images = []
+    # A fragment (vowel tails, a speck) must not bound its neighbour's crop:
+    # the midpoint to it would cut off that line's subjoined letters and vowels.
+    fragments = fragment_flags(line_data)
 
     for i, line in enumerate(line_data):
         x, y, w, h = cv2.boundingRect(line.contour)
@@ -738,14 +741,14 @@ def extract_line_images(image: npt.NDArray, line_data: List[Line], default_k: fl
             top_bound = 0
             source = whiten_rule_above(image, x, y, w)
         else:
-            prev_bottom = line_data[i - 1].bbox.y + line_data[i - 1].bbox.h
-            top_bound = (prev_bottom + y) // 2
+            prev = line_data[i - 1] if fragments[i] else _bounding_neighbour(line_data, fragments, i, -1)
+            top_bound = (prev.bbox.y + prev.bbox.h + y) // 2
 
         if i == len(line_data) - 1:
             bottom_bound = img_h
         else:
-            next_top = line_data[i + 1].bbox.y
-            bottom_bound = (y + h + next_top) // 2
+            nxt = line_data[i + 1] if fragments[i] else _bounding_neighbour(line_data, fragments, i, 1)
+            bottom_bound = (y + h + nxt.bbox.y) // 2
 
         tmp_mask = np.zeros((image.shape[0], image.shape[1]), dtype=np.uint8)
         cv2.drawContours(tmp_mask, [line.contour], -1, (255, 255, 255), -1)
@@ -757,7 +760,8 @@ def extract_line_images(image: npt.NDArray, line_data: List[Line], default_k: fl
             y_bounds=(top_bound, bottom_bound),
         )
         if i == 0:
-            first_top = first_line_top_bound(line_data, y)
+            real = [ln for ln, frag in zip(line_data, fragments) if not frag]
+            first_top = first_line_top_bound(real if len(real) > 1 else line_data, y)
             if first_top > 0:
                 line_img = extract_line(
                     source, tmp_mask, h, k_factor=adapted_k,
@@ -958,6 +962,32 @@ def group_line_chunks(sorted_bbox_centers, lines: List[Line], adaptive_grouping:
                         break
 
     return new_line_data
+
+
+# Detected fragments (vowel tails, specks, a lone ༄) measure ≤ 0.59 of the
+# median line height on sitting stills and scans; real short lines ≥ 0.67.
+FRAGMENT_HEIGHT_RATIO = 0.6
+
+
+def fragment_flags(lines: List[Line], height_ratio: float = FRAGMENT_HEIGHT_RATIO) -> List[bool]:
+    """True for each detection too short to be a line of text."""
+    if len(lines) < 3:
+        return [False] * len(lines)
+    median_h = float(np.median([ln.bbox.h for ln in lines]))
+    return [ln.bbox.h < height_ratio * median_h for ln in lines]
+
+
+def _bounding_neighbour(lines: List[Line], fragments: List[bool], i: int, step: int):
+    """The nearest line above (step -1) or below (step 1) that is not a fragment.
+
+    Falls back to the adjacent line when every line that way is a fragment.
+    """
+    j = i + step
+    while 0 <= j < len(lines):
+        if not fragments[j]:
+            return lines[j]
+        j += step
+    return lines[i + step]
 
 
 def filter_outlier_lines(lines: List[Line], gap_ratio: float = 2.5) -> List[Line]:

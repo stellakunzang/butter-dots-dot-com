@@ -26,6 +26,7 @@ This directory is vendored from [`buda-base/tibetan-ocr-app`](https://github.com
 - `sort_lines_by_threshold2` now runs `split_tall_lines` and `filter_outlier_lines` on the grouped output.
 - Local mod: `split_tall_lines` tries the valley split on every line instead of only lines taller than 1.5× the median height. On pecha photos where most lines were merged pairs, the pairs set the median and splitting depended on how many noise specks were detected (issue #79). Keep this on the next sync.
 - Local mod: `split_tall_contours` drops a valley cut that would leave a stripe peaking under `SLIVER_PEAK_RATIO` (0.08) of the contour's peak (`_drop_sliver_cuts`). With every line a split candidate, the waist above hanging vowels in one line was cut, stranding them and leaving the line without its bottom (Gyudsum Kongwa scan). Keep this on the next sync.
+- Local mod: in `extract_line_images`, a detection under 0.6× the median line height (`fragment_flags`: vowel tails, specks) no longer bounds its neighbours' crops or the first line's reach; the nearest real line does. The midpoint to a fragment was cutting off the next line's subjoined letters and vowels. Fragments stay in the line list so the carried `k_factor` and first-line handling are unchanged. Keep this on the next sync.
 
 ### `image_dewarping.py`
 - Collinearity check before TPS solve: if y-centers of the slice-centroids are near-linear (pure tilt rather than curvature), skip TPS — the kernel would be singular and divide-by-zero. Pure tilt is handled by rotation upstream of this anyway.
