@@ -2,7 +2,7 @@
 
 **Status:** Spike in progress — [#79](https://github.com/stellakunzang/butter-dots-dot-com/issues/79). Not ticketed for a product capture UI.  
 **Companion to:** [INTERACTIVE_OCR_PLAN.md](INTERACTIVE_OCR_PLAN.md)  
-**Continue here:** [Spike notes, 2026-11-04](#spike-notes-2026-11-04).  
+**Continue here:** [Spike notes, 2026-11-13: second sitting](#spike-notes-2026-11-13-second-sitting).  
 **Goal:** Document a frictionless page-by-page capture loop for physical pecha, learn Continuity Camera + per-page OCR latency via a spike, then decide whether to ticket a product UI.
 
 ---
@@ -341,7 +341,13 @@ No later line changed at any reach. Median half-gap on the scans is ~30px agains
 
 1. ~~Decide the menla HUM artefact.~~ Accepted 2026-11-04: `invalid_post_suffix` added to menla's golden allowlist. Parity is green.
 2. ~~Score leaf 2 against a hand transcription.~~ Done 2026-11-05. Both leaves are hand-corrected (`backend/spike/transcripts/`) and are golden fixtures (`pecha-photo-leaf1-prose`, `pecha-photo-leaf2-section-opening`).
-3. Run a real sitting (20–30 leaves) with a harness: `camera.html` posts each still to a local script that runs OCR and the score and logs timings. That fills in §3, §5 and retake rates, and gives more leaves to re-check 95% / 83% and the vote.
+3. Run a real sitting (20–30 leaves) with the harness. That fills in §3, §5 and retake rates, and gives more leaves to re-check 95% / 83% and the vote. First sitting (5 leaves) done 2026-11-13, see below.
+   - `cd backend && venv/bin/python -m spike.sitting_server --vote`, then open http://127.0.0.1:8765 in Safari (not `localhost`, which can resolve to another server on `::1`). Start Postgres first (`docker compose up -d postgres`) so the word corpus marks misspellings; the page warns when it is off. Connect camera, set the lines on a full leaf, then Capture. Under the reading: tap a line to fix it, Remove a stray line, then Accept, Retake now (one click) or Flag for proofing.
+   - No camera handy: **Open a PDF** instead. Each page is imaged as OCR Assist images it (embedded scan at native size, else 300 DPI) and goes through the same review; Accept or Flag reads the next page straight away. The PDF is copied into the sitting folder as `source.pdf`, and captures log `method` as `pdf.native` or `pdf.render300`.
+   - Every capture, decision, gate call (`quality.decide` at OCR Assist's 0.85 / 0.5), line check, background vote and camera drop-out goes to `backend/spike/sittings/<started-at>/log.jsonl`, with the PNG stills beside it (gitignored).
+   - Afterwards: `venv/bin/python -m spike.summarize_sitting backend/spike/sittings/<started-at>` writes the retake, latency, gate-vs-you, fixes and camera tables to `summary.md`, and the final text of every saved leaf (your fixes applied, marks noted) to `transcript.txt`.
+   - Local only: binds 127.0.0.1, nothing in `app/` imports `spike/`, and `spike/` is excluded from the production Docker image (`backend/.dockerignore`).
+   - Smoke test on the two leaf stills: the gate accepted leaf 2 even though Woodblock gets 5% of its characters wrong. Gate calibration is one of the things the sitting measures.
 4. Do not start capture UI, image ingest, or autocapture until the sitting is written down. Chrome stays a documented no.
 
 ### 2026-11-05: three-model vote
@@ -356,6 +362,80 @@ Woodblock, Modern and Woodblock-Stacks make different errors, so `backend/spike/
 | Vote, Modern pivot, no dictionary | 1.2% / 3.8% | 2.8% / 8.9% |
 
 The best single model changes per page. The configuration tuned on leaf 1 (Stacks pivot plus dictionary tie-break, 0.7% / 2.4%) did not hold up on leaf 2 (4.9% / 8.9%). Modern-pivot voting without a dictionary is best or near-best on both. Dictionary-aware reading is deferred until there is a hosting decision. Details, ideas, and what each option changes for golden tests and CI: [OCR_ENSEMBLE_AND_DICTIONARY.md](OCR_ENSEMBLE_AND_DICTIONARY.md).
+
+## Spike notes, 2026-11-13: first sitting
+
+Five sides of one pecha (printed folios 143–145), 18.7 minutes, 15 captures. Log and stills: `backend/spike/sittings/20261113-110402/` (gitignored). The leaf filled about a quarter of the 1920×1440 frame's height. Safari listed the iPhone and its Desk View camera; the stream never dropped.
+
+| Measure | Value |
+| --- | --- |
+| OCR (Woodblock, server) | 1.5 s median, 1.8 s p90 |
+| Capture → result shown | 4.9 s median, of which 3.3 s was the inline vote |
+| Result → decision (reading the output) | 20 s median, 32 s p90 |
+| Leaf to leaf | 60 s median, 129 s p90 (n = 4) |
+| Retakes | 6 for 5 leaves; 3 leaves needed more than one attempt |
+
+At the median pace a 200-leaf book is about 3.3 hours. OCR is not the slow part; reading the output to decide is.
+
+**The gate does not catch partial reads.** It accepted 9 of the 11 frames that were retaken or flagged, including one-line reads at composite 1.00. The composite scores only the text that was read. Leaf 145 (attempt 3, highlighter on most lines) read 2 of 7 lines and passed at 0.98. Leaf 144, attempt 3, which was accepted, read 6 of 7 lines; nobody noticed at the time. Line count against the leaf's usual count would have caught both. The title leaf (1 line) and the opening leaf (4 lines) read completely, so a short count is a prompt to look, not a reject.
+
+**The vote is not worth the wait on the live path.** It beat Woodblock's composite on 3 of 15 captures and turned the highlighted leaf into garbage that still scored 0.81 (no dictionary, so the scorer cannot tell). Composite is not CER, so this does not overturn the 11-05 table; it only means the vote should not block capture.
+
+**Highlighter** on a student's pecha is a failure mode the two test leaves did not have. Leaf 145 lost lines to it on every attempt.
+
+**The retakes were partly the harness.** Space could be pressed again before deciding, and a repeat capture overwrote the still with the same name (leaf 1: 6 captures, 3 files kept). Keyboard-only controls were also confusing.
+
+### Harness changes after the sitting
+
+- The page is restyled on the spellcheck page (same palette, Jomolhari, red / yellow spelling underlines) and stacked: photo, verdict, numbered lines, then Accept / Retake / Flag buttons. No keyboard shortcuts. Capture is disabled until the last capture is decided.
+- A line check: "Lines on a full leaf" is sent with each capture, logged as `expected_lines` / `lines_short`, and shown as "Only 6 of 7 lines read". The summary adds a "Gate plus line check vs you" table.
+- The vote runs in a background thread after the result is returned and is logged as a separate `vote` event. A capture that has to wait for it logs `queue_ms`.
+- Stills never overwrite: a repeated page and attempt gets a `-2` suffix.
+
+### Next
+
+1. Second sitting, 20+ leaves, with the line check on. Leave notes on retakes.
+2. If the line check matches your calls, make it part of the gate (`decide`) for photo pages.
+3. Score the vote by CER on more hand-transcribed leaves before putting it back on any live path.
+
+### Ideas from the sitting (not yet built)
+
+- **Read the folio number from the leaf.** The harness counts leaves from a number you type, so a skipped or repeated leaf shifts every later number. To go back to the hard copy you need the printed folio. These leaves carry it in both margins: Arabic numerals on the right (143, 144, 145) and the side title with the Tibetan folio on the left. Line detection drops the margins today, so this needs its own crop and read. Front and back of a leaf share a number (143 was both the title side and the next side), so the record needs folio plus side.
+- **Fix small things during capture.** Built 2026-11-14: tap a line to edit, Remove for stray lines, flags shown as red / yellow highlights with a count per line. Edits are logged as `final_lines`, `edits` and `removed` on the decision; the capture record keeps the OCR reading. Editing a syllable in the reading before accepting would save a trip to `/ocr-assist` for one-character misreads. The edit should be logged next to the original read so the sitting still measures OCR accuracy.
+- **Retake in one click.** Built 2026-11-14: the preview stays live during review, and Retake now logs the retake and captures. Today it is Retake, then Capture again. Instead, show the live preview beside the review and let "Capture again" both log the retake and take the new still.
+
+## Spike notes, 2026-11-13: second sitting
+
+Fifteen sides with the restyled page and the line check, 18.3 minutes, 32 captures. Log and stills: `backend/spike/sittings/20261113-151832/` (gitignored). Lines on a full leaf was 7, then 5, then 6 (most of this section has 6).
+
+| Measure | Value |
+| --- | --- |
+| OCR (Woodblock, server) | 1.7 s median, 2.2 s p90 |
+| Capture → result shown | 2.6 s median (was 4.9 s with the vote inline) |
+| Result → decision | 8.3 s median (was 20 s), 34 s p90 |
+| Leaf to leaf | 43 s median, 123 s p90 (n = 14) |
+| Retakes | 17 for 15 sides; 8 sides needed more than one attempt |
+
+200 sides at the median pace: about 2.4 hours.
+
+**Gate vs line check.** Every `escalate` was a partial read, and the gate never escalated a full one. With the line check, 13 of 14 non-short reads were accepted, and 16 of 18 short reads were retaken. The two short reads accepted were the title side (2 of 7) and the opening side (4 of 7), which really have fewer lines.
+
+**Most retakes were caused by the line splitter, not the framing.** On this pecha the line detector merges all six lines into three pairs (78–82 px; a single line is ~40 px). `split_tall_lines` only tried to split lines taller than 1.5× the median height, and the median was set by the pairs. Reads only came out whole when one or two noise specks (4–13 px "lines") happened to pull the median down. Photos of the same side that look identical read 4 lines of garbage or 6 clean lines depending on the specks. Sharpness (Laplacian variance) did not separate short reads from full ones.
+
+**Fix:** `split_tall_lines` now runs the valley test on every line, since the test already requires a waist in the line mask that a single line does not have. Re-reading all 32 captures: all 16 short reads of 6-line sides now read 6 lines (two read 7 because the opening ༄ is detected as its own line), and no full read changed. Leaf 9's worst capture now reads within 94% of its good capture. Parity, line extraction and margin tests: 40 of 40 pass, golden scans and both photo leaves included. Recorded in `BDRC/UPSTREAM.md`. This runs in production too.
+
+**Follow-up, 2026-11-17:** splitting every line also cut single lines of a clean scan (Gyudsum Kongwa PDF) at the waist above their hanging vowels, leaving the line without its bottom and the vowels as a near-empty sliver. Cuts that would leave a stripe peaking under 0.08 of the line's peak are now dropped. Re-reading all 47 sitting stills: 46 identical, one lost a 4 px junk line. Real stripes in the photos peak at ≥ 0.09, the scan's slivers at ≤ 0.05, so the margin is thin; add photo stills near it to the goldens if the threshold is ever moved.
+
+Two more findings from the same PDF:
+
+- **Model.** Woodblock drops ུ under stacks and reads ༔ as ཿ on typeset text. Modern flags 6.0% of syllables across the 8 pages against Woodblock's 10.8% (Woodblock-Stacks 12%, the Ume models 31–36%). The sitting page now has a model picker; opening a PDF switches it to Modern, and "Read again" re-reads a PDF page with the picked model (logged as `reread`, not a retake).
+- **Fragments.** Specks and vowel tails detected as their own "lines" set the crop bound of the real line beside them, cutting off its bottom. Detections under 0.6× the median line height no longer bound a neighbour's crop. Replaying the 49 camera stills and the 8 PDF pages under both Woodblock and Modern: nothing got more flags; the PDF pages lost up to two thirds of theirs (p4 12 → 5, p5 14 → 4 with Modern). One still (2026-11-13 page 7 a2) changed text with the same flag count. Dropping fragments from the line list instead made three stills worse, because the adapted `k_factor` is carried line to line.
+
+### Next
+
+1. Third sitting with the splitter fix. Expect far fewer retakes; whatever is left is the real framing rate.
+2. Fold the line check into the gate for photo pages, once a sitting confirms it.
+3. The ideas below (folio from the leaf, small edits, one-click retake). `find_folio_marker_end()` in `BDRC/line_detection.py` already separates the folio annotation from body text and may be a starting point.
 
 ---
 
