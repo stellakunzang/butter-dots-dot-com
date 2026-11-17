@@ -464,16 +464,12 @@ def split_tall_lines(
     else:
         gray_mask = line_mask.copy()
 
-    # Use median line height × 1.5 as the split threshold so it adapts to the
-    # actual text size on the page rather than a fixed % of image height.
-    heights = [ln.bbox.h for ln in lines]
-    median_h = float(np.median(heights))
-    img_height = gray_mask.shape[0]
-    adaptive_ratio = (median_h * 1.5) / img_height if img_height > 0 else max_line_height_ratio
-
+    # Every line is a candidate; the valley test decides. A height threshold
+    # (median × 1.5) failed when most lines were merged pairs: the pairs set
+    # the median, and splitting hinged on how many noise specks were detected.
     result: List = []
     for line in lines:
-        split = split_tall_contours(gray_mask, [line.contour], adaptive_ratio)
+        split = split_tall_contours(gray_mask, [line.contour], 0.0)
         if len(split) > 1:
             for cnt in split:
                 result.append(build_line_data(cnt))
