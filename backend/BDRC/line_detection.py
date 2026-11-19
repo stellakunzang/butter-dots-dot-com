@@ -238,6 +238,11 @@ def build_raw_line_data(image: npt.NDArray, line_mask: npt.NDArray):
     return rot_img, rot_mask, line_contours, angle
 
 
+# Real lines in split stripes peak at ≥ 0.09 of the contour's peak (photo
+# sittings); stranded vowel tails at ≤ 0.05 (Gyudsum Kongwa scan).
+SLIVER_PEAK_RATIO = 0.08
+
+
 def _find_valley_rows(smoothed: np.ndarray, h: int) -> List[int]:
     """
     Find row indices where a vertical projection has significant valleys.
@@ -289,6 +294,28 @@ def _find_valley_rows(smoothed: np.ndarray, h: int) -> List[int]:
     merged.append(min(group, key=lambda x: x[1]))
 
     return [v[0] for v in merged]
+
+
+def _drop_sliver_cuts(smoothed: np.ndarray, split_rows: List[int]) -> List[int]:
+    """
+    Drop cuts that would leave a stripe with almost no ink of its own.
+
+    Hanging vowels and subjoined letters under one line can leave a waist in
+    its mask; cutting there strands them in a near-empty stripe and leaves a
+    line without its bottom. A stripe holding a real line peaks at well over
+    SLIVER_PEAK_RATIO of the contour's peak; such a stripe stays with its
+    neighbour.
+    """
+    rows = list(split_rows)
+    peak = float(np.max(smoothed)) if len(smoothed) else 0.0
+    while rows and peak > 0:
+        bounds = [0] + rows + [len(smoothed)]
+        stripe_peaks = [float(np.max(smoothed[a:b])) for a, b in zip(bounds, bounds[1:])]
+        weakest = int(np.argmin(stripe_peaks))
+        if stripe_peaks[weakest] >= SLIVER_PEAK_RATIO * peak:
+            break
+        rows.pop(max(weakest - 1, 0))  # the cut above it; for the top stripe, the one below
+    return rows
 
 
 def split_tall_contours(
@@ -350,7 +377,7 @@ def split_tall_contours(
         padded   = np.pad(proj, 3, mode="edge")
         smoothed = np.convolve(padded, kernel, mode="valid")[:len(proj)]
 
-        split_rows = _find_valley_rows(smoothed, h)
+        split_rows = _drop_sliver_cuts(smoothed, _find_valley_rows(smoothed, h))
 
         if not split_rows:
             result.append(cnt)
@@ -437,16 +464,12 @@ def split_tall_lines(
     else:
         gray_mask = line_mask.copy()
 
-    # Use median line height × 1.5 as the split threshold so it adapts to the
-    # actual text size on the page rather than a fixed % of image height.
-    heights = [ln.bbox.h for ln in lines]
-    median_h = float(np.median(heights))
-    img_height = gray_mask.shape[0]
-    adaptive_ratio = (median_h * 1.5) / img_height if img_height > 0 else max_line_height_ratio
-
+    # Every line is a candidate; the valley test decides. A height threshold
+    # (median × 1.5) failed when most lines were merged pairs: the pairs set
+    # the median, and splitting hinged on how many noise specks were detected.
     result: List = []
     for line in lines:
-        split = split_tall_contours(gray_mask, [line.contour], adaptive_ratio)
+        split = split_tall_contours(gray_mask, [line.contour], 0.0)
         if len(split) > 1:
             for cnt in split:
                 result.append(build_line_data(cnt))
@@ -704,6 +727,9 @@ def extract_line_images(image: npt.NDArray, line_data: List[Line], default_k: fl
     current_k = default_k
     img_h = image.shape[0]
     line_images = []
+    # A fragment (vowel tails, a speck) must not bound its neighbour's crop:
+    # the midpoint to it would cut off that line's subjoined letters and vowels.
+    fragments = fragment_flags(line_data)
 
     for i, line in enumerate(line_data):
         x, y, w, h = cv2.boundingRect(line.contour)
@@ -715,14 +741,14 @@ def extract_line_images(image: npt.NDArray, line_data: List[Line], default_k: fl
             top_bound = 0
             source = whiten_rule_above(image, x, y, w)
         else:
-            prev_bottom = line_data[i - 1].bbox.y + line_data[i - 1].bbox.h
-            top_bound = (prev_bottom + y) // 2
+            prev = line_data[i - 1] if fragments[i] else _bounding_neighbour(line_data, fragments, i, -1)
+            top_bound = (prev.bbox.y + prev.bbox.h + y) // 2
 
         if i == len(line_data) - 1:
             bottom_bound = img_h
         else:
-            next_top = line_data[i + 1].bbox.y
-            bottom_bound = (y + h + next_top) // 2
+            nxt = line_data[i + 1] if fragments[i] else _bounding_neighbour(line_data, fragments, i, 1)
+            bottom_bound = (y + h + nxt.bbox.y) // 2
 
         tmp_mask = np.zeros((image.shape[0], image.shape[1]), dtype=np.uint8)
         cv2.drawContours(tmp_mask, [line.contour], -1, (255, 255, 255), -1)
@@ -734,7 +760,8 @@ def extract_line_images(image: npt.NDArray, line_data: List[Line], default_k: fl
             y_bounds=(top_bound, bottom_bound),
         )
         if i == 0:
-            first_top = first_line_top_bound(line_data, y)
+            real = [ln for ln, frag in zip(line_data, fragments) if not frag]
+            first_top = first_line_top_bound(real if len(real) > 1 else line_data, y)
             if first_top > 0:
                 line_img = extract_line(
                     source, tmp_mask, h, k_factor=adapted_k,
@@ -935,6 +962,32 @@ def group_line_chunks(sorted_bbox_centers, lines: List[Line], adaptive_grouping:
                         break
 
     return new_line_data
+
+
+# Detected fragments (vowel tails, specks, a lone ༄) measure ≤ 0.59 of the
+# median line height on sitting stills and scans; real short lines ≥ 0.67.
+FRAGMENT_HEIGHT_RATIO = 0.6
+
+
+def fragment_flags(lines: List[Line], height_ratio: float = FRAGMENT_HEIGHT_RATIO) -> List[bool]:
+    """True for each detection too short to be a line of text."""
+    if len(lines) < 3:
+        return [False] * len(lines)
+    median_h = float(np.median([ln.bbox.h for ln in lines]))
+    return [ln.bbox.h < height_ratio * median_h for ln in lines]
+
+
+def _bounding_neighbour(lines: List[Line], fragments: List[bool], i: int, step: int):
+    """The nearest line above (step -1) or below (step 1) that is not a fragment.
+
+    Falls back to the adjacent line when every line that way is a fragment.
+    """
+    j = i + step
+    while 0 <= j < len(lines):
+        if not fragments[j]:
+            return lines[j]
+        j += step
+    return lines[i + step]
 
 
 def filter_outlier_lines(lines: List[Line], gap_ratio: float = 2.5) -> List[Line]:

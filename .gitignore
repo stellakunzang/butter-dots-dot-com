@@ -49,6 +49,7 @@ backend/jobs/
 backend/spike/stills/
 backend/spike/out/
 backend/spike/transcripts/
+backend/spike/sittings/
 
 # BDRC OCR model files (downloaded via scripts/download_models.py — too large for git)
 backend/OCRModels/

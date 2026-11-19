@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pecha capture</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jomolhari&display=swap" />
+  <style>
+    /* Same palette and type as the spellcheck page (Tailwind gray / green / amber / red). */
+    :root {
+      --gray-50: #f9fafb; --gray-100: #f3f4f6; --gray-200: #e5e7eb; --gray-300: #d1d5db;
+      --gray-400: #9ca3af; --gray-500: #6b7280; --gray-600: #4b5563; --gray-700: #374151;
+      --gray-800: #1f2937; --gray-900: #111827;
+      --green-50: #f0fdf4; --green-200: #bbf7d0; --green-600: #16a34a; --green-800: #166534;
+      --amber-50: #fffbeb; --amber-100: #fef3c7; --amber-200: #fde68a; --amber-500: #f59e0b; --amber-900: #78350f;
+      --red-50: #fef2f2; --red-100: #fee2e2; --red-200: #fecaca; --red-500: #ef4444; --red-800: #991b1b;
+      --yellow-100: #fef9c3; --yellow-400: #facc15; --yellow-800: #854d0e;
+      --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+      --serif: Georgia, "Times New Roman", serif;
+      --tibetan: Jomolhari, Kailasa, "Noto Serif Tibetan", serif;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--gray-50); color: var(--gray-600); font: 16px/1.6 var(--sans); }
+    h1, h2, h3 { font-family: var(--serif); color: var(--gray-800); font-weight: 600; margin: 0; }
+    button, input, select, textarea { font: inherit; }
+    [hidden] { display: none !important; }
+    /* Not display:none, which stops Safari opening the picker from script. */
+    .offscreen { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+
+    .topbar { background: #fff; border-bottom: 1px solid var(--gray-200); }
+    .topbar-inner { max-width: 1100px; margin: 0 auto; padding: 20px 16px; display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+    .brand { font-family: var(--serif); font-size: 1.4rem; font-weight: 600; color: var(--gray-900); }
+    .tag { font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--gray-500); }
+
+    main { max-width: 1100px; margin: 0 auto; padding: 32px 16px 64px; }
+    .intro h1 { font-size: 2.25rem; margin-bottom: 8px; }
+    .lede { font-size: 1.1rem; margin: 0 0 28px; max-width: 46rem; }
+
+    .card { background: #fff; border: 1px solid var(--gray-200); border-radius: 12px; padding: 20px 24px; margin-bottom: 20px; }
+    .card h2 { font-size: 1.2rem; margin-bottom: 4px; }
+    .muted { color: var(--gray-500); font-size: 0.9rem; }
+
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid transparent; border-radius: 10px;
+      padding: 12px 22px; font-weight: 600; cursor: pointer; transition: background .15s, box-shadow .15s, transform .15s; }
+    .btn:disabled { opacity: .45; cursor: not-allowed; transform: none !important; box-shadow: none !important; }
+    .btn-primary { background: var(--gray-900); color: #fff; box-shadow: 0 2px 6px rgb(0 0 0 / .12); }
+    .btn-primary:hover:not(:disabled) { background: var(--gray-800); box-shadow: 0 6px 16px rgb(0 0 0 / .16); transform: translateY(-1px); }
+    .btn-secondary { background: #fff; color: var(--gray-700); border-color: var(--gray-300); }
+    .btn-secondary:hover:not(:disabled) { background: var(--gray-50); border-color: var(--gray-400); }
+    .btn-flag { background: var(--amber-50); color: var(--amber-900); border-color: var(--amber-200); }
+    .btn-flag:hover:not(:disabled) { background: var(--amber-100); border-color: var(--amber-500); }
+    .btn-large { padding: 16px 28px; font-size: 1.1rem; }
+    .btn-small { padding: 4px 10px; font-size: 0.8rem; font-weight: 500; border-radius: 7px; }
+    .link { background: none; border: 0; padding: 0; color: var(--gray-500); text-decoration: underline; cursor: pointer; font-size: 0.9rem; }
+    .link:hover { color: var(--gray-900); }
+
+    .setup-grid { display: flex; flex-wrap: wrap; gap: 16px 28px; align-items: flex-end; margin-top: 16px; }
+    .field { display: flex; flex-direction: column; gap: 4px; font-size: 0.85rem; color: var(--gray-700); font-weight: 500; }
+    .field input, .field select { border: 1px solid var(--gray-300); border-radius: 8px; padding: 9px 12px; background: #fff; color: var(--gray-900); font-weight: 400; }
+    .field input[type=number] { width: 6.5rem; }
+    .field select { min-width: 16rem; }
+    .field small { font-weight: 400; color: var(--gray-500); }
+    .connected { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--green-600); box-shadow: 0 0 0 3px var(--green-50); }
+    .notice { margin: 14px 0 0; font-size: 0.88rem; padding: 8px 12px; border-radius: 8px; background: var(--amber-50); color: var(--amber-900); border: 1px solid var(--amber-200); }
+    .notice code { font-size: 0.85em; }
+
+    .statusbar { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 12px; margin: 8px 0 14px; }
+    .leaf { display: flex; align-items: baseline; gap: 12px; }
+    .leaf h2 { font-size: 2rem; }
+    .attempt { color: var(--gray-500); }
+    .model-pick { flex-direction: row; align-items: center; gap: 8px; }
+    .model-pick select { min-width: 0; padding: 5px 10px; }
+    .tallies { display: flex; gap: 8px; flex-wrap: wrap; }
+    .chip { font-size: 0.85rem; padding: 4px 12px; border-radius: 999px; background: #fff; border: 1px solid var(--gray-200); color: var(--gray-700); }
+    .chip b { color: var(--gray-900); }
+
+    .stage { position: relative; background: var(--gray-900); border-radius: 12px; overflow: hidden; }
+    .stage video, .stage > img { display: block; width: 100%; max-height: 62vh; object-fit: contain; }
+    .badge { position: absolute; top: 12px; left: 12px; font-size: 0.72rem; font-weight: 700; letter-spacing: .08em; padding: 3px 10px; border-radius: 999px; }
+    .badge-live { background: var(--red-500); color: #fff; }
+    .badge-still { background: #fff; color: var(--gray-800); }
+    .reading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 12px; background: rgb(17 24 39 / .55); color: #fff; font-weight: 600; }
+    .spinner { width: 22px; height: 22px; border: 3px solid rgb(255 255 255 / .35); border-top-color: #fff; border-radius: 50%; animation: spin .8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .thumb { position: absolute; right: 12px; bottom: 12px; width: 180px; border: 2px solid #fff; border-radius: 8px; overflow: hidden; cursor: pointer;
+      background: var(--gray-900); box-shadow: 0 4px 14px rgb(0 0 0 / .35); padding: 0; }
+    .thumb img { display: block; width: 100%; }
+    .thumb span { display: block; font-size: 0.7rem; font-weight: 600; color: #fff; background: rgb(17 24 39 / .8); padding: 2px 6px; text-align: center; }
+
+    .capture-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-top: 16px; }
+
+    .alert { border: 1px solid; border-radius: 10px; padding: 14px 18px; margin: 20px 0 16px; }
+    .alert h3 { font-family: var(--sans); font-size: 1.05rem; margin-bottom: 2px; color: inherit; }
+    .alert p { margin: 0; font-size: 0.92rem; }
+    .alert-success { background: var(--green-50); border-color: var(--green-200); color: var(--green-800); }
+    .alert-warn { background: var(--amber-50); border-color: var(--amber-200); color: var(--amber-900); }
+    .alert-error { background: var(--red-50); border-color: var(--red-200); color: var(--red-800); }
+    .facts { font-size: 0.85rem; margin-top: 6px !important; opacity: .85; }
+
+    /* Transcript: one row per line, flags highlighted, tap a line to fix it. */
+    .transcript-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+    .transcript-head h3 { font-size: 1.1rem; }
+    .reading-text { background: #fff; border: 1px solid var(--gray-200); border-radius: 10px; padding: 6px 0; }
+    .line { display: grid; grid-template-columns: 3rem 1fr auto; align-items: center; gap: 0 12px; padding: 4px 14px 4px 0; }
+    .line + .line { border-top: 1px solid var(--gray-100); }
+    .line.bad { background: linear-gradient(90deg, var(--red-50), transparent 70%); }
+    .lineno { text-align: right; font-size: 0.8rem; color: var(--gray-400); font-variant-numeric: tabular-nums; }
+    .line.edited .lineno { color: var(--amber-900); font-weight: 700; }
+    .tib { font-family: var(--tibetan); font-size: 1.6rem; line-height: 2.3; color: var(--gray-900); overflow-wrap: anywhere; cursor: text; border-radius: 6px; }
+    .tib:hover { background: var(--gray-50); }
+    .line.removed .tib { color: var(--gray-400); text-decoration: line-through; cursor: default; background: none; }
+    .err { background: var(--red-100); color: var(--red-800); box-shadow: inset 0 -2px 0 var(--red-500); border-radius: 3px; }
+    .warn { background: var(--yellow-100); color: var(--yellow-800); box-shadow: inset 0 -2px 0 var(--yellow-400); border-radius: 3px; }
+    .line.removed .err, .line.removed .warn { background: none; box-shadow: none; color: inherit; }
+    .tools { display: flex; align-items: center; gap: 6px; }
+    .count { min-width: 1.6rem; text-align: center; font-size: 0.75rem; font-weight: 700; border-radius: 999px; padding: 1px 7px; }
+    .count.has { background: var(--red-100); color: var(--red-800); }
+    .count.none { color: var(--green-600); }
+    .editor { display: flex; flex-direction: column; gap: 8px; padding: 6px 0; }
+    .editor textarea { width: 100%; font-family: var(--tibetan); font-size: 1.6rem; line-height: 2; padding: 6px 10px; border: 2px solid var(--gray-900);
+      border-radius: 8px; resize: vertical; color: var(--gray-900); }
+    .editor .row { display: flex; gap: 8px; align-items: center; }
+    .empty { padding: 24px; text-align: center; color: var(--gray-500); }
+    .legend { display: flex; gap: 18px; flex-wrap: wrap; font-size: 0.8rem; color: var(--gray-500); margin: 8px 2px 0; }
+    .legend .sw { display: inline-block; width: 22px; height: 12px; margin-right: 6px; vertical-align: middle; border-radius: 3px; }
+
+    .decide { margin-top: 24px; }
+    .decide .field input { width: 100%; }
+    .choices { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 14px; }
+    .choices .btn { flex-direction: column; gap: 2px; padding: 16px 12px; }
+    .choices .btn small { font-weight: 400; font-size: 0.8rem; opacity: .8; }
+    @media (max-width: 720px) { .choices { grid-template-columns: 1fr; } .intro h1 { font-size: 1.8rem; } .thumb { width: 120px; } }
+
+    .toast { margin-top: 10px; font-size: 0.95rem; color: var(--gray-700); min-height: 1.6em; }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <span class="brand">Butter Dots Dot Com</span>
+      <span class="tag">Pecha capture · local spike</span>
+    </div>
+  </header>
+
+  <main>
+    <div class="intro">
+      <h1>Pecha capture</h1>
+      <p class="lede">
+        Photograph a pecha one leaf at a time with your iPhone as the camera, or open a PDF of one. Each leaf
+        is read right away so you can fix it, retake it, or flag it before you turn the page.
+      </p>
+    </div>
+
+    <!-- Setup -->
+    <section class="card" id="setup">
+      <div id="setupConnect">
+        <h2>Connect the camera</h2>
+        <p class="muted" style="margin: 0">
+          Use Safari. Quit Photo Booth and FaceTime first. Put the iPhone in landscape, screen off, resting still.
+          Or open a PDF of a pecha to read its pages instead.
+        </p>
+      </div>
+      <div class="connected" id="setupConnected" hidden>
+        <span class="dot"></span>
+        <strong id="cameraName" style="color: var(--gray-900)"></strong>
+        <span class="muted" id="cameraSize"></span>
+        <button class="link" id="changeCamera">Change camera</button>
+      </div>
+      <div class="setup-grid">
+        <div id="connectControls" class="setup-grid" style="margin: 0">
+          <button class="btn btn-primary" id="connect">Connect camera</button>
+          <label class="field" id="deviceField" hidden>Camera
+            <select id="devices"></select>
+          </label>
+          <button class="btn btn-secondary" id="useDevice" hidden>Use this camera</button>
+          <button class="btn btn-secondary" id="openPdf">Open a PDF</button>
+          <input id="pdfFile" type="file" accept="application/pdf,.pdf" class="offscreen" />
+        </div>
+        <label class="field">Lines on a full leaf
+          <input id="expected" type="number" min="1" max="20" value="6" />
+          <small>Used to catch partial reads</small>
+        </label>
+        <label class="field">Starting leaf or page
+          <input id="startLeaf" type="number" min="1" value="1" />
+          <small>&nbsp;</small>
+        </label>
+      </div>
+      <p class="muted" id="setupError" style="color: var(--red-800); margin: 12px 0 0" hidden></p>
+      <p class="notice" id="dictionaryOff" hidden>
+        The word corpus is off, so only broken syllables are marked, not misspelled words.
+        Run <code>docker compose up -d postgres</code> and restart the server to turn it on.
+      </p>
+    </section>
+
+    <!-- Capture session -->
+    <section id="session" hidden>
+      <div class="alert alert-error" id="cameraAlert" hidden>
+        <h3>The camera stopped sending pictures</h3>
+        <p id="cameraAlertText">Check the iPhone is still, locked, and nearby. It usually comes back on its own.</p>
+      </div>
+
+      <div class="statusbar">
+        <div class="leaf">
+          <h2><span id="unit">Leaf</span> <span id="leafNo">1</span></h2>
+          <span class="attempt" id="attemptText"></span>
+          <button class="link" id="setLeaf">Change leaf number</button>
+        </div>
+        <label class="field model-pick" title="Woodblock suits photos of woodblock prints; Modern suits typeset PDFs">OCR model
+          <select id="model"></select>
+        </label>
+        <div class="tallies">
+          <span class="chip"><b id="nAccepted">0</b> accepted</span>
+          <span class="chip"><b id="nFlagged">0</b> flagged</span>
+          <span class="chip"><b id="nRetakes">0</b> retakes</span>
+          <span class="chip"><b id="nEdited">0</b> fixed</span>
+        </div>
+      </div>
+
+      <div class="stage">
+        <video id="preview" autoplay playsinline muted></video>
+        <img id="still" alt="Captured leaf" hidden />
+        <span class="badge badge-live" id="badgeLive">LIVE</span>
+        <span class="badge badge-still" id="badgeStill" hidden>CAPTURED</span>
+        <button class="thumb" id="thumb" hidden title="Show the captured photo">
+          <img id="thumbImg" alt="" /><span id="thumbLabel">Captured photo</span>
+        </button>
+        <div class="reading" id="reading" hidden><span class="spinner"></span>Reading the leaf…</div>
+      </div>
+
+      <div class="capture-row" id="captureRow">
+        <button class="btn btn-primary btn-large" id="capture">Capture leaf 1</button>
+        <span class="muted" id="captureHint">Lay the leaf flat and square in the frame, then capture.</span>
+      </div>
+      <div class="toast" id="toast"></div>
+
+      <!-- Review: stacked under the photo because a leaf is long and narrow -->
+      <div id="review" hidden>
+        <div class="alert" id="verdict">
+          <h3 id="verdictTitle"></h3>
+          <p id="verdictBody"></p>
+          <p class="facts" id="verdictFacts"></p>
+        </div>
+
+        <div class="transcript-head">
+          <h3>Transcript</h3>
+          <span class="muted">Tap a line to fix it. Remove stray lines such as a ༄ read as words.</span>
+        </div>
+        <div class="reading-text" id="text"></div>
+        <div class="legend">
+          <span><span class="sw" style="background: var(--red-100); box-shadow: inset 0 -2px 0 var(--red-500)"></span>Broken syllable</span>
+          <span><span class="sw" style="background: var(--yellow-100); box-shadow: inset 0 -2px 0 var(--yellow-400)"></span>Not in the word corpus</span>
+        </div>
+
+        <div class="decide">
+          <label class="field">Note (optional)
+            <input id="note" placeholder="e.g. glare on the left, highlighter on line 3, phone moved" />
+          </label>
+          <div class="choices">
+            <button class="btn btn-primary" id="accept">Accept<small>Save with any marks left for later</small></button>
+            <button class="btn btn-secondary" id="retake">Retake now<small>Capture this leaf again as it is now</small></button>
+            <button class="btn btn-secondary" id="reread">Read again<small>With the OCR model chosen above</small></button>
+            <button class="btn btn-flag" id="flag">Flag for proofing<small>Whole page needs a closer look</small></button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const el = (tag, props = {}, ...children) => {
+      const node = Object.assign(document.createElement(tag), props);
+      node.append(...children);
+      return node;
+    };
+    const preview = $("preview");
+    const state = {
+      stream: null, pdf: null, leaf: 1, attempt: 1, pending: null, busy: false, showingStill: false,
+      lines: [],      // [{ ocr, text, errors, removed }] for the leaf under review
+      editing: -1,    // index of the line open in the editor
+      tallies: { accept: 0, flag: 0, retake: 0, edited: 0 },
+    };
+
+    const post = (path, payload) =>
+      fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    const logEvent = (type, extra = {}) => post("/event", { kind: "camera_event", type, client_ms: Date.now(), ...extra });
+    const expectedLines = () => parseInt($("expected").value, 10) || 0;
+
+    // Remember settings between sittings on this browser.
+    try {
+      $("expected").value = localStorage.getItem("pecha.expected") || $("expected").value;
+      $("expected").onchange = () => localStorage.setItem("pecha.expected", $("expected").value);
+    } catch {}
+
+    fetch("/status").then((r) => r.json()).then((s) => {
+      $("dictionaryOff").hidden = s.dictionary;
+      (s.models || [s.model]).forEach((m) => $("model").add(new Option(m, m)));
+      $("model").value = s.model;
+    }).catch(() => {});
+    let modelPicked = false;
+    $("model").onchange = () => { modelPicked = true; };
+
+    function setupError(msg) {
+      $("setupError").textContent = msg;
+      $("setupError").hidden = !msg;
+    }
+
+    // ---------- Camera ----------
+
+    $("connect").onclick = async () => {
+      setupError("");
+      try {
+        const probe = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        probe.getTracks().forEach((t) => t.stop());
+        const videos = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === "videoinput");
+        logEvent("devices_listed", { labels: videos.map((d) => d.label) });
+        const select = $("devices");
+        select.innerHTML = "";
+        videos.forEach((d, i) => select.add(new Option(d.label || `Camera ${i + 1}`, d.deviceId)));
+        // Prefer the iPhone itself over its "Desk View" variant.
+        const iphone = videos.find((d) => /iphone/i.test(d.label) && !/desk view/i.test(d.label));
+        if (iphone) {
+          select.value = iphone.deviceId;
+          await startStream(iphone.deviceId);
+        } else {
+          setupError("No iPhone found. Check Continuity Camera is on, or pick another camera.");
+          $("deviceField").hidden = $("useDevice").hidden = videos.length === 0;
+        }
+      } catch (err) {
+        setupError(`Camera permission failed: ${err.message}`);
+        logEvent("permission_failed", { error: `${err.name} ${err.message}` });
+      }
+    };
+
+    $("useDevice").onclick = () => startStream($("devices").value);
+    $("changeCamera").onclick = () => {
+      $("setupConnected").hidden = true;
+      $("setupConnect").hidden = $("connectControls").hidden = false;
+      $("deviceField").hidden = $("useDevice").hidden = false;
+      $("connect").hidden = true;
+    };
+
+    async function startStream(deviceId) {
+      state.stream?.getTracks().forEach((t) => t.stop());
+      try {
+        state.stream = await navigator.mediaDevices.getUserMedia({
+          audio: false,
+          video: { deviceId: { exact: deviceId }, width: { ideal: 3840 }, height: { ideal: 2160 } },
+        });
+      } catch (err) {
+        setupError(`Could not start the camera: ${err.message}`);
+        logEvent("stream_failed", { error: `${err.name} ${err.message}` });
+        return;
+      }
+      preview.srcObject = state.stream;
+      const track = state.stream.getVideoTracks()[0];
+      const s = track.getSettings();
+      // Drop-outs fill in the plan's failure table without anyone typing.
+      track.onended = () => { showCameraAlert("The stream ended. Click “Change camera” to reconnect."); logEvent("track_ended"); };
+      track.onmute = () => { showCameraAlert(); logEvent("track_muted"); };
+      track.onunmute = () => { $("cameraAlert").hidden = true; logEvent("track_unmuted"); };
+      logEvent("stream_started", { label: track.label, settings: s });
+
+      $("cameraName").textContent = track.label;
+      $("cameraSize").textContent = s.width ? `${s.width} × ${s.height}` : "";
+      $("setupConnect").hidden = $("connectControls").hidden = true;
+      $("setupConnected").hidden = false;
+      setupError("");
+      if ($("session").hidden) {
+        state.leaf = parseInt($("startLeaf").value, 10) || 1;
+        $("session").hidden = false;
+      }
+      render();
+    }
+
+    // ---------- PDF ----------
+
+    $("openPdf").onclick = () => { $("pdfFile").value = ""; $("pdfFile").click(); };
+    $("pdfFile").onchange = async () => {
+      const file = $("pdfFile").files[0];
+      if (!file) return;
+      setupError("");
+      try {
+        const resp = await fetch(`/pdf?${new URLSearchParams({ name: file.name })}`, {
+          method: "POST", headers: { "Content-Type": "application/pdf" }, body: file,
+        });
+        const r = await resp.json();
+        if (!resp.ok) throw new Error(r.error || `server said ${resp.status}`);
+        state.stream?.getTracks().forEach((t) => t.stop());
+        state.stream = null;
+        state.pdf = { name: file.name, pages: r.pages, images: new Map() };
+        // Typeset PDFs read far better with Modern; keep any model already picked.
+        if (!modelPicked && [...$("model").options].some((o) => o.value === "Modern")) $("model").value = "Modern";
+      } catch (err) {
+        setupError(`Could not open the PDF: ${err.message}`);
+        return;
+      }
+      $("cameraName").textContent = file.name;
+      $("cameraSize").textContent = `${state.pdf.pages} page${state.pdf.pages === 1 ? "" : "s"}`;
+      $("setupConnect").hidden = $("connectControls").hidden = $("changeCamera").hidden = true;
+      $("setupConnected").hidden = false;
+      state.leaf = parseInt($("startLeaf").value, 10) || 1;
+      state.attempt = 1;
+      $("session").hidden = false;
+      render();
+    };
+
+    const pdfDone = () => state.pdf && state.leaf > state.pdf.pages;
+
+    // The server images each page as OCR Assist does; cached so showing and reading fetch once.
+    function pageImage(n) {
+      if (!state.pdf.images.has(n)) {
+        state.pdf.images.set(n, fetch(`/pdf/page/${n}`).then(async (resp) => {
+          if (!resp.ok) throw new Error(`page ${n}: server said ${resp.status}`);
+          const blob = await resp.blob();
+          return { blob, url: URL.createObjectURL(blob), source: resp.headers.get("X-Page-Source") || "pdf" };
+        }));
+      }
+      return state.pdf.images.get(n);
+    }
+
+    function showPage(n) {
+      if ($("still").dataset.page === String(n)) return;
+      $("still").dataset.page = n;
+      pageImage(n).then((p) => { if (state.leaf === n) $("still").src = p.url; })
+        .catch((err) => ($("toast").textContent = `Could not show page ${n} (${err.message}).`));
+    }
+
+    function showCameraAlert(text) {
+      $("cameraAlertText").textContent = text || "Check the iPhone is still, locked, and nearby. It usually comes back on its own.";
+      $("cameraAlert").hidden = false;
+    }
+
+    // ---------- Capture ----------
+
+    function grabPng() {
+      const canvas = document.createElement("canvas");
+      canvas.width = preview.videoWidth;
+      canvas.height = preview.videoHeight;
+      canvas.getContext("2d").drawImage(preview, 0, 0);
+      return new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+    }
+
+    async function capture({ keepToast = false } = {}) {
+      if (state.busy || state.pending || !(state.stream || state.pdf) || pdfDone()) return;
+      state.busy = true;
+      state.showingStill = false;
+      if (!keepToast) $("toast").textContent = "";
+      const clientCapture = Date.now();
+      render();
+      try {
+        let blob, source;
+        if (state.pdf) {
+          ({ blob, source } = await pageImage(state.leaf));
+          source = { method: source };
+        } else {
+          blob = await grabPng();
+          $("still").src = $("thumbImg").src = URL.createObjectURL(blob);
+          delete $("still").dataset.page;
+          source = { method: "canvas.png", video_w: preview.videoWidth, video_h: preview.videoHeight };
+        }
+        const query = new URLSearchParams({
+          page: state.leaf, attempt: state.attempt, expected_lines: expectedLines(),
+          client_capture_ms: clientCapture, model: $("model").value, ...source,
+        });
+        const resp = await fetch(`/capture?${query}`, { method: "POST", headers: { "Content-Type": "image/png" }, body: blob });
+        const r = await resp.json();
+        if (!resp.ok || r.event !== "capture") throw new Error(r.error || r.reason || `server said ${resp.status}`);
+        state.pending = { result: r, page: state.leaf, attempt: state.attempt, client_capture_ms: clientCapture, client_result_ms: Date.now() };
+        // Fragments (specks, vowel tails) arrive pre-marked removed; Restore brings one back.
+        const fragments = new Set(r.fragments || []);
+        state.lines = splitErrors(r.lines, r.errors).map(({ text, errors }, i) => ({
+          ocr: text, text, errors, removed: fragments.has(i), auto: fragments.has(i),
+        }));
+        state.editing = -1;
+        showVerdict();
+      } catch (err) {
+        $("toast").textContent = `Could not read that capture (${err.message}). Try again.`;
+        logEvent("capture_error", { error: err.message, page: state.leaf, attempt: state.attempt });
+      } finally {
+        state.busy = false;
+        render();
+        if (state.pending) $("review").scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }
+    $("capture").onclick = () => capture();
+
+    // Server error positions are code-point offsets into the lines joined with "\n".
+    function splitErrors(lines, errors) {
+      let offset = 0;
+      return lines.map((text) => {
+        const len = Array.from(text).length;
+        const mine = errors
+          .filter((e) => e.position >= offset && e.position < offset + len)
+          .map((e) => ({ ...e, position: e.position - offset }));
+        offset += len + 1;
+        return { text, errors: mine };
+      });
+    }
+
+    // ---------- Verdict ----------
+
+    const liveLines = () => state.lines.filter((l) => !l.removed);
+    const flagCount = () => liveLines().reduce((n, l) => n + l.errors.length, 0);
+
+    function showVerdict() {
+      const r = state.pending.result;
+      const n = r.line_count, expected = r.expected_lines;
+      let tone, title, body;
+      if (n === 0) {
+        tone = "error"; title = "No text was read";
+        body = "The leaf may be out of frame, blurred, or too small. Retake it.";
+      } else if (r.lines_short) {
+        tone = "warn"; title = `Only ${n} of ${expected} lines read`;
+        body = "Part of the leaf may be cut off, blurred, or covered by highlighter. Retake it, or accept if this leaf really has fewer lines.";
+      } else if (r.gate === "reject") {
+        tone = "error"; title = "This reading looks wrong";
+        body = "Many syllables don’t parse. Check the photo is sharp and evenly lit, then retake.";
+      } else if (r.gate === "escalate") {
+        tone = "warn"; title = "Parts of this reading look doubtful";
+        body = "If most lines are red, retake. If a few syllables are off, fix them below or leave them marked.";
+      } else {
+        tone = "success"; title = expected ? `All ${n} lines read` : `${n} line${n === 1 ? "" : "s"} read`;
+        body = "Fix anything marked below, or accept and leave the marks for later.";
+      }
+      $("verdict").className = `alert alert-${tone}`;
+      $("verdictTitle").textContent = title;
+      $("verdictBody").textContent = body;
+      updateFacts();
+    }
+
+    function updateFacts() {
+      const r = state.pending.result;
+      const flags = flagCount();
+      const roundTrip = ((state.pending.client_result_ms - state.pending.client_capture_ms) / 1000).toFixed(1);
+      $("verdictFacts").textContent =
+        `${flags} marked syllable${flags === 1 ? "" : "s"} · ${r.syllables} syllables · ${r.model} · read in ${roundTrip} s`;
+    }
+
+    // ---------- Transcript ----------
+
+    function markedText(text, errors) {
+      const at = new Map();
+      for (const e of errors) {
+        for (let i = 0; i < Array.from(e.word).length; i++) at.set(e.position + i, e);
+      }
+      const chars = Array.from(text);
+      const out = [];
+      let i = 0;
+      while (i < chars.length) {
+        const e = at.get(i);
+        let j = i + 1;
+        while (j < chars.length && at.get(j) === e) j++;
+        const piece = chars.slice(i, j).join("");
+        out.push(e
+          ? el("span", { className: e.severity === "warning" ? "warn" : "err", textContent: piece, title: e.message || e.error_type.replace(/_/g, " ") })
+          : piece);
+        i = j;
+      }
+      return out;
+    }
+
+    function renderText() {
+      const box = $("text");
+      box.replaceChildren();
+      if (!state.lines.length) {
+        box.append(el("div", { className: "empty", textContent: "Nothing read on this leaf." }));
+        return;
+      }
+      state.lines.forEach((line, i) => {
+        const edited = line.text !== line.ocr;
+        const row = el("div", { className: "line" });
+        row.classList.toggle("removed", line.removed);
+        row.classList.toggle("edited", edited);
+        // A line that is mostly marks reads as garbage at a glance.
+        const syllables = line.text.split(/[་།]+/).filter(Boolean).length || 1;
+        row.classList.toggle("bad", !line.removed && line.errors.length / syllables >= 0.3);
+
+        const no = el("span", { className: "lineno", textContent: edited ? `${i + 1}•` : i + 1, title: edited ? "Fixed by you" : "" });
+        if (line.removed && line.auto) row.title = "Removed for you: read from a speck or stray marks. Restore it if it is real text.";
+
+        if (state.editing === i) {
+          const area = el("textarea", { value: line.text, rows: 2, spellcheck: false });
+          const save = el("button", { className: "btn btn-primary btn-small", textContent: "Save line" });
+          const cancel = el("button", { className: "btn btn-secondary btn-small", textContent: "Cancel" });
+          const reset = el("button", { className: "link", textContent: "Back to the OCR reading" });
+          save.onclick = () => saveLine(i, area.value);
+          cancel.onclick = () => { state.editing = -1; renderText(); };
+          reset.onclick = () => { area.value = line.ocr; area.focus(); };
+          area.onkeydown = (e) => {
+            if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); saveLine(i, area.value); }
+            if (e.key === "Escape") { state.editing = -1; renderText(); }
+          };
+          const editor = el("div", { className: "editor" }, area, el("div", { className: "row" }, save, cancel, edited ? reset : ""));
+          editor.style.gridColumn = "2 / 4";
+          row.append(no, editor);
+          box.append(row);
+          setTimeout(() => area.focus(), 0);
+          return;
+        }
+
+        const tib = el("span", { className: "tib" }, ...markedText(line.text, line.removed ? [] : line.errors));
+        if (!line.removed) tib.onclick = () => { state.editing = i; renderText(); };
+
+        const count = line.errors.length;
+        const tools = el("span", { className: "tools" });
+        if (!line.removed) {
+          tools.append(el("span", { className: `count ${count ? "has" : "none"}`, textContent: count || "✓", title: `${count} marked` }));
+          const fix = el("button", { className: "btn btn-secondary btn-small", textContent: "Fix" });
+          fix.onclick = () => { state.editing = i; renderText(); };
+          tools.append(fix);
+        }
+        const toggle = el("button", { className: "btn btn-secondary btn-small", textContent: line.removed ? "Restore" : "Remove", title: line.removed ? "" : "Drop a stray line, e.g. a ༄ read as words" });
+        toggle.onclick = () => { line.removed = !line.removed; state.editing = -1; renderText(); updateFacts(); };
+        tools.append(toggle);
+
+        row.append(no, tib, tools);
+        box.append(row);
+      });
+    }
+
+    async function saveLine(i, value) {
+      const line = state.lines[i];
+      const text = value.replace(/\s*\n\s*/g, " ").trim();
+      state.editing = -1;
+      if (text !== line.text) {
+        line.text = text;
+        try {
+          const r = await (await post("/spellcheck", { text })).json();
+          line.errors = r.errors || [];
+        } catch {
+          line.errors = [];
+        }
+      }
+      renderText();
+      updateFacts();
+    }
+
+    // ---------- Decisions ----------
+
+    async function decide(decision) {
+      const p = state.pending;
+      if (!p) return;
+      ["accept", "retake", "reread", "flag"].forEach((id) => ($(id).disabled = true));
+      const again = decision === "retake" || decision === "reread";
+      const edits = state.lines
+        .map((l, i) => ({ line: i + 1, before: l.ocr, after: l.text }))
+        .filter((e) => e.before !== e.after);
+      const removed = state.lines.map((l, i) => (l.removed ? i + 1 : 0)).filter(Boolean);
+      const premarked = state.lines.map((l, i) => (l.auto ? i + 1 : 0)).filter(Boolean);
+      // Pre-marks you left alone are not your fixes.
+      const changed = edits.length > 0 || removed.join() !== premarked.join();
+      await post("/decision", {
+        page: p.page, attempt: p.attempt, gate: p.result.gate, lines_short: p.result.lines_short,
+        client_capture_ms: p.client_capture_ms, client_result_ms: p.client_result_ms,
+        client_decision_ms: Date.now(), decision, note: $("note").value || undefined,
+        // The OCR reading stays in the capture record; these are your changes on top.
+        ...(changed && !again ? { final_lines: liveLines().map((l) => l.text), edits, removed } : {}),
+        marks_left: again ? undefined : flagCount(),
+        // Whether the pre-marks hold up: which were pre-marked, and which you restored or added.
+        premarked: again ? undefined : premarked,
+        restored: again ? undefined : premarked.filter((n) => !removed.includes(n)),
+        removed_by_you: again ? undefined : removed.filter((n) => !premarked.includes(n)),
+      });
+      if (decision !== "reread") state.tallies[decision] += 1;
+      if (changed && !again) state.tallies.edited += 1;
+      state.pending = null;
+      state.lines = [];
+      state.editing = -1;
+      $("note").value = "";
+      if (again) {
+        state.attempt += 1;
+      } else if (state.pdf) {
+        const done = decision === "accept" ? "saved" : "flagged for proofing";
+        state.leaf += 1;
+        state.attempt = 1;
+        $("toast").textContent = pdfDone()
+          ? `Page ${state.leaf - 1} ${done}. That was the last page; Ctrl-C the server to end the sitting.`
+          : `Page ${state.leaf - 1} ${done}.`;
+        window.scrollTo({ top: $("session").offsetTop - 8, behavior: "smooth" });
+        render();
+        // No page to turn, so read the next one straight away.
+        if (!pdfDone()) await capture({ keepToast: true });
+        return;
+      } else {
+        const done = decision === "accept" ? "saved" : "flagged for proofing";
+        $("toast").textContent = `Leaf ${state.leaf} ${done}. Turn to leaf ${state.leaf + 1}.`;
+        state.leaf += 1;
+        state.attempt = 1;
+        window.scrollTo({ top: $("session").offsetTop - 8, behavior: "smooth" });
+      }
+      render();
+    }
+
+    $("accept").onclick = () => decide("accept");
+    $("flag").onclick = () => decide("flag");
+    // One click: log the retake and capture the leaf as it is in the live preview now.
+    $("retake").onclick = async () => { await decide("retake"); await capture(); };
+    // Not a retake: the image is the same, only the model changes. Kept out of the retake rate.
+    $("reread").onclick = async () => { await decide("reread"); await capture(); };
+
+    $("thumb").onclick = () => { state.showingStill = !state.showingStill; render(); };
+
+    $("setLeaf").onclick = () => {
+      const v = parseInt(prompt(state.pdf ? "Which page of the PDF?" : "Which leaf is in front of the camera?", state.leaf), 10);
+      if (v > 0 && (!state.pdf || v <= state.pdf.pages)) { state.leaf = v; state.attempt = 1; render(); }
+    };
+
+    // ---------- Render ----------
+
+    function render() {
+      const reviewing = !!state.pending;
+      // Frozen while reading; live again during review so a retake can be framed.
+      const pdf = !!state.pdf;
+      const unit = pdf ? "page" : "leaf";
+      const showStill = pdf || state.busy || (reviewing && state.showingStill);
+      if (pdf && !pdfDone()) showPage(state.leaf);
+      $("unit").textContent = pdf ? "Page" : "Leaf";
+      $("leafNo").textContent = pdf ? `${Math.min(state.leaf, state.pdf.pages)} of ${state.pdf.pages}` : state.leaf;
+      $("attemptText").textContent = state.attempt > 1 ? `attempt ${state.attempt}` : "";
+      $("nAccepted").textContent = state.tallies.accept;
+      $("nFlagged").textContent = state.tallies.flag;
+      $("nRetakes").textContent = state.tallies.retake;
+      $("nEdited").textContent = state.tallies.edited;
+
+      preview.hidden = showStill;
+      $("still").hidden = !showStill;
+      $("badgeLive").hidden = showStill;
+      $("badgeStill").hidden = !showStill;
+      $("badgeStill").textContent = pdf ? "PDF" : "CAPTURED";
+      $("reading").hidden = !state.busy;
+      $("reading").lastChild.textContent = `Reading the ${unit}…`;
+      $("thumb").hidden = !reviewing || pdf;
+      $("thumbLabel").textContent = state.showingStill ? "Back to live" : "Captured photo";
+      $("thumbImg").hidden = state.showingStill;
+
+      $("captureRow").hidden = reviewing;
+      $("capture").disabled = state.busy || !(state.stream || pdf) || pdfDone();
+      $("capture").textContent = pdf
+        ? (pdfDone() ? "All pages read" : `Read page ${state.leaf}`)
+        : state.attempt > 1 ? `Capture leaf ${state.leaf} again` : `Capture leaf ${state.leaf}`;
+      $("captureHint").textContent = pdf
+        ? "After you accept or flag a page, the next one is read straight away."
+        : "Lay the leaf flat and square in the frame, then capture.";
+      // A PDF page has nothing to retake; it can only be read again with another model.
+      $("retake").hidden = pdf;
+      $("reread").hidden = !pdf;
+      $("setLeaf").hidden = reviewing || state.busy;
+
+      $("review").hidden = !reviewing;
+      ["accept", "retake", "reread", "flag"].forEach((id) => ($(id).disabled = !reviewing));
+      $("model").disabled = state.busy;
+      if (reviewing) renderText();
+    }
+  </script>
+</body>
+</html>
