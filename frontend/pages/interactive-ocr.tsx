@@ -63,9 +63,9 @@ const InteractiveOcrPage: NextPage = () => {
         <PageTitle>Interactive OCR</PageTitle>
         <p className="text-xl text-gray-600 font-light leading-relaxed">
           Convert a scanned Tibetan PDF into an editable Word document — one
-          page at a time. Clean pages advance automatically; difficult pages
-          get a focused review loop instead of a global tweak that breaks the
-          rest of the document.
+          page at a time, with the page image beside its text. A difficult
+          page gets its own fix instead of a global tweak that breaks the rest
+          of the document.
         </p>
       </div>
 
@@ -98,8 +98,8 @@ const InteractiveOcrPage: NextPage = () => {
                 >
                   BDRC Tibetan OCR
                 </a>{' '}
-                with a quality score
-                grounded in the same structural rules and word corpus as our{' '}
+                once, and its text is checked against the same structural
+                rules and word corpus as our{' '}
                 <Link
                   href="/spellcheck"
                   className="text-gray-900 underline underline-offset-2 hover:text-gray-600"
@@ -114,9 +114,9 @@ const InteractiveOcrPage: NextPage = () => {
                 2.
               </span>
               <span>
-                Pages that look clean are accepted. Pages that don&apos;t stay
-                open for retry: an AI diagnostician suggests page-local setting
-                changes — never job-wide overrides.
+                You see the page image beside its text, with questionable
+                syllables marked. Pages that read almost nothing, repeat
+                themselves, or come out short are flagged for a closer look.
               </span>
             </li>
             <li className="flex gap-3">
@@ -124,9 +124,9 @@ const InteractiveOcrPage: NextPage = () => {
                 3.
               </span>
               <span>
-                When that isn&apos;t enough, an optional AI vision compare
-                (Claude / Gemini) can propose an alternate reading — always as
-                an explicit, per-page action, never a bulk auto-run.
+                Accept the page, correct the text, or read it again with a
+                different OCR model or rotation. Each change applies to that
+                page only.
               </span>
             </li>
             <li className="flex gap-3">
@@ -152,10 +152,19 @@ const InteractiveOcrPage: NextPage = () => {
               Upload PDF
             </Link>{' '}
             spellcheck path: extract text, flag structural and corpus issues,
-            download an annotated PDF and editable DOCX. The interactive
-            page-by-page assist loop, which leverages an AI diagnostician along
-            with optional AI vision compare leveraging Claude and Gemini, is
-            still in Beta testing.
+            download an annotated PDF and editable DOCX. The page-by-page
+            review described above is in private testing and not yet available
+            on this site.
+          </p>
+        </section>
+
+        <section>
+          <SectionHeading className="mt-0">Physical pecha</SectionHeading>
+          <p className="text-lg text-gray-700 leading-relaxed">
+            We are also testing capture straight from a physical pecha: a
+            camera photographs each leaf, the text comes back in a couple of
+            seconds, and a leaf that reads short can be retaken on the spot.
+            Each photographed leaf goes through the same review.
           </p>
         </section>
 

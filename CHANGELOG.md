@@ -8,6 +8,25 @@ and this project uses
 
 ---
 
+## [0.9.0] - 2026-11-18
+
+### Fixed
+
+- Scanned PDFs stored as black-and-white image masks no longer come back as
+  inverted (white-on-black) pages and read correctly.
+- Pairs of text lines that line detection had merged are now split, so fewer
+  lines are lost or garbled when a scanned PDF is read.
+- Hanging vowels and subjoined letters are no longer cut off the bottom of a
+  line by a nearby speck or vowel fragment.
+
+### Changed
+
+- The `/interactive-ocr` page describes the current page-by-page review (one
+  OCR read per page, checked by a person) and no longer mentions AI retry or
+  AI vision compare.
+
+---
+
 ## [0.8.0] - 2026-10-30
 
 ### Fixed
